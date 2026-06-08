@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Wiki</title>
+    <script src="/static/vendor/lucide.min.js"></script>
+    <script src="/static/theme.js?v=20260516-theme-sync"></script>
+    <style>
+        :root {
+            --bg: #08090c;
+            --panel: #111216;
+            --panel-2: #15171d;
+            --line: #25262b;
+            --text: #e8e8ea;
+            --muted: #8f9aab;
+            --faint: #657286;
+            --accent: #58b794;
+            --accent-2: #77dec0;
+            --danger: #ef7777;
+            --warning: #f3bf5f;
+            color-scheme: dark;
+        }
+        html:not(.theme-dark), html:not(.studio-theme-dark) {
+            --bg: #f9fafb;
+            --panel: #ffffff;
+            --panel-2: #f3f6fa;
+            --line: #e5e7eb;
+            --text: #111827;
+            --muted: #64748b;
+            --faint: #94a3b8;
+            --accent: #2f9e7f;
+            --accent-2: #2563eb;
+            color-scheme: light;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            width: 100%;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        button, textarea, input, select { font: inherit; }
+        button { cursor: pointer; }
+        .wiki-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            background: var(--bg);
+        }
+        .wiki-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 18px 28px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(17, 18, 22, 0.92);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        html:not(.theme-dark) .wiki-header { background: rgba(255,255,255,.92); }
+        .title-wrap { min-width: 0; }
+        .eyebrow {
+            color: var(--accent-2);
+            font-size: 12px;
+            font-weight: 850;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        h1 {
+            margin: 6px 0 0;
+            font-size: 28px;
+            line-height: 1.15;
+            letter-spacing: 0;
+        }
+        .sub {
+            margin-top: 8px;
+            color: var(--muted);
+            line-height: 1.55;
+            max-width: 780px;
+            font-size: 14px;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .top-workspace-actions {
+            width: min(460px, 42vw);
+            align-items: stretch;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .top-meta-card {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel-2);
+            padding: 8px 10px;
+            min-width: 0;
+        }
+        .top-meta-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            min-width: 0;
+        }
+        .top-meta-title {
+            font-size: 12px;
+            font-weight: 900;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .top-meta-label {
+            flex: 0 0 auto;
+            color: var(--accent-2);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .04em;
+        }
+        .top-meta-path {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 10.5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .top-control-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 8px;
+        }
+        .top-control-row select,
+        .top-control-row .btn {
+            min-height: 34px;
+            font-size: 12px;
+        }
+        .top-control-row .btn {
+            padding: 0 10px;
+        }
+        .btn {
+            min-height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            background: var(--panel-2);
+            font-weight: 780;
+        }
+        .btn.primary {
+            border-color: rgba(88, 183, 148, .7);
+            background: rgba(88, 183, 148, .92);
+            color: #fff;
+        }
+        .btn:disabled { opacity: .48; cursor: not-allowed; }
+        .btn i { width: 17px; height: 17px; }
+        .local-wiki-onboarding {
+            margin: 18px 18px 0;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: minmax(0, 760px);
+            justify-content: center;
+            gap: 14px;
+        }
+        .local-wiki-onboarding.has-active {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .local-workspace {
+            margin: 0;
+            padding: 0;
+            display: none;
+            gap: 0;
+            min-height: calc(100vh - 114px);
+            border-radius: 0;
+            border-left: 0;
+            border-right: 0;
+            border-bottom: 0;
+        }
+        .local-workspace.active { display: grid; }
+        .workspace-head {
+            display: none;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+        }
+        .workspace-title {
+            font-size: 14px;
+            font-weight: 900;
+        }
+        .workspace-path {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .workspace-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .local-tabs {
+            display: none;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .local-tab {
+            height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 0 13px;
+            color: var(--muted);
+            background: var(--panel-2);
+            font-weight: 830;
+        }
+        .local-tab.active {
+            color: #fff;
+            border-color: rgba(88, 183, 148, .72);
+            background: rgba(88, 183, 148, .78);
+        }
+        .structure-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px;
+        }
+        .structure-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: var(--panel-2);
+        }
+        .structure-card strong { display: block; margin-bottom: 6px; }
+        .input-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+        }
+        .dropzone {
+            border: 1px dashed rgba(119, 222, 192, .55);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            color: var(--muted);
+            background: rgba(88, 183, 148, .08);
+        }
+        .dropzone.dragging {
+            border-color: var(--accent-2);
+            color: var(--text);
+            background: rgba(88, 183, 148, .16);
+        }
+        .hidden { display: none !important; }
+        .inbox-feed {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            opacity: .7;
+            margin: 4px 0 10px;
+        }
+        .coming-soon {
+            margin-top: 18px;
+            padding: 16px;
+            border: 1px dashed rgba(120, 120, 120, .4);
+            border-radius: 12px;
+            display: grid;
+            gap: 8px;
+        }
+        .coming-soon-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .coming-soon-actions {
+            display: flex;
+            gap: 10px;
+            margin: 4px 0;
+        }
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: var(--panel);
+            min-width: 0;
+            overflow: hidden;
+        }
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 880;
+        }
+        .panel-title i { width: 18px; height: 18px; color: var(--accent-2); }
+        .panel-body { padding: 16px; }
+        .tabs {
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            background: transparent;
+            padding: 0 12px;
+            font-weight: 820;
+        }
+        .tab.active {
+            color: #fff;
+            border-color: rgba(88, 183, 148, .7);
+            background: rgba(88, 183, 148, .84);
+        }
+        .stack { display: flex; flex-direction: column; gap: 12px; }
+        .setup-card {
+            border: 1px solid rgba(88, 183, 148, .36);
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(88, 183, 148, .12), rgba(17, 18, 22, .22));
+            padding: 14px;
+        }
+        html:not(.theme-dark) .setup-card { background: rgba(88, 183, 148, .08); }
+        .setup-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 880;
+        }
+        .setup-title i { width: 18px; height: 18px; color: var(--accent-2); }
+        .setup-copy {
+            margin-top: 8px;
+            color: var(--muted);
+            line-height: 1.55;
+            font-size: 13px;
+        }
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 780;
+        }
+        .switch-row input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+        }
+        .result-box {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel-2);
+            color: var(--muted);
+            padding: 11px;
+            font-size: 12px;
+            line-height: 1.6;
+            word-break: break-all;
+            display: none;
+        }
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 820;
+        }
+        input, textarea, select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            outline: 0;
+            background: var(--panel-2);
+            color: var(--text);
+            padding: 11px 12px;
+        }
+        textarea { min-height: 150px; resize: vertical; line-height: 1.55; }
+        .search-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .metric {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel-2);
+            padding: 12px;
+        }
+        .metric-k {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 820;
+        }
+        .metric-v {
+            margin-top: 6px;
+            font-size: 22px;
+            font-weight: 900;
+        }
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: calc(100vh - 260px);
+            overflow: auto;
+            padding-right: 2px;
+        }
+        .item {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel-2);
+            color: var(--text);
+            text-align: left;
+            padding: 12px;
+        }
+        .item.active {
+            border-color: rgba(88, 183, 148, .78);
+            box-shadow: inset 0 0 0 1px rgba(88, 183, 148, .25);
+        }
+        .item-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 850;
+        }
+        .item-title i { width: 16px; height: 16px; color: var(--accent-2); }
+        .item-meta {
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .detail {
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+            min-height: calc(100vh - 116px);
+        }
+        .detail-body {
+            padding: 18px;
+            overflow: auto;
+        }
+        .markdown {
+            white-space: pre-wrap;
+            line-height: 1.72;
+            color: var(--text);
+            font-size: 14px;
+        }
+        .empty {
+            border: 1px dashed var(--line);
+            border-radius: 12px;
+            padding: 22px;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.6;
+        }
+        .graph {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+        .graph-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: var(--panel-2);
+        }
+        .vault-layout {
+            min-height: 0;
+            height: calc(100vh - 126px);
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 430px;
+        }
+        .vault-sidebar {
+            min-width: 0;
+            border-right: 1px solid var(--line);
+            background: #202020;
+            color: #c4c4c4;
+            display: none;
+            flex-direction: column;
+        }
+        html:not(.theme-dark) .vault-sidebar {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .vault-toolbar {
+            height: 42px;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+        }
+        html:not(.theme-dark) .vault-toolbar { border-bottom-color: var(--line); }
+        .vault-icon-btn {
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            background: transparent;
+        }
+        .vault-icon-btn:hover {
+            color: var(--text);
+            background: rgba(255,255,255,.08);
+        }
+        .vault-icon-btn i { width: 18px; height: 18px; }
+        .vault-tree {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 12px 0 24px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+        .vault-node {
+            min-height: 36px;
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr);
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px 3px calc(10px + var(--depth, 0) * 16px);
+            border: 0;
+            color: inherit;
+            background: transparent;
+            text-align: left;
+            width: 100%;
+            font-size: inherit;
+            font-weight: 620;
+        }
+        .vault-node:hover,
+        .vault-node.active {
+            background: rgba(255,255,255,.08);
+            color: var(--text);
+        }
+        html:not(.theme-dark) .vault-node:hover,
+        html:not(.theme-dark) .vault-node.active {
+            background: rgba(15,23,42,.06);
+        }
+        .vault-node .chevron,
+        .vault-node .file-dot {
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b8b8b;
+        }
+        .vault-node .chevron i,
+        .vault-node .file-dot i {
+            width: 18px;
+            height: 18px;
+        }
+        .vault-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vault-main {
+            min-width: 0;
+            min-height: 0;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+            background: var(--bg);
+        }
+        .vault-doc-head {
+            min-height: 54px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 18px;
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+        }
+        .vault-doc-title {
+            min-width: 0;
+            font-size: 17px;
+            font-weight: 850;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vault-doc-path {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vault-doc-body {
+            min-height: 0;
+            overflow: auto;
+            padding: 24px 30px 60px;
+        }
+        .vault-markdown {
+            max-width: 1040px;
+            white-space: pre-wrap;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.8;
+        }
+        .vault-empty {
+            max-width: 520px;
+            margin: 8vh auto 0;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.65;
+        }
+        .vault-empty i {
+            width: 40px;
+            height: 40px;
+            color: var(--faint);
+        }
+        .vault-inbox-view {
+            max-width: 920px;
+            display: grid;
+            gap: 14px;
+        }
+        .action-panel {
+            min-width: 0;
+            min-height: 0;
+            border-left: 1px solid var(--line);
+            background: var(--panel);
+            display: grid;
+            grid-template-rows: minmax(0, 1fr);
+        }
+        .action-panel-head {
+            min-height: 54px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--line);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .action-panel-title {
+            font-size: 15px;
+            font-weight: 900;
+        }
+        .action-panel-sub {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .action-panel-body {
+            min-height: 0;
+            overflow: hidden;
+            padding: 0;
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+        }
+        .action-card {
+            min-height: 0;
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+        }
+        .action-card.compact { gap: 8px; }
+        .action-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 900;
+            font-size: 13px;
+        }
+        .action-title i { width: 17px; height: 17px; color: var(--accent-2); }
+        .action-copy {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+        .qa-thread {
+            min-height: 0;
+            overflow: auto;
+            padding: 18px 18px 22px;
+        }
+        .qa-thread-empty {
+            min-height: 100%;
+            display: grid;
+            place-content: center;
+            gap: 10px;
+            text-align: center;
+            color: var(--muted);
+            line-height: 1.6;
+            padding: 28px;
+        }
+        .qa-thread-empty i {
+            width: 36px;
+            height: 36px;
+            margin: 0 auto;
+            color: var(--accent-2);
+        }
+        .qa-message {
+            display: grid;
+            gap: 16px;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.78;
+        }
+        .qa-message-title {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 850;
+        }
+        .qa-question-card {
+            border-left: 3px solid var(--accent-2);
+            padding: 8px 0 8px 13px;
+            color: var(--muted);
+            white-space: pre-wrap;
+        }
+        .qa-answer-body {
+            white-space: pre-wrap;
+            font-size: 16px;
+            line-height: 1.85;
+        }
+        .qa-answer-body strong {
+            color: var(--text);
+            font-weight: 920;
+        }
+        .qa-citations {
+            border-top: 1px solid var(--line);
+            padding-top: 12px;
+            color: var(--muted);
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .qa-composer {
+            border-top: 1px solid var(--line);
+            background: var(--panel);
+            padding: 12px;
+        }
+        .qa-composer-inner {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel-2);
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+        }
+        .qa-composer textarea {
+            min-height: 118px;
+            max-height: 220px;
+            resize: vertical;
+            border: 0;
+            background: transparent;
+            padding: 4px;
+            font-size: 15px;
+        }
+        .qa-composer-tools {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 8px;
+        }
+        .action-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .home-stack {
+            max-width: 1120px;
+            display: grid;
+            gap: 18px;
+        }
+        .home-hero {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            padding: 20px;
+        }
+        .home-title {
+            font-size: 24px;
+            line-height: 1.2;
+            font-weight: 950;
+        }
+        .home-copy {
+            margin-top: 8px;
+            max-width: 720px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.65;
+        }
+        .quick-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .overview-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--panel);
+            padding: 14px;
+        }
+        .overview-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .overview-value {
+            margin-top: 8px;
+            font-size: 26px;
+            line-height: 1;
+            font-weight: 950;
+        }
+        .home-section {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--panel);
+            padding: 16px;
+        }
+        .home-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .home-section-title {
+            font-size: 14px;
+            font-weight: 920;
+        }
+        .home-list {
+            display: grid;
+            gap: 8px;
+        }
+        .home-item,
+        .result-item {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel-2);
+            color: var(--text);
+            padding: 10px 11px;
+            text-align: left;
+        }
+        .home-item.clickable,
+        .result-item.clickable { cursor: pointer; }
+        .home-item.clickable:hover,
+        .result-item.clickable:hover { border-color: rgba(88, 183, 148, .7); }
+        .home-item-title,
+        .result-item-title {
+            font-size: 13px;
+            font-weight: 860;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .home-item-meta,
+        .result-item-meta {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .result-list {
+            display: grid;
+            gap: 8px;
+        }
+        .qa-result {
+            display: block;
+            white-space: pre-wrap;
+            max-height: none;
+            overflow: auto;
+        }
+        .qa-model-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 8px;
+        }
+        .qa-model-select {
+            width: 100%;
+            min-width: 0;
+            height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel);
+            color: var(--text);
+            padding: 0 10px;
+            outline: none;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 760;
+        }
+        .qa-model-select:focus { border-color: rgba(88, 183, 148, .75); }
+        .ingest-panel {
+            max-width: 1120px;
+            margin-bottom: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+        }
+        .ingest-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .ingest-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 920;
+        }
+        .ingest-title i { width: 18px; height: 18px; color: var(--accent-2); }
+        .ingest-copy {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+        .ingest-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 12px;
+        }
+        .ingest-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel-2);
+            padding: 13px;
+            display: grid;
+            gap: 10px;
+        }
+        .source-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 18px;
+        }
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            max-width: 360px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--panel);
+            color: var(--text);
+            padding: 12px 14px;
+            box-shadow: 0 18px 44px rgba(0,0,0,.28);
+            display: none;
+            z-index: 20;
+        }
+        @media (max-width: 980px) {
+            .wiki-header { align-items: flex-start; flex-direction: column; }
+            .top-workspace-actions { width: 100%; }
+            .top-control-row { grid-template-columns: 1fr; }
+            .local-wiki-onboarding { grid-template-columns: 1fr; }
+            .vault-layout { grid-template-columns: 1fr; height: auto; }
+            .vault-sidebar { min-height: 42vh; border-right: 0; border-bottom: 1px solid var(--line); }
+            .action-panel { border-left: 0; border-top: 1px solid var(--line); min-height: 72vh; }
+            .overview-grid { grid-template-columns: 1fr; }
+            .ingest-grid,
+            .source-layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wiki-shell">
+        <header class="wiki-header">
+            <div class="title-wrap">
+                <div class="eyebrow">本地知识库 · Local Vault</div>
+                <h1>知识库</h1>
+                <div class="sub">在你选择的本地文件夹里建立一个 AI 可读的知识库。所有来源、摘要、索引和产物都保存在本地，Agent 从这里读取长期上下文。</div>
+            </div>
+            <div class="header-actions top-workspace-actions hidden" id="topWorkspaceActions">
+                <div class="top-meta-card">
+                    <div class="top-meta-row">
+                        <span class="top-meta-label">知识库</span>
+                        <span class="top-meta-title" id="topWorkspaceTitle">本地知识库</span>
+                    </div>
+                    <div class="top-meta-path" id="topWorkspacePath"></div>
+                </div>
+                <div class="top-control-row">
+                    <select id="localWikiSwitcher"></select>
+                    <button class="btn" type="button" id="newLocalWikiBtn"><i data-lucide="plus"></i><span>新建知识库</span></button>
+                    <button class="btn" type="button" id="refreshLocalWikiBtn"><i data-lucide="refresh-cw"></i><span>刷新结构</span></button>
+                </div>
+            </div>
+        </header>
+        <section class="panel local-wiki-onboarding" id="localOnboarding">
+            <div class="setup-card stack" id="localCreateCard">
+                <div>
+                    <div class="setup-title"><i data-lucide="folder-plus"></i><span>创建本地知识库</span></div>
+                    <div class="setup-copy">第一次使用知识库时，先选择一个本地文件夹作为保存位置。系统会在里面新建独立知识库结构，后续所有来源、摘要、索引和报告都保存在本地。</div>
+                </div>
+                <label class="field">
+                    <span>保存位置</span>
+                    <div class="input-row">
+                        <input id="localWikiBaseDir" placeholder="/Users/你的名字/Documents">
+                        <button class="btn" type="button" id="chooseLocalWikiBaseBtn"><i data-lucide="folder-open"></i><span>选择</span></button>
+                    </div>
+                </label>
+                <label class="field">
+                    <span>知识库名称</span>
+                    <input id="localWikiName" placeholder="AgentWiki">
+                </label>
+                <button class="btn primary" type="button" id="initLocalWikiBtn"><i data-lucide="sparkles"></i><span>生成结构</span></button>
+                <div class="result-box" id="localWikiResult"></div>
+            </div>
+        </section>
+        <section class="panel local-workspace" id="localWorkspace">
+            <div class="vault-layout">
+                <aside class="vault-sidebar">
+                    <div class="vault-toolbar">
+                        <button class="vault-icon-btn" type="button" id="vaultRefreshBtn" title="刷新"><i data-lucide="refresh-cw"></i></button>
+                        <button class="vault-icon-btn" type="button" id="vaultInboxBtn" title="收件箱"><i data-lucide="inbox"></i></button>
+                        <button class="vault-icon-btn" type="button" id="vaultCompileBtn" title="编译"><i data-lucide="sparkles"></i></button>
+                    </div>
+                    <div class="vault-tree" id="vaultTree"></div>
+                </aside>
+                <main class="vault-main">
+                    <div class="vault-doc-head">
+                        <div>
+                            <div class="vault-doc-title" id="vaultDocTitle">知识库</div>
+                            <div class="vault-doc-path" id="vaultDocPath"></div>
+                        </div>
+                    </div>
+	                    <div class="vault-doc-body">
+	                        <section class="ingest-panel" id="libraryIngestPanel">
+	                            <div class="ingest-head">
+	                                <div>
+	                                    <div class="ingest-title"><i data-lucide="inbox"></i><span>资料接入</span></div>
+	                                    <div class="ingest-copy">上传 PDF、Word、PPT、表格或导入本地路径后，系统会调用已配置 API 编译，并把摘要、概念、索引、问答等资产保存到本地知识库文件夹。</div>
+	                                </div>
+	                                <div class="action-row">
+	                                    <button class="btn primary" type="button" id="compileLocalWikiBtn"><i data-lucide="sparkles"></i><span>整理 / 编译</span></button>
+	                                    <button class="btn" type="button" id="forceCompileLocalWikiBtn"><i data-lucide="refresh-cw"></i><span>重新编译</span></button>
+	                                </div>
+	                            </div>
+	                            <div class="ingest-grid">
+	                                <div class="ingest-card">
+	                                    <label class="field">
+	                                        <span>收件箱分类</span>
+	                                        <select id="localWikiInboxCategory">
+	                                            <option value="自动分类">自动分类</option>
+	                                            <option value="上传文件">上传文件</option>
+	                                            <option value="文章">文章</option>
+	                                            <option value="录音笔记">录音笔记</option>
+	                                            <option value="视频">视频</option>
+	                                            <option value="论文">论文</option>
+	                                            <option value="项目资料">项目资料</option>
+	                                        </select>
+	                                    </label>
+	                                    <label class="field">
+	                                        <span>上传文件</span>
+	                                        <input id="localWikiFiles" type="file" multiple>
+	                                    </label>
+	                                    <div class="dropzone" id="localWikiDropzone">也可以把文件直接拖到这里</div>
+	                                    <button class="btn" type="button" id="uploadLocalWikiBtn"><i data-lucide="upload"></i><span>上传并编译</span></button>
+	                                    <label class="field">
+	                                        <span>导入本地路径</span>
+	                                        <div class="input-row">
+	                                            <input id="localWikiSourcePath" placeholder="/Users/你的名字/Downloads/资料文件夹 或 单个文件">
+	                                            <button class="btn" type="button" id="chooseLocalSourceBtn"><i data-lucide="folder-open"></i></button>
+	                                        </div>
+	                                    </label>
+	                                    <button class="btn" type="button" id="importLocalPathBtn"><i data-lucide="folder-input"></i><span>复制路径并编译</span></button>
+	                                </div>
+	                                <div class="ingest-card">
+	                                    <label class="field">
+	                                        <span>粘贴标题</span>
+	                                        <input id="pasteSourceTitle" placeholder="例如：项目会议纪要">
+	                                    </label>
+	                                    <label class="field">
+	                                        <span>粘贴正文</span>
+	                                        <textarea id="pasteSourceContent" placeholder="粘贴文章、会议记录、项目资料或研究笔记..."></textarea>
+	                                    </label>
+	                                    <button class="btn" type="button" id="pasteSourceBtn"><i data-lucide="plus"></i><span>保存并编译</span></button>
+	                                    <div class="result-box" id="localInboxResult"></div>
+	                                    <div class="result-box" id="localCompileResult"></div>
+	                                </div>
+	                            </div>
+	                        </section>
+	                        <div id="localWorkspaceBody"></div>
+	                    </div>
+                </main>
+                <aside class="action-panel" id="wikiActionPanel">
+                    <div class="action-panel-head">
+                        <div class="action-panel-title">知识库问答</div>
+                        <div class="action-panel-sub">扫描当前知识库后回答</div>
+	                    </div>
+		                    <div class="action-panel-body">
+		                        <section class="action-card">
+		                            <div class="qa-thread" id="localQAResult"></div>
+		                            <div class="qa-composer">
+		                                <div class="qa-composer-inner">
+		                                    <div class="action-title"><i data-lucide="messages-square"></i><span>知识库问答</span></div>
+		                                    <textarea id="localQAQuestion" placeholder="针对当前知识库提问..."></textarea>
+		                                    <div class="qa-composer-tools">
+		                                        <div class="qa-model-grid">
+		                                            <label class="field">
+		                                                <span>API 接口</span>
+		                                                <select class="qa-model-select" id="localQAProviderSelect"></select>
+		                                            </label>
+		                                            <label class="field">
+		                                                <span>聊天模型</span>
+		                                                <input class="qa-model-select" id="localQAModelSelect" list="localQAModelOptions" placeholder="例如 deepseek-chat">
+		                                                <datalist id="localQAModelOptions"></datalist>
+		                                            </label>
+		                                        </div>
+		                                        <button class="btn primary" type="button" id="askLocalWikiBtn"><i data-lucide="send"></i><span>提问并保存</span></button>
+		                                    </div>
+		                                </div>
+		                            </div>
+		                        </section>
+		                    </div>
+                </aside>
+            </div>
+        </section>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const state = {
+            localTab: 'overview',
+            localWikis: [],
+            activeLocalWiki: null,
+            localOverview: null,
+            vaultTree: null,
+            activeFilePath: '',
+            activeDoc: null,
+            apiConfig: null,
+            qaProviders: [],
+            qaProvider: localStorage.getItem('local_wiki_qa_provider') || '',
+            qaModel: localStorage.getItem('local_wiki_qa_model') || '',
+            apiProvidersChangedAt: localStorage.getItem('studio_api_providers_changed_at') || '',
+            expandedDirs: new Set(['00_收件箱', '10_日记', '20_项目', '30_研究', '40_知识库', '50_资源', '60_claude项目库', '90_计划', '99_System']),
+            localQAResult: null
+        };
+        const LOCAL_WIKIS_KEY = 'studio_local_wikis';
+        const ACTIVE_LOCAL_WIKI_KEY = 'studio_active_local_wiki';
+
+        function refreshIcons() {
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showToast(message) {
+            const el = document.getElementById('toast');
+            el.textContent = message;
+            el.style.display = 'block';
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => { el.style.display = 'none'; }, 2600);
+        }
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, options);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || '请求失败');
+            return data;
+        }
+
+        function uniqueModels(list) {
+            return [...new Set((list || []).map(item => String(item || '').trim()).filter(Boolean))];
+        }
+
+        function fallbackChatModels(provider) {
+            const id = String(provider?.id || '').toLowerCase();
+            const name = String(provider?.name || '').toLowerCase();
+            const base = String(provider?.base_url || '').toLowerCase();
+            if (id.includes('deepseek') || name.includes('deepseek') || base.includes('deepseek')) {
+                return ['deepseek-chat', 'deepseek-reasoner'];
+            }
+            if (id === 'apimart' || base.includes('apimart')) {
+                return ['deepseek-v4-flash'];
+            }
+            if (id === 'modelscope' || base.includes('modelscope')) {
+                return uniqueModels((state.apiConfig || {}).ms_chat_models);
+            }
+            return uniqueModels(provider?.chat_models || (state.apiConfig || {}).chat_models || [(state.apiConfig || {}).chat_model]);
+        }
+
+        function isChatCapableProvider(item) {
+            const protocol = String(item?.protocol || 'openai').toLowerCase();
+            if (['runninghub', 'volcengine', 'jimeng'].includes(protocol)) return false;
+            if (String(item?.id || '').toLowerCase() === 'runninghub') return false;
+            if (String(item?.id || '').toLowerCase() === 'jimeng') return false;
+            return item?.enabled !== false;
+        }
+
+        function chatProviders() {
+            const cfg = state.apiConfig || {};
+            const providers = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
+            const list = providers
+                .filter(isChatCapableProvider)
+                .map(item => ({
+                    id: item.id,
+                    name: item.name || item.id,
+                    chat_models: uniqueModels([...(item.chat_models || []), ...fallbackChatModels(item)])
+                }));
+            if (uniqueModels(cfg.ms_chat_models).length && !list.some(item => item.id === 'modelscope')) {
+                list.push({ id: 'modelscope', name: 'ModelScope', chat_models: uniqueModels(cfg.ms_chat_models) });
+            }
+            if (!list.length && uniqueModels(cfg.chat_models).length) {
+                list.push({ id: 'comfly', name: '默认 API', chat_models: uniqueModels(cfg.chat_models) });
+            }
+            if (!list.length && cfg.chat_model) {
+                list.push({ id: 'comfly', name: '默认 API', chat_models: [cfg.chat_model] });
+            }
+            return list;
+        }
+
+        function selectedQAProvider() {
+            return state.qaProviders.find(item => item.id === state.qaProvider) || state.qaProviders[0] || null;
+        }
+
+        function renderQAModelSelectors() {
+            const providerSelect = document.getElementById('localQAProviderSelect');
+            const modelSelect = document.getElementById('localQAModelSelect');
+            const modelOptions = document.getElementById('localQAModelOptions');
+            if (!providerSelect || !modelSelect) return;
+            const providers = state.qaProviders || [];
+            if (!providers.length) {
+                providerSelect.innerHTML = '<option value="">未配置聊天 API</option>';
+                if (modelOptions) modelOptions.innerHTML = '';
+                modelSelect.value = '';
+                modelSelect.placeholder = '未配置聊天模型';
+                providerSelect.disabled = true;
+                modelSelect.disabled = true;
+                return;
+            }
+            if (!providers.some(item => item.id === state.qaProvider)) state.qaProvider = providers[0].id;
+            const provider = selectedQAProvider();
+            const models = uniqueModels(provider?.chat_models || []);
+            if (!models.includes(state.qaModel)) state.qaModel = models[0] || '';
+            providerSelect.disabled = false;
+            modelSelect.disabled = false;
+            providerSelect.innerHTML = providers.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === state.qaProvider ? 'selected' : ''}>${escapeHtml(item.name || item.id)}</option>`).join('');
+            if (modelOptions) modelOptions.innerHTML = models.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
+            modelSelect.value = state.qaModel || '';
+            modelSelect.placeholder = models[0] || '输入该 API 的聊天模型名称';
+            localStorage.setItem('local_wiki_qa_provider', state.qaProvider || '');
+            localStorage.setItem('local_wiki_qa_model', state.qaModel || '');
+        }
+
+        async function loadQAModelConfig() {
+            state.apiProvidersChangedAt = localStorage.getItem('studio_api_providers_changed_at') || state.apiProvidersChangedAt || '';
+            const previousProvider = state.qaProvider;
+            const previousModel = state.qaModel;
+            try {
+                state.apiConfig = await api('/api/config');
+                state.qaProviders = chatProviders();
+            } catch (err) {
+                state.apiConfig = null;
+                state.qaProviders = [];
+                showToast(err.message);
+            }
+            renderQAModelSelectors();
+            if ((previousProvider && previousProvider !== state.qaProvider) || (previousModel && previousModel !== state.qaModel)) {
+                showToast('知识库问答模型列表已更新。');
+            }
+        }
+
+        function loadLocalWikiRegistry() {
+            try {
+                state.localWikis = JSON.parse(localStorage.getItem(LOCAL_WIKIS_KEY) || '[]');
+            } catch {
+                state.localWikis = [];
+            }
+            const params = new URLSearchParams(location.search || '');
+            const urlRoot = params.get('root');
+            if (urlRoot) {
+                const urlName = params.get('name') || urlRoot.split('/').filter(Boolean).pop() || 'AgentWiki';
+                state.localWikis = [
+                    { root: urlRoot, name: urlName, updatedAt: Date.now() },
+                    ...state.localWikis.filter(item => item.root !== urlRoot)
+                ];
+                localStorage.setItem(ACTIVE_LOCAL_WIKI_KEY, urlRoot);
+                localStorage.setItem(LOCAL_WIKIS_KEY, JSON.stringify(state.localWikis.slice(0, 20)));
+            }
+            const activeRoot = localStorage.getItem(ACTIVE_LOCAL_WIKI_KEY) || '';
+            state.activeLocalWiki = state.localWikis.find(item => item.root === activeRoot) || state.localWikis[0] || null;
+            if (state.activeLocalWiki) localStorage.setItem(ACTIVE_LOCAL_WIKI_KEY, state.activeLocalWiki.root);
+        }
+
+        function saveLocalWikiRegistry() {
+            localStorage.setItem(LOCAL_WIKIS_KEY, JSON.stringify(state.localWikis.slice(0, 20)));
+            if (state.activeLocalWiki?.root) localStorage.setItem(ACTIVE_LOCAL_WIKI_KEY, state.activeLocalWiki.root);
+        }
+
+        function upsertLocalWiki(item) {
+            const next = {
+                name: item.name || item.config?.name || 'AgentWiki',
+                root: item.root,
+                updatedAt: Date.now()
+            };
+            state.localWikis = [next, ...state.localWikis.filter(existing => existing.root !== next.root)];
+            state.activeLocalWiki = next;
+            saveLocalWikiRegistry();
+        }
+
+        function renderLocalSwitcher() {
+            const select = document.getElementById('localWikiSwitcher');
+            select.innerHTML = state.localWikis.map(item => `<option value="${escapeHtml(item.root)}">${escapeHtml(item.name || item.root)}</option>`).join('');
+            if (state.activeLocalWiki?.root) select.value = state.activeLocalWiki.root;
+        }
+
+        function setLocalSetupMode(hasActive) {
+            document.getElementById('localOnboarding').classList.toggle('hidden', hasActive);
+            document.getElementById('localWorkspace').classList.toggle('active', hasActive);
+            document.getElementById('topWorkspaceActions').classList.toggle('hidden', !hasActive);
+        }
+
+        function localDirectoryLabel(path) {
+            const labels = {
+                '00_收件箱': '收件箱',
+                '40_知识库': '知识库',
+                '40_知识库/摘要': '摘要',
+                '40_知识库/概念': '概念',
+                '40_知识库/索引': '索引',
+                '50_资源/问答档案': '问答档案',
+                '50_资源/报告': '报告',
+                '50_资源/健康检查': '健康检查',
+                '.agentwiki': '机器索引'
+            };
+            return labels[path] || path;
+        }
+
+        function vaultTitleFromPath(path) {
+            const name = String(path || '').split('/').filter(Boolean).pop() || '知识库';
+            return name.replace(/\.(md|markdown)$/i, '');
+        }
+
+        function setVaultDocumentMeta(title, path = '') {
+            document.getElementById('vaultDocTitle').textContent = title || '知识库';
+            document.getElementById('vaultDocPath').textContent = path || '';
+        }
+
+        function sourceTitle(item) {
+            return item?.title || item?.path || item?.id || '未命名来源';
+        }
+
+        function pageKindLabel(type) {
+            const map = {
+                summary: '摘要',
+                concept: '概念',
+                project: '项目',
+                qa: '问答',
+                report: '报告',
+                design: '设计产物'
+            };
+            return map[type] || type || '页面';
+        }
+
+        function renderHomeItem(item, kind = 'source') {
+            const title = sourceTitle(item);
+            const path = item.path || '';
+            const typeText = kind === 'page' ? pageKindLabel(item.type) : (item.compiled ? '已编译' : '未编译');
+            const meta = [typeText, path].filter(Boolean).join(' · ');
+            const canOpen = !!path;
+            const tag = canOpen ? 'button' : 'div';
+            const attr = canOpen ? ` type="button" data-open-path="${escapeHtml(path)}"` : '';
+            return `
+                <${tag} class="home-item ${canOpen ? 'clickable' : ''}"${attr}>
+                    <div class="home-item-title">${escapeHtml(title)}</div>
+                    <div class="home-item-meta">${escapeHtml(meta || item.excerpt || '')}</div>
+                </${tag}>
+            `;
+        }
+
+        function showInboxTools() {
+            const card = document.getElementById('libraryIngestPanel');
+            if (!card) return;
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            card.style.borderColor = 'rgba(88, 183, 148, .75)';
+            clearTimeout(showInboxTools.timer);
+            showInboxTools.timer = setTimeout(() => { card.style.borderColor = ''; }, 1400);
+        }
+
+        function focusAction(kind) {
+            const map = {
+                inbox: 'libraryIngestPanel',
+                compile: 'compileLocalWikiBtn',
+                qa: 'localQAQuestion'
+            };
+            const el = document.getElementById(map[kind] || '');
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (typeof el.focus === 'function' && /INPUT|TEXTAREA/.test(el.tagName)) el.focus();
+        }
+
+        function renderQAResult() {
+            const box = document.getElementById('localQAResult');
+            if (!box) return;
+            const qa = state.localQAResult;
+            if (!qa) {
+                box.innerHTML = `
+                    <div class="qa-thread-empty">
+                        <i data-lucide="messages-square"></i>
+                        <div>
+                            <strong>知识库问答</strong><br>
+                            选择下方 API 和模型后提问，回答会显示在这里并保存到本地知识库。
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            const failed = qa.meta?.llm_error;
+            const citations = (qa.snippets || []).map(item => `- ${item.title || item.id}`).join('\n') || '无';
+            box.innerHTML = `
+                <div class="qa-message">
+                    <div>
+                        <div class="qa-message-title">问题</div>
+                        <div class="qa-question-card">${escapeHtml(qa.question || '')}</div>
+                    </div>
+                    <div>
+                        <div class="qa-message-title">${failed ? 'API 调用失败' : '回答'}</div>
+                        <div class="qa-answer-body">${escapeHtml(failed || qa.answer || '')}</div>
+                    </div>
+                    <div class="qa-citations"><strong>引用</strong>\n${escapeHtml(citations)}</div>
+                </div>
+            `;
+            requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
+        }
+
+        function renderActionPanel() {
+            renderQAResult();
+        }
+
+        function renderVaultTreeNode(node, depth = 0) {
+            if (!node) return '';
+            const isDir = node.type === 'directory' || node.type === 'dir';
+            const path = node.path || '';
+            const name = node.display_name || node.display || node.name || path || '知识库';
+            if (isDir) {
+                const expanded = state.expandedDirs.has(path);
+                const children = expanded ? (node.children || []).map(child => renderVaultTreeNode(child, depth + 1)).join('') : '';
+                return `
+                    <button class="vault-node ${state.localTab === 'inbox' && path === '00_收件箱' ? 'active' : ''}" type="button" data-vault-dir="${escapeHtml(path)}" style="--depth:${depth}">
+                        <span class="chevron"><i data-lucide="${expanded ? 'chevron-down' : 'chevron-right'}"></i></span>
+                        <span class="vault-name">${escapeHtml(name)}</span>
+                    </button>
+                    ${children}
+                `;
+            }
+            return `
+                <button class="vault-node ${state.activeFilePath === path ? 'active' : ''}" type="button" data-vault-file="${escapeHtml(path)}" style="--depth:${depth}">
+                    <span class="file-dot"><i data-lucide="${node.readable ? 'file-text' : 'file'}"></i></span>
+                    <span class="vault-name">${escapeHtml(name)}</span>
+                </button>
+            `;
+        }
+
+        function renderVaultTree() {
+            const treeEl = document.getElementById('vaultTree');
+            const tree = state.vaultTree;
+            if (!tree) {
+                treeEl.innerHTML = '<div class="vault-empty" style="margin:20px 14px;text-align:left;">正在读取目录...</div>';
+                return;
+            }
+            const children = (tree.children || []).map(child => renderVaultTreeNode(child, 0)).join('');
+            treeEl.innerHTML = `
+                <button class="vault-node ${state.localTab === 'overview' ? 'active' : ''}" type="button" data-vault-home style="--depth:0">
+                    <span class="file-dot"><i data-lucide="home"></i></span>
+                    <span class="vault-name">知识库首页</span>
+                </button>
+                ${children || '<div class="vault-empty" style="margin:20px 14px;text-align:left;">这个知识库还没有文件。</div>'}
+                ${tree.truncated ? '<div class="item-meta" style="padding:8px 14px;">目录较大，已截断显示。</div>' : ''}
+            `;
+        }
+
+        function renderVaultFileContent() {
+            const body = document.getElementById('localWorkspaceBody');
+            const doc = state.activeDoc;
+            if (!doc) {
+                setVaultDocumentMeta(vaultTitleFromPath(state.activeFilePath), state.activeFilePath);
+                body.innerHTML = '<div class="vault-empty"><i data-lucide="loader-circle"></i><p>正在读取文件...</p></div>';
+                return;
+            }
+            setVaultDocumentMeta(doc.title || doc.display || vaultTitleFromPath(doc.path), doc.path || '');
+            body.innerHTML = `<article class="vault-markdown">${escapeHtml(doc.content || '')}</article>`;
+        }
+
+        function renderVaultHome() {
+            const body = document.getElementById('localWorkspaceBody');
+            const active = state.activeLocalWiki;
+            const overview = state.localOverview;
+            if (!active) {
+                body.innerHTML = '<div class="empty">先创建或选择一个本地知识库。</div>';
+                return;
+            }
+            setVaultDocumentMeta(active.name || '知识库首页', active.root || '');
+            if (!overview) {
+                body.innerHTML = '<div class="vault-empty"><i data-lucide="loader-circle"></i><p>正在读取本地知识库结构...</p></div>';
+                return;
+            }
+            const counts = overview.counts || {};
+            const recentSources = (overview.recent_sources || []).slice(0, 6).map(item => renderHomeItem(item, 'source')).join('');
+            const recentPages = (overview.recent_pages || []).slice(0, 6).map(item => renderHomeItem(item, 'page')).join('');
+            body.innerHTML = `
+                <div class="home-stack">
+                    <section class="home-hero">
+                        <div class="home-title">${escapeHtml(active.name || '知识库首页')}</div>
+                        <div class="home-copy">上方接入区负责上传、导入和编译资料；下方展示来源和生成资产；右侧只用于知识库问答，回答会保存回本地知识库。</div>
+                        <div class="quick-actions">
+                            <button class="btn primary" type="button" data-action-focus="inbox"><i data-lucide="inbox"></i><span>导入资料</span></button>
+                            <button class="btn" type="button" data-action-focus="compile"><i data-lucide="sparkles"></i><span>编译</span></button>
+                            <button class="btn" type="button" data-action-focus="qa"><i data-lucide="messages-square"></i><span>提问</span></button>
+                        </div>
+                    </section>
+                    <section class="overview-grid">
+                        <div class="overview-card"><div class="overview-label">来源</div><div class="overview-value">${escapeHtml(counts.sources || 0)}</div></div>
+                        <div class="overview-card"><div class="overview-label">生成页面</div><div class="overview-value">${escapeHtml(counts.pages || 0)}</div></div>
+                        <div class="overview-card"><div class="overview-label">图谱节点</div><div class="overview-value">${escapeHtml(counts.graph_nodes || 0)}</div></div>
+                    </section>
+                    <section class="home-section">
+                        <div class="home-section-head"><div class="home-section-title">最近来源</div><div class="item-meta">${escapeHtml((overview.recent_sources || []).length)} 条</div></div>
+                        <div class="home-list">${recentSources || '<div class="empty">还没有来源。可以从上方资料接入区上传或导入。</div>'}</div>
+                    </section>
+                    <section class="home-section">
+                        <div class="home-section-head"><div class="home-section-title">最近产物</div><div class="item-meta">${escapeHtml((overview.recent_pages || []).length)} 条</div></div>
+                        <div class="home-list">${recentPages || '<div class="empty">编译或问答后，这里会出现摘要、概念、问答和报告。</div>'}</div>
+                    </section>
+                </div>
+            `;
+        }
+
+        function renderLocalWorkspace() {
+            const body = document.getElementById('localWorkspaceBody');
+            const active = state.activeLocalWiki;
+            if (!active) {
+                setVaultDocumentMeta('知识库', '');
+                body.innerHTML = '<div class="empty">先创建或选择一个本地知识库。</div>';
+                return;
+            }
+            document.getElementById('topWorkspaceTitle').textContent = active.name || '本地知识库';
+            document.getElementById('topWorkspacePath').textContent = active.root || '';
+            renderLocalSwitcher();
+            renderVaultTree();
+            if (state.localTab === 'file') {
+                renderVaultFileContent();
+                renderActionPanel();
+                refreshIcons();
+                return;
+            }
+            renderVaultHome();
+            renderActionPanel();
+            refreshIcons();
+        }
+
+        async function openVaultFile(path) {
+            const root = currentLocalWikiRoot();
+            if (!root || !path) return;
+            state.localTab = 'file';
+            state.activeFilePath = path;
+            state.activeDoc = null;
+            renderLocalWorkspace();
+            try {
+                state.activeDoc = await api(`/api/local-wiki/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`);
+            } catch (err) {
+                showToast(err.message);
+                state.localTab = 'overview';
+            }
+            renderLocalWorkspace();
+        }
+
+        async function refreshLocalWorkspace() {
+            loadLocalWikiRegistry();
+            setLocalSetupMode(!!state.activeLocalWiki);
+            if (!state.activeLocalWiki?.root) {
+                renderLocalWorkspace();
+                return;
+            }
+            try {
+                const root = encodeURIComponent(state.activeLocalWiki.root);
+                const [overview, tree] = await Promise.all([
+                    api(`/api/local-wiki/overview?root=${root}`),
+                    api(`/api/local-wiki/tree?root=${root}`)
+                ]);
+                state.localOverview = overview;
+                state.vaultTree = tree;
+            } catch (err) {
+                showToast(err.message);
+                state.localOverview = null;
+                state.vaultTree = null;
+            }
+            renderLocalWorkspace();
+        }
+
+        function renderLocalWikiResult(data) {
+            const box = document.getElementById('localWikiResult');
+            if (!data) {
+                box.style.display = 'none';
+                box.textContent = '';
+                return;
+            }
+            box.style.display = 'block';
+            box.innerHTML = `
+                <strong>已创建：</strong>${escapeHtml(data.root)}<br>
+                <strong>目录：</strong>${escapeHtml((data.created_dirs || []).length)} 个，
+                <strong>文件：</strong>${escapeHtml((data.created_files || []).length)} 个<br>
+                ${(data.next_steps || []).map(step => `- ${escapeHtml(step)}`).join('<br>')}
+            `;
+            if (data.root) {
+                upsertLocalWiki(data);
+                refreshLocalWorkspace().catch(err => showToast(err.message));
+            }
+        }
+
+        function renderInboxResult(data) {
+            const box = document.getElementById('localInboxResult');
+            if (!data) {
+                box.style.display = 'none';
+                box.textContent = '';
+                return;
+            }
+            const items = data.imported || [];
+            const compile = data.compile || {};
+            const compileErrors = (compile.results || [])
+                .map(item => item.compile_meta?.llm_error || item.source?.compile_meta?.llm_error || '')
+                .filter(Boolean);
+            box.style.display = 'block';
+            box.innerHTML = `
+                <strong>已放入收件箱：</strong>${escapeHtml(data.count || items.length || 0)} 个文件<br>
+                ${items.slice(0, 8).map(item => `- ${escapeHtml(item.path || item.title || '')}`).join('<br>')}
+                ${items.length > 8 ? '<br>...' : ''}
+                <br><strong>自动编译：</strong>${escapeHtml(compile.compiled || 0)} 个完成，${escapeHtml(compile.skipped || 0)} 个跳过
+                ${compileErrors.length ? `<br><strong>API 编译提示：</strong>${escapeHtml(compileErrors[0])}` : ''}
+            `;
+        }
+
+        async function initLocalWiki() {
+            const baseDir = document.getElementById('localWikiBaseDir').value.trim();
+            const name = document.getElementById('localWikiName').value.trim() || 'AgentWiki';
+            const localOnly = false;
+            if (!baseDir) {
+                showToast('请先填写保存位置。');
+                return;
+            }
+            const btn = document.getElementById('initLocalWikiBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-circle"></i><span>生成中</span>';
+            refreshIcons();
+            try {
+                const data = await api('/api/local-wiki/init', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        base_dir: baseDir,
+                        name,
+                        local_only: localOnly,
+                        language: 'zh-CN'
+                    })
+                });
+                renderLocalWikiResult(data);
+                showToast('本地知识库结构已生成。');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="sparkles"></i><span>生成结构</span>';
+                refreshIcons();
+            }
+        }
+
+        async function chooseFolder(targetId) {
+            const data = await api('/api/local-wiki/choose-folder');
+            if (data.path) document.getElementById(targetId).value = data.path;
+        }
+
+        function currentLocalWikiRoot() {
+            return state.activeLocalWiki?.root || '';
+        }
+
+        function currentInboxCategory() {
+            return document.getElementById('localWikiInboxCategory').value || '上传文件';
+        }
+
+        async function uploadFilesToInbox(files) {
+            const root = currentLocalWikiRoot();
+            if (!root) {
+                showToast('请先创建或选择一个知识库。');
+                return;
+            }
+            if (!files.length) {
+                showToast('请先选择要上传的文件。');
+                return;
+            }
+            const btn = document.getElementById('uploadLocalWikiBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-circle"></i><span>上传中</span>';
+            refreshIcons();
+            try {
+                const form = new FormData();
+                form.append('root', root);
+                form.append('category', currentInboxCategory());
+                Array.from(files).forEach(file => form.append('files', file));
+                const data = await api('/api/local-wiki/upload', { method: 'POST', body: form });
+                renderInboxResult(data);
+                document.getElementById('localWikiFiles').value = '';
+                showToast(`已放入收件箱：${data.count || 0} 个文件。`);
+                await refreshLocalWorkspace();
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="upload"></i><span>上传并编译</span>';
+                refreshIcons();
+            }
+        }
+
+        async function uploadToInbox() {
+            await uploadFilesToInbox(document.getElementById('localWikiFiles').files);
+        }
+
+        async function importPathToInbox() {
+            const root = currentLocalWikiRoot();
+            const sourcePath = document.getElementById('localWikiSourcePath').value.trim();
+            if (!root) {
+                showToast('请先创建或选择一个知识库。');
+                return;
+            }
+            if (!sourcePath) {
+                showToast('请先填写来源路径。');
+                return;
+            }
+            const btn = document.getElementById('importLocalPathBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-circle"></i><span>复制中</span>';
+            refreshIcons();
+            try {
+                const data = await api('/api/local-wiki/import-path', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        root,
+                        source_path: sourcePath,
+                        category: currentInboxCategory(),
+                        max_files: 200
+                    })
+                });
+                renderInboxResult(data);
+                showToast(`已复制到收件箱：${data.count || 0} 个文件。`);
+                await refreshLocalWorkspace();
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="folder-input"></i><span>复制路径并编译</span>';
+                refreshIcons();
+            }
+        }
+
+        async function pasteSourceToInbox() {
+            const root = currentLocalWikiRoot();
+            if (!root) {
+                showToast('请先创建或选择一个知识库。');
+                return;
+            }
+            const title = document.getElementById('pasteSourceTitle').value.trim();
+            const content = document.getElementById('pasteSourceContent').value.trim();
+            if (!title || !content) {
+                showToast('请填写标题和正文。');
+                return;
+            }
+            const btn = document.getElementById('pasteSourceBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-circle"></i><span>保存中</span>';
+            refreshIcons();
+            try {
+                const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80) || 'note';
+                const md = `# ${title}\n\n${content}\n`;
+                const file = new File([md], `${safeTitle}.md`, { type: 'text/markdown' });
+                const form = new FormData();
+                form.append('root', root);
+                form.append('category', currentInboxCategory());
+                form.append('files', file);
+                const data = await api('/api/local-wiki/upload', { method: 'POST', body: form });
+                renderInboxResult(data);
+                document.getElementById('pasteSourceTitle').value = '';
+                document.getElementById('pasteSourceContent').value = '';
+                showToast('已保存到收件箱。');
+                await refreshLocalWorkspace();
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="plus"></i><span>保存并编译</span>';
+                refreshIcons();
+            }
+        }
+
+        async function compileLocalWiki(force = false) {
+            const root = currentLocalWikiRoot();
+            if (!root) {
+                showToast('请先创建或选择一个知识库。');
+                return;
+            }
+            const btn = document.getElementById(force ? 'forceCompileLocalWikiBtn' : 'compileLocalWikiBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader-circle"></i><span>整理中</span>';
+                refreshIcons();
+            }
+            try {
+                const data = await api('/api/local-wiki/compile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ root, force, use_llm: true })
+                });
+                const box = document.getElementById('localCompileResult');
+                if (box) {
+                    const errors = (data.results || [])
+                        .map(item => item.compile_meta?.llm_error || item.source?.compile_meta?.llm_error || '')
+                        .filter(Boolean);
+                    box.style.display = 'block';
+                    box.innerHTML = `
+                        <strong>已完成整理：</strong>${escapeHtml(data.compiled || 0)} 个来源<br>
+                        <strong>跳过：</strong>${escapeHtml(data.skipped || 0)} 个，
+                        <strong>图谱：</strong>${escapeHtml(data.graph?.nodes || 0)} 节点 / ${escapeHtml(data.graph?.edges || 0)} 关系
+                        ${errors.length ? `<br><strong>API 编译提示：</strong>${escapeHtml(errors[0])}` : ''}
+                    `;
+                }
+                state.localOverview = data.overview || state.localOverview;
+                try {
+                    state.vaultTree = await api(`/api/local-wiki/tree?root=${encodeURIComponent(root)}`);
+                } catch {}
+                showToast(`整理完成：${data.compiled || 0} 个来源。`);
+                renderLocalWorkspace();
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = force
+                        ? '<i data-lucide="refresh-cw"></i><span>重新编译</span>'
+                        : '<i data-lucide="sparkles"></i><span>整理 / 编译</span>';
+                    refreshIcons();
+                }
+            }
+        }
+
+        async function askLocalWiki() {
+            const root = currentLocalWikiRoot();
+            const textarea = document.getElementById('localQAQuestion');
+            const question = String(textarea?.value || '').trim();
+            if (!root) {
+                showToast('请先创建或选择一个知识库。');
+                return;
+            }
+            if (!question) {
+                showToast('请输入问题。');
+                textarea?.focus();
+                return;
+            }
+            renderQAModelSelectors();
+            if (!state.qaProvider || !state.qaModel) {
+                showToast('请先在知识库问答下方选择可用的 API 接口和聊天模型。');
+                return;
+            }
+            const btn = document.getElementById('askLocalWikiBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i data-lucide="loader-circle"></i><span>回答中</span>';
+                refreshIcons();
+            }
+            try {
+                const data = await api('/api/local-wiki/qa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        root,
+                        question,
+                        save: true,
+                        use_llm: true,
+                        provider: state.qaProvider,
+                        model: state.qaModel
+                    })
+                });
+                data.question = question;
+                state.localQAResult = data;
+                state.localOverview = data.overview || state.localOverview;
+                showToast(data.meta?.llm_error ? 'API 调用失败，已保存本次记录。' : '模型回答已保存。');
+                renderLocalWorkspace();
+                const nextTextarea = document.getElementById('localQAQuestion');
+                if (nextTextarea) nextTextarea.value = question;
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="send"></i><span>提问并保存</span>';
+                    refreshIcons();
+                }
+            }
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+            document.documentElement.classList.toggle('studio-theme-dark', theme === 'dark');
+        }
+
+        function currentTheme() {
+            return (window.StudioTheme && window.StudioTheme.get()) || localStorage.getItem('studio_theme') || 'dark';
+        }
+
+        function metric(label, value) {
+            return `<div class="metric"><div class="metric-k">${escapeHtml(label)}</div><div class="metric-v">${escapeHtml(value || 0)}</div></div>`;
+        }
+
+        document.getElementById('initLocalWikiBtn').addEventListener('click', () => initLocalWiki().catch(err => showToast(err.message)));
+        document.getElementById('uploadLocalWikiBtn').addEventListener('click', () => uploadToInbox().catch(err => showToast(err.message)));
+        document.getElementById('importLocalPathBtn').addEventListener('click', () => importPathToInbox().catch(err => showToast(err.message)));
+        document.getElementById('pasteSourceBtn').addEventListener('click', () => pasteSourceToInbox().catch(err => showToast(err.message)));
+        document.getElementById('chooseLocalWikiBaseBtn').addEventListener('click', () => chooseFolder('localWikiBaseDir').catch(err => showToast(err.message)));
+        document.getElementById('chooseLocalSourceBtn').addEventListener('click', () => chooseFolder('localWikiSourcePath').catch(err => showToast(err.message)));
+        document.getElementById('refreshLocalWikiBtn').addEventListener('click', () => refreshLocalWorkspace().catch(err => showToast(err.message)));
+        document.getElementById('vaultRefreshBtn').addEventListener('click', () => refreshLocalWorkspace().catch(err => showToast(err.message)));
+        document.getElementById('vaultInboxBtn').addEventListener('click', () => {
+            state.localTab = 'overview';
+            state.activeFilePath = '';
+            state.activeDoc = null;
+            renderLocalWorkspace();
+            showInboxTools();
+        });
+        document.getElementById('vaultCompileBtn').addEventListener('click', () => {
+            state.localTab = 'overview';
+            state.activeFilePath = '';
+            state.activeDoc = null;
+            renderLocalWorkspace();
+            compileLocalWiki(false).catch(err => showToast(err.message));
+        });
+        document.getElementById('vaultTree').addEventListener('click', event => {
+            const node = event.target.closest('[data-vault-file], [data-vault-dir], [data-vault-home]');
+            if (!node) return;
+            if (node.hasAttribute('data-vault-home')) {
+                state.localTab = 'overview';
+                state.activeFilePath = '';
+                state.activeDoc = null;
+                renderLocalWorkspace();
+                return;
+            }
+            const filePath = node.dataset.vaultFile;
+            if (filePath) {
+                openVaultFile(filePath).catch(err => showToast(err.message));
+                return;
+            }
+            const dirPath = node.dataset.vaultDir;
+            if (dirPath) {
+                if (state.expandedDirs.has(dirPath)) state.expandedDirs.delete(dirPath);
+                else state.expandedDirs.add(dirPath);
+                if (dirPath === '00_收件箱') {
+                    state.localTab = 'overview';
+                    state.activeFilePath = '';
+                    state.activeDoc = null;
+                    setTimeout(showInboxTools, 0);
+                }
+                renderLocalWorkspace();
+            }
+        });
+        document.getElementById('newLocalWikiBtn').addEventListener('click', () => {
+            state.activeLocalWiki = null;
+            state.localOverview = null;
+            state.vaultTree = null;
+            state.localTab = 'overview';
+            state.activeFilePath = '';
+            state.activeDoc = null;
+            localStorage.removeItem(ACTIVE_LOCAL_WIKI_KEY);
+            setLocalSetupMode(false);
+            document.getElementById('localWikiBaseDir').focus();
+            renderLocalWorkspace();
+        });
+        document.getElementById('localWikiSwitcher').addEventListener('change', event => {
+            const root = event.target.value;
+            state.activeLocalWiki = state.localWikis.find(item => item.root === root) || null;
+            state.localTab = 'overview';
+            state.activeFilePath = '';
+            state.activeDoc = null;
+            saveLocalWikiRegistry();
+            refreshLocalWorkspace().catch(err => showToast(err.message));
+        });
+        document.querySelectorAll('.local-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.localTab = btn.dataset.localTab || 'overview';
+                renderLocalWorkspace();
+            });
+        });
+        const dropzone = document.getElementById('localWikiDropzone');
+        dropzone.addEventListener('dragover', event => {
+            event.preventDefault();
+            dropzone.classList.add('dragging');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragging'));
+        dropzone.addEventListener('drop', event => {
+            event.preventDefault();
+            dropzone.classList.remove('dragging');
+            const files = event.dataTransfer?.files || [];
+            uploadFilesToInbox(files).catch(err => showToast(err.message));
+        });
+        document.getElementById('localQAProviderSelect')?.addEventListener('change', event => {
+            state.qaProvider = event.target.value;
+            const provider = selectedQAProvider();
+            state.qaModel = uniqueModels(provider?.chat_models || [])[0] || '';
+            renderQAModelSelectors();
+        });
+        document.getElementById('localQAModelSelect')?.addEventListener('change', event => {
+            state.qaModel = event.target.value;
+            localStorage.setItem('local_wiki_qa_model', state.qaModel || '');
+            renderQAModelSelectors();
+        });
+        document.getElementById('localQAModelSelect')?.addEventListener('input', event => {
+            state.qaModel = event.target.value;
+            localStorage.setItem('local_wiki_qa_model', state.qaModel || '');
+        });
+        document.addEventListener('click', event => {
+            const target = event.target.closest('button');
+            if (!target) return;
+            if (target.dataset.openPath) {
+                openVaultFile(target.dataset.openPath).catch(err => showToast(err.message));
+                return;
+            }
+            if (target.dataset.actionFocus) {
+                focusAction(target.dataset.actionFocus);
+                return;
+            }
+            if (target.id === 'compileLocalWikiBtn') compileLocalWiki(false).catch(err => showToast(err.message));
+            if (target.id === 'forceCompileLocalWikiBtn') compileLocalWiki(true).catch(err => showToast(err.message));
+            if (target.id === 'askLocalWikiBtn') askLocalWiki().catch(err => showToast(err.message));
+        });
+
+        window.addEventListener('message', event => {
+            const data = event.data || {};
+            if (data.type === 'studio-theme') applyTheme(data.theme);
+            if (data.type === 'providers-changed') loadQAModelConfig().catch(err => showToast(err.message));
+        });
+        window.addEventListener('studio-theme-change', event => applyTheme(event.detail?.theme || 'dark'));
+        window.addEventListener('focus', () => loadQAModelConfig().catch(err => showToast(err.message)));
+        window.addEventListener('pageshow', () => loadQAModelConfig().catch(err => showToast(err.message)));
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) loadQAModelConfig().catch(err => showToast(err.message));
+        });
+        window.addEventListener('storage', event => {
+            if (event.key === 'studio_api_providers_changed_at') loadQAModelConfig().catch(err => showToast(err.message));
+        });
+        try {
+            const apiChannel = new BroadcastChannel('studio-api');
+            apiChannel.onmessage = event => {
+                if (event.data?.type === 'providers-changed') loadQAModelConfig().catch(err => showToast(err.message));
+            };
+        } catch {}
+        setInterval(() => {
+            const changedAt = localStorage.getItem('studio_api_providers_changed_at') || '';
+            if (changedAt && changedAt !== state.apiProvidersChangedAt) {
+                state.apiProvidersChangedAt = changedAt;
+                loadQAModelConfig().catch(err => showToast(err.message));
+            }
+        }, 2500);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applyTheme(currentTheme());
+            refreshIcons();
+            loadQAModelConfig().catch(err => showToast(err.message));
+            refreshLocalWorkspace().catch(err => showToast(err.message));
+        }, { once: true });
+    </script>
+</body>
+</html>

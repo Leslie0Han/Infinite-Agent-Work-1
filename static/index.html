@@ -1,0 +1,3648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/logo.png" type="image/png">
+    <title>Infinite Agent Work</title>
+    <style>
+        html.studio-route-booting body {
+            visibility: hidden !important;
+        }
+    </style>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme');
+                if(!theme) {
+                    theme = 'dark';
+                    localStorage.setItem('studio_theme', theme);
+                    localStorage.setItem('canvas_theme', theme);
+                }
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+                document.documentElement.classList.add('studio-route-booting');
+                setTimeout(function(){
+                    document.documentElement.classList.remove('studio-route-booting');
+                }, 1500);
+            } catch(e) {}
+        })();
+    </script>
+    <script src="/static/vendor/lucide.min.js"></script>
+    <script src="/static/theme.js?v=20260516-theme-sync"></script>
+    <script src="/static/i18n.js?v=20260514-provider-protocol"></script>
+    <style>
+        :root {
+            --bg: #08090c;
+            --bg-2: #0c0d10;
+            --panel: #111216;
+            --panel-strong: #111216;
+            --card: rgba(216, 222, 233, 0.045);
+            --card-2: rgba(216, 222, 233, 0.075);
+            --line: #25262b;
+            --line-strong: rgba(216, 222, 233, 0.16);
+            --text: #e8e8ea;
+            --muted: #8f9aab;
+            --faint: #657286;
+            --accent: #d8dee9;
+            --on-accent: #10141d;
+            --brand: #58b794;
+            --accent-2: #77dec0;
+            --danger: #ef7777;
+            --warning: #f3bf5f;
+            --shadow: rgba(0, 0, 0, 0.28);
+            --radius: 24px;
+            --radius-soft: 16px;
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
+            color-scheme: dark;
+        }
+
+        html:not(.theme-dark),
+        html:not(.studio-theme-dark) {
+            --bg: #f9fafb;
+            --bg-2: #f8fafc;
+            --panel: #ffffff;
+            --panel-strong: #ffffff;
+            --card: rgba(15, 23, 42, 0.035);
+            --card-2: rgba(15, 23, 42, 0.055);
+            --line: #edf0f3;
+            --line-strong: #e2e8f0;
+            --text: #111827;
+            --muted: #64748b;
+            --faint: #8a95a6;
+            --accent: #111827;
+            --on-accent: #ffffff;
+            --brand: #58b794;
+            --accent-2: #111827;
+            --shadow: rgba(15, 23, 42, 0.12);
+            color-scheme: light;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        button,
+        textarea,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+            transition:
+                border-color 0.28s var(--ease),
+                background 0.28s var(--ease),
+                color 0.28s var(--ease),
+                box-shadow 0.28s var(--ease),
+                transform 0.28s var(--ease);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+        }
+
+        *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.42);
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            border-radius: 999px;
+        }
+
+        .app-shell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+        }
+
+        html:not(.theme-dark) .app-shell {
+            background: var(--bg);
+        }
+
+        .topbar {
+            height: 68px;
+            flex: 0 0 68px;
+            display: grid;
+            grid-template-columns: 286px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 18px;
+            padding: 0 22px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(8, 9, 12, 0.88);
+            backdrop-filter: blur(20px) saturate(1.05);
+            z-index: 20;
+        }
+
+        html:not(.theme-dark) .topbar {
+            background: rgba(255, 255, 255, 0.86);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .brand-mark {
+            width: 46px;
+            height: 28px;
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .brand-mark::before,
+        .brand-mark::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            width: 19px;
+            height: 19px;
+            border: 3px solid var(--brand);
+            border-radius: 999px;
+            transform: rotate(45deg);
+        }
+
+        .brand-mark::before {
+            left: 3px;
+            border-right-color: var(--accent-2);
+            border-top-color: var(--accent-2);
+        }
+
+        .brand-mark::after {
+            right: 3px;
+            border-left-color: var(--accent-2);
+            border-bottom-color: var(--accent-2);
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 850;
+            letter-spacing: -0.03em;
+            white-space: nowrap;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .icon-btn,
+        .send-btn,
+        .agent-btn,
+        .tool-action,
+        .new-chat-btn,
+        .nav-primary,
+        .nav-item,
+        .recent-item,
+        .tool-list-item,
+        .quick-link {
+            border: 1px solid var(--line);
+            color: var(--text);
+            background: transparent;
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-color: transparent;
+            border-radius: 999px;
+            color: var(--muted);
+        }
+
+        .icon-btn:hover,
+        .icon-btn.active {
+            background: var(--card-2);
+            border-color: var(--line);
+            color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        .avatar-btn {
+            min-width: 42px;
+            height: 42px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: var(--panel);
+            border-color: var(--line);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 850;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+        }
+
+        .avatar-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #778191, #26303d);
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .app-body {
+            min-height: 0;
+            flex: 1;
+            display: grid;
+            grid-template-columns: 286px minmax(0, 1fr);
+            gap: 22px;
+            padding: 20px;
+        }
+
+        .app-body.workbench-layout {
+            grid-template-columns: 286px minmax(0, 1fr);
+            gap: 18px;
+            padding: 16px 20px 20px;
+        }
+
+        .app-body.drawer-collapsed,
+        .app-body.workbench-layout.drawer-collapsed {
+            grid-template-columns: 84px minmax(0, 1fr);
+        }
+
+        .left-panel,
+        .right-panel {
+            min-height: 0;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+        }
+
+        .left-panel {
+            position: relative;
+            padding: 10px;
+            overflow: hidden;
+            transition:
+                padding 0.32s var(--ease),
+                border-radius 0.32s var(--ease),
+                box-shadow 0.32s var(--ease);
+        }
+
+        .right-panel {
+            background: var(--panel);
+            box-shadow: 0 22px 58px var(--shadow);
+            overflow: hidden;
+        }
+
+        .right-panel {
+            display: none;
+        }
+
+        .app-body.workbench-layout .right-panel {
+            display: none;
+        }
+
+        .left-top {
+            padding: 0 0 22px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .drawer-toggle {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            z-index: 3;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            background: var(--bg-2);
+            border: 1px solid var(--line);
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+        }
+
+        .drawer-toggle:hover {
+            color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        .nav-primary {
+            width: 100%;
+            height: 44px;
+            border-radius: var(--radius-soft);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            font-size: 15px;
+            font-weight: 820;
+            background: var(--bg-2);
+        }
+
+        .nav-primary.active {
+            color: var(--on-accent);
+            border-color: var(--accent);
+            background: var(--accent);
+            box-shadow: 0 12px 24px rgba(0,0,0,.22);
+        }
+
+        .nav-primary i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            height: 52px;
+            border-radius: var(--radius-soft);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            background: var(--bg-2);
+            font-size: 15px;
+            font-weight: 820;
+        }
+
+        .new-chat-btn:hover,
+        .nav-primary:hover,
+        .quick-link:hover,
+        .tool-action:hover,
+        .agent-btn:hover:not(:disabled) {
+            border-color: rgba(88, 183, 148, 0.62);
+            background: var(--card-2);
+            transform: translateY(-1px);
+        }
+
+        .new-chat-btn.active {
+            color: var(--on-accent);
+            border-color: var(--accent);
+            background: var(--accent);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+        }
+
+        .nav-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 2px 0;
+        }
+
+        .nav-list {
+            display: grid;
+            gap: 6px;
+        }
+
+        .nav-item {
+            width: 100%;
+            height: 52px;
+            border-radius: var(--radius-soft);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            font-size: 15px;
+            font-weight: 820;
+        }
+
+        .nav-item:hover {
+            border-color: rgba(88, 183, 148, 0.62);
+            background: var(--card-2);
+        }
+
+        .nav-item.active {
+            color: var(--on-accent);
+            border-color: var(--accent);
+            background: var(--accent);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+        }
+
+        .nav-item-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+        }
+
+        .nav-item-icon i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .recent-group {
+            margin-top: 20px;
+        }
+
+        .recent-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 760;
+            margin: 0 0 10px 4px;
+        }
+
+        .recent-item {
+            width: 100%;
+            height: 38px;
+            border-color: transparent;
+            border-radius: 13px;
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            padding: 0 8px;
+            color: var(--muted);
+            text-align: left;
+            background: transparent;
+        }
+
+        .recent-item:hover,
+        .recent-item.active {
+            color: var(--text);
+            background: var(--bg-2);
+            border-color: var(--line);
+        }
+
+        .recent-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 720;
+        }
+
+        .recent-time {
+            color: var(--faint);
+            font-size: 11px;
+        }
+
+        .workbench-tool-list {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .tool-list-item {
+            width: 100%;
+            min-height: 88px;
+            border-color: var(--line);
+            border-radius: 14px;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr);
+            align-items: start;
+            gap: 12px;
+            padding: 14px;
+            color: var(--text);
+            text-align: left;
+            background: var(--panel);
+        }
+
+        .tool-list-item:hover,
+        .tool-list-item.active {
+            color: var(--text);
+            background: var(--bg-2);
+            border-color: var(--line);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+        }
+
+        .tool-list-item.active {
+            color: var(--on-accent);
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .tool-list-item.active .tool-list-title {
+            color: var(--on-accent);
+        }
+
+        .tool-list-item.active .tool-list-icon {
+            color: var(--on-accent);
+            background: rgba(16, 20, 29, 0.08);
+        }
+
+        .tool-list-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 13px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            background: var(--bg-2);
+        }
+
+        .tool-list-icon i {
+            width: 20px;
+            height: 20px;
+        }
+
+        .tool-list-copy {
+            min-width: 0;
+            display: block;
+        }
+
+        .tool-list-title {
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 850;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tool-list-desc {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .app-body.drawer-collapsed .left-panel {
+            padding: 10px 8px 54px;
+        }
+
+        .app-body.drawer-collapsed .nav-primary,
+        .app-body.drawer-collapsed .nav-item {
+            justify-content: center;
+            padding: 0;
+        }
+
+        .app-body.drawer-collapsed .new-chat-btn {
+            justify-content: center;
+            padding: 0;
+        }
+
+        .app-body.drawer-collapsed .new-chat-btn span,
+        .app-body.drawer-collapsed .nav-primary span,
+        .app-body.drawer-collapsed .nav-item-label,
+        .app-body.drawer-collapsed .recent-label,
+        .app-body.drawer-collapsed .recent-title,
+        .app-body.drawer-collapsed .recent-time {
+            display: none;
+        }
+
+        .app-body.drawer-collapsed .recent-item {
+            grid-template-columns: 1fr;
+            justify-items: center;
+            padding: 5px;
+        }
+
+        .main-panel {
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-view {
+            position: absolute;
+            inset: 0;
+            min-height: 0;
+            display: none;
+        }
+
+        .main-view.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .breadcrumb {
+            flex: 0 0 auto;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 720;
+        }
+
+        .breadcrumb strong {
+            color: var(--text);
+        }
+
+        #agentView > .breadcrumb {
+            display: none;
+        }
+
+        .view-scroll {
+            min-height: 0;
+            flex: 1;
+            overflow: auto;
+            padding: 14px 2px 18px;
+        }
+
+        #workbenchView > .breadcrumb {
+            display: none;
+        }
+
+        #workbenchView .view-scroll {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #workbenchView:not(.has-frame) .view-scroll {
+            padding: 0 2px 18px;
+            overflow: auto;
+        }
+
+        #agentView.is-home .view-scroll {
+            padding: 0;
+            overflow: auto;
+        }
+
+        #agentView.is-home .agent-chat,
+        #agentView.is-home .composer {
+            display: none;
+        }
+
+        #agentView:not(.is-home) .agent-home {
+            display: none;
+        }
+
+        .agent-chat {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-width: 1060px;
+        }
+
+        .agent-live-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .message-row {
+            display: grid;
+            grid-template-columns: 38px minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
+        }
+
+        .message-row.user {
+            max-width: 620px;
+        }
+
+        .avatar-small {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(88, 183, 148, 0.92);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .avatar-small.agent {
+            background: rgba(125, 139, 155, 0.56);
+        }
+
+        .message-card,
+        .agent-work-card,
+        .composer,
+        .workbench-stage {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+            transition:
+                border-color 0.32s var(--ease),
+                box-shadow 0.32s var(--ease),
+                transform 0.32s var(--ease);
+        }
+
+        .message-card {
+            padding: 14px 16px;
+            color: var(--text);
+        }
+
+        .message-name {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 760;
+            margin-bottom: 4px;
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .agent-work-card {
+            padding: 18px;
+            max-width: 100%;
+        }
+
+        #agentView.is-direct-chat #agentWelcome,
+        #agentView.is-direct-chat #agentUserBubble,
+        #agentView.is-direct-chat .agent-work-row {
+            display: none;
+        }
+
+        #agentView.is-direct-chat .composer-actions #agentCancelBtn,
+        #agentView.is-direct-chat .composer-actions #agentRunBtn {
+            display: none;
+        }
+
+        .agent-work-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .agent-work-title {
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .agent-work-sub {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .agent-section {
+            padding-top: 16px;
+        }
+
+        .agent-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 830;
+            letter-spacing: 0.02em;
+            margin-bottom: 10px;
+        }
+
+        .agent-empty,
+        .agent-meta {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        .agent-plan-title {
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .agent-plan-summary {
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.62;
+        }
+
+        .agent-list {
+            margin: 12px 0 0;
+            padding-left: 18px;
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .agent-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .agent-preview-item {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 10px 12px;
+            background: var(--card);
+        }
+
+        .agent-preview-k {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 780;
+        }
+
+        .agent-preview-v {
+            margin-top: 6px;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.45;
+        }
+
+        .agent-note {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .agent-note.warning {
+            color: var(--warning);
+            border-color: rgba(243, 191, 95, 0.28);
+            background: rgba(243, 191, 95, 0.08);
+        }
+
+        .agent-note.error {
+            color: var(--danger);
+            border-color: rgba(239, 119, 119, 0.30);
+            background: rgba(239, 119, 119, 0.08);
+        }
+
+        .composer {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: end;
+            padding: 14px;
+        }
+
+        .agent-input {
+            width: 100%;
+            height: 56px;
+            min-height: 56px;
+            max-height: 148px;
+            resize: vertical;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--text);
+            line-height: 1.55;
+            padding: 7px 0;
+        }
+
+        .agent-input::placeholder {
+            color: var(--faint);
+        }
+
+        .composer-actions,
+        .agent-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .agent-btn,
+        .tool-action,
+        .quick-link {
+            height: 38px;
+            padding: 0 13px;
+            border-radius: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 820;
+        }
+
+        .agent-btn.primary,
+        .send-btn {
+            border-color: rgba(88, 183, 148, 0.65);
+            background: rgba(88, 183, 148, 0.90);
+            color: #fff;
+        }
+
+        .agent-btn:disabled {
+            opacity: 0.44;
+        }
+
+        .send-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .agent-home {
+            min-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 42px 18px 78px;
+        }
+
+        .agent-home-inner {
+            width: min(100%, 980px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .agent-home-title {
+            margin: 0;
+            color: var(--text);
+            font-size: 40px;
+            font-weight: 900;
+            line-height: 1.08;
+            letter-spacing: 0;
+            text-align: center;
+        }
+
+        .agent-home-card {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            padding: 18px;
+            background: var(--bg-2);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+        }
+
+        .agent-input-shell {
+            position: relative;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: start;
+            gap: 12px;
+        }
+
+        .agent-home-input {
+            width: 100%;
+            min-height: 92px;
+            resize: vertical;
+            border: 0;
+            border-radius: 12px;
+            outline: 0;
+            background: var(--panel);
+            color: var(--text);
+            padding: 16px;
+            line-height: 1.55;
+        }
+
+        .agent-plus-wrap {
+            position: relative;
+            flex: 0 0 auto;
+        }
+
+        .agent-plus-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .agent-plus-btn i {
+            width: 19px;
+            height: 19px;
+        }
+
+        .agent-plus-btn:hover,
+        .agent-plus-wrap.open .agent-plus-btn {
+            color: var(--text);
+            border-color: var(--accent);
+            background: var(--card);
+        }
+
+        .agent-plus-menu {
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 10px);
+            width: min(300px, calc(100vw - 36px));
+            padding: 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 18px;
+            background: var(--panel);
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.30);
+            display: none;
+            z-index: 60;
+        }
+
+        .agent-plus-wrap.open .agent-plus-menu {
+            display: block;
+        }
+
+        .agent-plus-title {
+            padding: 0 4px 8px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 850;
+        }
+
+        .agent-wiki-option-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 220px;
+            overflow: auto;
+        }
+
+        .agent-wiki-option {
+            width: 100%;
+            min-height: 38px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--muted);
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 780;
+        }
+
+        .agent-wiki-option span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agent-wiki-option.active {
+            color: var(--text);
+            border-color: var(--line-strong);
+            background: var(--bg-2);
+        }
+
+        .agent-wiki-option.active::after {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--accent);
+            flex: 0 0 auto;
+        }
+
+        .agent-wiki-chip {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            max-width: 260px;
+            height: 30px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            background: var(--panel);
+            font-size: 12px;
+            font-weight: 760;
+        }
+
+        .agent-wiki-chip.active {
+            display: inline-flex;
+        }
+
+        .agent-wiki-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agent-home-input::placeholder {
+            color: var(--muted);
+        }
+
+        .agent-home-actions {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .agent-home-model-wrap {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .agent-home-model-select {
+            display: none;
+        }
+
+        .agent-home-model-shell {
+            position: relative;
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .agent-model-control {
+            position: relative;
+            min-width: 0;
+        }
+
+        .agent-model-trigger {
+            min-width: 142px;
+            max-width: 230px;
+            height: 42px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            padding: 0 16px;
+            background: var(--panel);
+            color: var(--text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .agent-model-trigger:hover,
+        .agent-model-control.open .agent-model-trigger {
+            border-color: var(--accent);
+            background: var(--card);
+        }
+
+        .agent-model-trigger i {
+            width: 18px;
+            height: 18px;
+            color: var(--muted);
+        }
+
+        .agent-model-trigger span,
+        .agent-model-current {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agent-model-current {
+            max-width: 260px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 15px;
+            font-weight: 760;
+        }
+
+        .agent-model-current i {
+            width: 17px;
+            height: 17px;
+            flex: 0 0 auto;
+        }
+
+        .agent-model-popover {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 12px);
+            width: min(296px, calc(100vw - 36px));
+            padding: 14px;
+            border: 1px solid var(--line-strong);
+            border-radius: 20px;
+            background: var(--panel);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+            display: none;
+            z-index: 50;
+            transform: translateX(-50%);
+        }
+
+        .agent-model-control.open .agent-model-popover {
+            display: block;
+        }
+
+        .agent-model-popover-title {
+            padding: 0 4px 8px;
+            color: var(--muted);
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .agent-model-provider-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .agent-model-provider {
+            width: 100%;
+            min-height: 36px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--muted);
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 15px;
+            font-weight: 780;
+            text-align: left;
+        }
+
+        .agent-model-provider.active {
+            border-color: var(--line-strong);
+            color: var(--text);
+            background: var(--bg-2);
+        }
+
+        .agent-model-provider-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+            opacity: 0;
+            flex: 0 0 auto;
+        }
+
+        .agent-model-provider.active .agent-model-provider-dot {
+            opacity: 1;
+        }
+
+        .agent-home-feature-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            max-width: 880px;
+        }
+
+        .agent-home-feature-btn {
+            height: 46px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0 18px;
+            color: var(--text);
+            background: var(--panel);
+            font-size: 15px;
+            font-weight: 820;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+        }
+
+        .agent-home-feature-btn:hover,
+        .agent-home-feature-btn.active {
+            border-color: rgba(88, 183, 148, 0.62);
+            background: var(--card-2);
+            transform: translateY(-1px);
+        }
+
+        .agent-home-feature-btn i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .workbench-stage {
+            min-height: 0;
+            height: min(78vh, 860px);
+            position: relative;
+            overflow: hidden;
+            background: var(--panel-strong);
+            border-radius: 28px;
+        }
+
+        #workbenchView.has-frame .workbench-stage {
+            height: 100%;
+        }
+
+        .workbench-stage.empty {
+            display: none;
+        }
+
+        .workbench-empty {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            min-height: min(78vh, 860px);
+            padding: 34px 16px;
+            text-align: left;
+        }
+        .workbench-empty-inner {
+            width: min(100%, 980px);
+            display: grid;
+            gap: 18px;
+            justify-items: stretch;
+        }
+        .workbench-empty-head {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr);
+            gap: 12px;
+            align-items: center;
+        }
+        .workbench-empty-icon {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            background: var(--bg-2);
+        }
+        .workbench-empty-icon i {
+            width: 20px;
+            height: 20px;
+        }
+        .workbench-empty-inner h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+        .workbench-empty-inner p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        #workbenchView.has-frame .workbench-empty {
+            display: none;
+        }
+
+        iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            opacity: 0;
+            transition: opacity 0.28s var(--ease);
+            pointer-events: none;
+            background: var(--bg);
+        }
+
+        iframe.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .nano-monitor {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 32px;
+            padding: 0 11px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            background: var(--panel);
+            font-size: 11px;
+            font-weight: 820;
+            box-shadow: 0 12px 34px rgba(0,0,0,.20);
+        }
+
+        .nano-monitor.is-busy {
+            color: var(--on-accent);
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .stat-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pulse-dot,
+        .spinner-nano {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        .spinner-nano {
+            display: none;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #fff;
+            background: transparent;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .nano-monitor.is-busy .pulse-dot {
+            display: none;
+        }
+
+        .nano-monitor.is-busy .spinner-nano {
+            display: inline-block;
+        }
+
+        .divider {
+            width: 1px;
+            height: 12px;
+            background: var(--line-strong);
+        }
+
+        .label-nano {
+            color: var(--faint);
+            font-size: 10px;
+            letter-spacing: 0.03em;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .right-section {
+            padding: 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .right-section:last-child {
+            border-bottom: 0;
+        }
+
+        .right-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .field-label {
+            margin: 15px 0 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .prompt-box,
+        .agent-select {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: var(--card);
+            color: var(--text);
+            outline: 0;
+        }
+
+        .prompt-box {
+            min-height: 92px;
+            padding: 12px;
+            resize: vertical;
+            line-height: 1.55;
+            color: var(--muted);
+        }
+
+        .prompt-count {
+            margin-top: 6px;
+            text-align: right;
+            color: var(--faint);
+            font-size: 11px;
+        }
+
+        .agent-field-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .agent-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .agent-field span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 780;
+        }
+
+        .agent-select {
+            height: 38px;
+            padding: 0 10px;
+        }
+
+        .agent-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            color: var(--muted);
+            border: 1px solid var(--line);
+            background: var(--card);
+            font-size: 12px;
+            font-weight: 830;
+        }
+
+        .agent-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--faint);
+        }
+
+        .agent-status.running .agent-status-dot,
+        .agent-status.loading .agent-status-dot {
+            background: var(--warning);
+        }
+
+        .agent-status.succeeded .agent-status-dot,
+        .agent-status.planned .agent-status-dot {
+            background: var(--accent);
+        }
+
+        .agent-status.failed .agent-status-dot,
+        .agent-status.error .agent-status-dot {
+            background: var(--danger);
+        }
+
+        .status-steps,
+        .agent-timeline {
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .status-step,
+        .agent-event {
+            position: relative;
+            padding-left: 22px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .status-step::before,
+        .agent-event::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line-strong);
+            background: transparent;
+        }
+
+        .status-step.done,
+        .agent-event.succeeded {
+            color: var(--text);
+        }
+
+        .status-step.done::before,
+        .agent-event.succeeded::before {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .agent-event.running::before {
+            border-color: var(--warning);
+            background: var(--warning);
+        }
+
+        .agent-event.failed::before {
+            border-color: var(--danger);
+            background: var(--danger);
+        }
+
+        .agent-event-time {
+            display: block;
+            color: var(--faint);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .quick-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quick-link {
+            width: 100%;
+            justify-content: flex-start;
+            background: var(--card);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        @media (max-width: 1180px) {
+            .app-body {
+                grid-template-columns: 250px minmax(0, 1fr);
+            }
+            .right-panel {
+                display: none;
+            }
+            .topbar {
+                grid-template-columns: auto minmax(0, 1fr);
+            }
+            .top-actions {
+                display: none;
+            }
+        }
+
+        @media (max-width: 820px) {
+            html,
+            body {
+                overflow: auto;
+                height: auto;
+                min-height: 100%;
+            }
+            .app-shell {
+                min-height: 100vh;
+            }
+            .topbar {
+                height: auto;
+                min-height: 64px;
+                grid-template-columns: 1fr;
+                align-items: start;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+            .app-body {
+                display: flex;
+                flex-direction: column;
+                padding: 14px;
+                gap: 14px;
+                min-height: 0;
+            }
+            .left-panel {
+                border-right: 0;
+                padding: 0;
+            }
+            .nav-scroll {
+                max-height: 420px;
+            }
+            .main-panel {
+                min-height: 720px;
+            }
+            .agent-preview-grid {
+                grid-template-columns: 1fr;
+            }
+            .composer {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .workbench-stage {
+                height: 640px;
+            }
+            .agent-home-title {
+                font-size: 32px;
+            }
+            .agent-home-actions {
+                grid-template-columns: 1fr auto;
+            }
+            .agent-home-model-wrap {
+                grid-column: 1 / -1;
+            }
+            .agent-home-model-shell,
+            .agent-model-control,
+            .agent-model-trigger {
+                width: 100%;
+            }
+            .agent-home-model-shell {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div class="brand-title">Infinite Agent Work</div>
+                <span id="logo-dot" class="pulse-dot" style="display:none"></span>
+            </div>
+            <div class="top-actions">
+                <div class="nano-monitor" id="nano-monitor">
+                    <div class="stat-group">
+                        <div class="pulse-dot"></div>
+                        <div class="spinner-nano"></div>
+                        <span class="label-nano">ONLINE</span>
+                        <span id="online-val">1</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="stat-group">
+                        <span class="label-nano">QUEUE</span>
+                        <span id="queue-val">0</span>
+                    </div>
+                </div>
+                <button class="icon-btn" type="button" title="搜索"><i data-lucide="search"></i></button>
+                <button class="icon-btn" type="button" title="通知"><i data-lucide="bell"></i></button>
+                <button class="icon-btn" type="button" title="API 设置" data-top-action="settings"><i data-lucide="settings"></i></button>
+                <button class="icon-btn" type="button" title="切换主题" id="theme-toggle-btn">
+                    <i id="icon-moon" data-lucide="moon"></i>
+                    <i id="icon-sun" class="hide" data-lucide="sun"></i>
+                </button>
+                <button class="avatar-btn" type="button" title="账户">
+                    <span class="avatar-circle">A</span>
+                    <i data-lucide="chevron-down" style="width:16px;height:16px"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="app-body">
+	            <aside class="left-panel">
+	                <div class="left-top">
+	                    <button class="new-chat-btn" type="button" id="newAgentBtn">
+	                        <i data-lucide="sparkles"></i>
+	                        <span>Agent / 新对话</span>
+	                    </button>
+	                    <div class="nav-list">
+	                        <button class="nav-item" type="button" data-nav-page="workbench">
+	                            <span class="nav-item-icon"><i data-lucide="wrench"></i></span>
+	                            <span class="nav-item-label">图像工具</span>
+	                        </button>
+	                        <button class="nav-item" type="button" data-nav-page="wiki">
+	                            <span class="nav-item-icon"><i data-lucide="book-open"></i></span>
+	                            <span class="nav-item-label">知识库</span>
+	                        </button>
+	                        <button class="nav-item" type="button" data-nav-page="library">
+	                            <span class="nav-item-icon"><i data-lucide="library"></i></span>
+	                            <span class="nav-item-label">资源库</span>
+	                        </button>
+	                    </div>
+	                </div>
+
+	                <div class="nav-scroll">
+	                    <div class="recent-group">
+	                        <div class="recent-label">最近</div>
+                        <div id="recentAgentList"></div>
+                    </div>
+                </div>
+
+                <button class="drawer-toggle" type="button" id="drawerToggleBtn" title="收起菜单" aria-label="收起菜单">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
+            </aside>
+
+            <main class="main-panel">
+                <section class="main-view active is-home" id="agentView">
+                    <div class="breadcrumb">
+                        <span>‹</span>
+                        <strong>Agent</strong>
+                        <span>/</span>
+                        <span id="agentBreadcrumbContext">设计出图</span>
+                        <span>/</span>
+                        <span>智能画布</span>
+                        <span>/</span>
+                        <span>资源库</span>
+                    </div>
+                    <div class="view-scroll">
+                        <div class="agent-home">
+                            <div class="agent-home-inner">
+                                <h1 class="agent-home-title">您在想什么？</h1>
+                                <div class="agent-home-card">
+                                    <div class="agent-input-shell">
+                                        <div class="agent-plus-wrap" data-agent-plus>
+                                            <button class="agent-plus-btn" type="button" title="添加知识库"><i data-lucide="plus"></i></button>
+                                            <div class="agent-plus-menu">
+                                                <div class="agent-plus-title">知识库</div>
+                                                <div class="agent-wiki-option-list" data-agent-wiki-list></div>
+                                            </div>
+                                        </div>
+                                        <textarea id="agentHomeInput" class="agent-home-input" placeholder="询问 APIMart（目前暂不支持生成图片或视频）"></textarea>
+                                    </div>
+                                    <div class="agent-home-actions">
+                                        <div class="agent-wiki-chip" data-agent-wiki-chip><i data-lucide="book-open"></i><span></span></div>
+                                        <div class="agent-home-model-wrap">
+                                            <div class="agent-home-model-shell">
+                                                <select id="agentHomeModelSelect" class="agent-home-model-select">
+                                                    <option>GPT-5</option>
+                                                </select>
+                                                <div class="agent-model-control" id="agentProviderPicker">
+                                                    <button class="agent-model-trigger" type="button" id="agentProviderTrigger" title="选择 API 平台">
+                                                        <i data-lucide="plug-zap"></i><span id="agentProviderLabel">API 平台</span>
+                                                    </button>
+                                                    <div class="agent-model-popover">
+                                                        <div class="agent-model-popover-title">API 平台</div>
+                                                        <div class="agent-model-provider-list" id="agentProviderList"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="agent-model-control" id="agentModelPicker">
+                                                    <button class="agent-model-trigger" type="button" id="agentModelTrigger" title="选择模型">
+                                                        <i data-lucide="sparkles"></i><span id="agentModelLabel">模型</span>
+                                                    </button>
+                                                    <div class="agent-model-popover">
+                                                        <div class="agent-model-popover-title">模型</div>
+                                                        <div class="agent-model-provider-list" id="agentModelList"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="send-btn" type="button" id="agentHomeSendBtn" title="发送"><i data-lucide="send"></i></button>
+                                    </div>
+                                </div>
+                                <div class="agent-home-feature-row" aria-label="Agent 功能占位">
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="summary"><i data-lucide="file-text"></i><span>总结</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="code"><i data-lucide="code-2"></i><span>代码</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn active" type="button" data-agent-mode="design"><i data-lucide="palette"></i><span>设计</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="research"><i data-lucide="search"></i><span>研究</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="inspiration"><i data-lucide="sparkles"></i><span>获取灵感</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="deep"><i data-lucide="brain"></i><span>深度思考</span><i data-lucide="chevron-down"></i></button>
+                                    <button class="agent-home-feature-btn" type="button" data-agent-mode="learn"><i data-lucide="graduation-cap"></i><span>轻松学习</span><i data-lucide="chevron-down"></i></button>
+                                </div>
+                            </div>
+                        </div>
+	                        <div class="agent-chat">
+	                            <div class="agent-live-messages" id="agentLiveMessages"></div>
+	                            <div class="message-row user hide" id="agentUserBubble">
+                                <div class="avatar-small">我</div>
+                                <div class="message-card">
+                                    <div class="message-name">
+                                        <span>我</span>
+                                        <span id="agentUserTime"></span>
+                                    </div>
+                                    <div class="message-text" id="agentUserText"></div>
+                                </div>
+                            </div>
+
+                            <div class="message-row" id="agentWelcome">
+                                <div class="avatar-small agent"><i data-lucide="sparkles" style="width:16px;height:16px"></i></div>
+                                <div class="message-card">
+                                    <div class="message-name">
+                                        <span>Agent</span>
+                                        <span>准备就绪</span>
+                                    </div>
+                                    <div class="message-text">输入一个目标，我会先生成可确认的工作计划。涉及写入资源库、创建智能画布或批量标注时，会先展示范围和状态。</div>
+                                </div>
+                            </div>
+
+                            <div class="message-row agent-work-row">
+                                <div class="avatar-small agent"><i data-lucide="bot" style="width:16px;height:16px"></i></div>
+                                <div class="agent-work-card">
+                                    <div class="agent-work-head">
+                                        <div>
+                                            <div class="agent-work-title">工作台 Agent</div>
+                                            <div class="agent-work-sub" id="agentContextMeta">将根据当前页面自动带上基础上下文。</div>
+                                        </div>
+                                        <div class="agent-status" id="agentStatusBadge">
+                                            <span class="agent-status-dot"></span>
+                                            <span id="agentStatusText">未开始</span>
+                                        </div>
+                                    </div>
+                                    <section class="agent-section">
+                                        <div class="agent-label">计划预览</div>
+                                        <div id="agentPlanResult" class="agent-empty">生成计划后，这里会展示步骤、工具和确认点。</div>
+                                    </section>
+                                    <section class="agent-section">
+                                        <div class="agent-label">执行结果</div>
+                                        <div id="agentResult" class="agent-empty">执行完成后，这里会展示回跳入口。</div>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="composer">
+                        <div class="agent-plus-wrap" data-agent-plus>
+                            <button class="agent-plus-btn" type="button" title="添加知识库"><i data-lucide="plus"></i></button>
+                            <div class="agent-plus-menu">
+                                <div class="agent-plus-title">知识库</div>
+                                <div class="agent-wiki-option-list" data-agent-wiki-list></div>
+                            </div>
+                        </div>
+                        <textarea id="agentGoalInput" class="agent-input" placeholder="继续对话，或输入 / 调用工具"></textarea>
+                        <div class="composer-actions">
+                            <div class="agent-wiki-chip" data-agent-wiki-chip><i data-lucide="book-open"></i><span></span></div>
+                            <button class="agent-btn" type="button" id="agentCancelBtn" disabled>取消任务</button>
+                            <button class="agent-btn" type="button" id="agentRunBtn" disabled>执行计划</button>
+                            <button class="send-btn" type="button" id="agentPlanBtn" title="生成计划"><i data-lucide="send"></i></button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="main-view" id="workbenchView">
+                    <div class="breadcrumb">
+                        <span>‹</span>
+                        <strong>工作台</strong>
+                        <span>/</span>
+                        <span id="workbenchBreadcrumb">工具库</span>
+                    </div>
+                    <div class="view-scroll">
+                        <div class="workbench-empty" id="workbenchEmpty">
+                            <div class="workbench-empty-inner">
+                                <div class="workbench-empty-head">
+                                    <span class="workbench-empty-icon"><i data-lucide="wrench"></i></span>
+                                    <div>
+                                        <h2>工具</h2>
+                                        <p>生图、编辑、增强、对话和画布入口。</p>
+                                    </div>
+                                </div>
+                                <div class="workbench-tool-list" id="workbenchToolList"></div>
+                            </div>
+                        </div>
+                        <div class="workbench-stage empty" id="workbenchStage">
+                            <iframe id="frame-zimage" data-src="/static/zimage.html?v=20260512-i18n2" scrolling="yes"></iframe>
+                            <iframe id="frame-online" data-src="/static/online.html?v=20260512-i18n2" scrolling="yes"></iframe>
+                            <iframe id="frame-klein" data-src="/static/klein.html?v=20260512-i18n2" scrolling="yes"></iframe>
+                            <iframe id="frame-enhance" data-src="/static/enhance.html?v=20260512-i18n2" scrolling="yes"></iframe>
+                            <iframe id="frame-angle" data-src="/static/angle.html?v=20260512-i18n2" scrolling="yes"></iframe>
+                            <iframe id="frame-gpt-chat" data-src="/static/gpt-chat.html?v=20260514-provider-chat-models" scrolling="yes"></iframe>
+                            <iframe id="frame-canvas" data-src="/static/canvas.html?v=20260518-canvas-fixes" scrolling="yes"></iframe>
+                            <iframe id="frame-library" data-src="/static/library.html?v=20260603-prompt-library-shell" scrolling="yes"></iframe>
+                            <iframe id="frame-wiki" data-src="/static/wiki.html?v=20260608-qa-bottom-composer" scrolling="yes"></iframe>
+                            <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=20260517-provider-fetch-form2" scrolling="yes"></iframe>
+                            <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=20260515-workflow-refresh" scrolling="yes"></iframe>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="right-panel">
+                <div id="agentRightPanel">
+                    <section class="right-section">
+                        <div class="right-title">
+                            <i data-lucide="image-plus" style="color:var(--accent-2)"></i>
+                            <span>设计出图工具</span>
+                        </div>
+                        <div class="field-label">正向提示词</div>
+                        <textarea class="prompt-box" readonly>商业街区入口概念设计，现代风格，开放空间，人流聚集，夜景氛围，材质对比，灯光设计，简洁大气，商业氛围</textarea>
+                        <div class="prompt-count">60/1000</div>
+                        <div class="field-label">负向提示词</div>
+                        <textarea class="prompt-box" readonly>低清晰度，模糊，畸形，杂乱，过度拼接，文字错误</textarea>
+                        <div class="prompt-count">24/1000</div>
+                    </section>
+
+                    <section class="right-section" id="agentConfigCard" style="display:none">
+                        <div class="agent-label">执行配置</div>
+                        <div class="agent-field-grid">
+                            <label class="agent-field">
+                                <span>Provider</span>
+                                <select id="agentProviderSelect" class="agent-select"></select>
+                            </label>
+                            <label class="agent-field">
+                                <span>模型</span>
+                                <select id="agentModelSelect" class="agent-select"></select>
+                            </label>
+                        </div>
+                        <div class="agent-meta" id="agentConfigHint" style="margin-top:10px;">批量标注需要显式选择可用的聊天模型。</div>
+                    </section>
+
+                    <section class="right-section">
+                        <div class="field-label" style="margin-top:0">状态</div>
+                        <div class="agent-meta" id="agentTaskMeta">还没有生成计划。</div>
+                        <div class="status-steps" id="agentStatusSteps">
+                            <div class="status-step">读取资源</div>
+                            <div class="status-step">优化提示词</div>
+                            <div class="status-step">生成图片</div>
+                            <div class="status-step">等待用户选择</div>
+                        </div>
+                        <div class="agent-timeline" id="agentTaskEvents"></div>
+                    </section>
+                </div>
+
+                <div id="workbenchRightPanel" class="hide">
+                    <section class="right-section">
+                        <div class="right-title">
+                            <i data-lucide="wrench" style="color:var(--accent-2)"></i>
+                            <span id="workbenchToolTitle">工具库</span>
+                        </div>
+                        <div class="agent-meta" id="workbenchToolDesc" style="margin-top:12px;">选择一个工具开始工作，现有页面会在工作台中打开。</div>
+                    </section>
+                    <section class="right-section">
+                        <div class="field-label" style="margin-top:0">快捷入口</div>
+                        <div class="quick-links">
+                            <button class="quick-link" type="button" data-quick-page="online"><i data-lucide="image"></i><span>在线 API 生图</span></button>
+                            <button class="quick-link" type="button" data-quick-page="canvas"><i data-lucide="layout-grid"></i><span>智能画布</span></button>
+                            <button class="quick-link" type="button" data-quick-page="library"><i data-lucide="library"></i><span>资源库</span></button>
+                            <button class="quick-link" type="button" data-quick-page="api-settings"><i data-lucide="settings"></i><span>API 设置</span></button>
+                        </div>
+                    </section>
+                    <section class="right-section">
+                        <div class="field-label" style="margin-top:0">模型入口</div>
+                        <div class="agent-meta" id="modelSummaryText">正在读取模型配置...</div>
+                        <div class="agent-actions" style="margin-top:12px;">
+                            <button class="agent-btn" type="button" data-top-action="models"><i data-lucide="boxes"></i><span>管理模型</span></button>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        function refreshIcons() {
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                try { return crypto.randomUUID(); } catch (e) { }
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        const CID = localStorage.getItem("client_id") || generateUUID();
+        localStorage.setItem("client_id", CID);
+
+        const ACTIVE_PAGE_KEY = 'studio_active_page';
+        const RECENT_AGENT_KEY = 'studio_agent_recent_v1';
+        const DRAWER_COLLAPSED_KEY = 'studio_drawer_collapsed';
+        const DEFAULT_PAGE_ID = 'agent';
+        const PAGE_IDS = ['agent','workbench','zimage','enhance','klein','angle','online','gpt-chat','canvas','library','wiki','api-settings','comfyui-settings'];
+        const FRAME_PAGE_IDS = ['zimage','enhance','klein','angle','online','gpt-chat','canvas','library','wiki','api-settings','comfyui-settings'];
+        const AGENT_MODES = {
+            summary: { label:'总结', taskType:'work_task', placeholder:'总结资料、会议记录或当前知识库内容。' },
+            code: { label:'代码', taskType:'work_task', placeholder:'描述代码任务。第一版会记录入口，后续接 Pi Coding Agent。' },
+            design: { label:'设计', taskType:'design_task', placeholder:'直接提问，我会调用你选择的真实 API 模型回复。' },
+            research: { label:'研究', taskType:'wiki_task', placeholder:'提出研究问题，我会先查 LLM Wiki 并保存问答档案。' },
+            inspiration: { label:'获取灵感', taskType:'design_task', placeholder:'描述主题，我会结合 Wiki 和资源库生成灵感方向。' },
+            deep: { label:'深度思考', taskType:'wiki_task', placeholder:'输入复杂问题，我会基于 Wiki 组织更深入的判断。' },
+            learn: { label:'轻松学习', taskType:'wiki_task', placeholder:'输入想学习的主题，我会生成学习型问答档案。' }
+        };
+        const WORKBENCH_TOOLS = [
+            { id:'zimage', label:'Z-Image', icon:'sparkles', desc:'本地或 ModelScope 文生图入口。' },
+            { id:'online', label:'在线 API 生图', icon:'image-plus', desc:'使用已配置 Provider 和模型生成或编辑图片。' },
+            { id:'klein', label:'图片编辑', icon:'wand-sparkles', desc:'面向参考图的编辑与重绘工具。' },
+            { id:'enhance', label:'图片增强', icon:'zap', desc:'放大、细节增强和结果回看。' },
+            { id:'angle', label:'角度控制', icon:'box', desc:'上传图片并生成不同视角。' },
+            { id:'gpt-chat', label:'GPT 对话', icon:'messages-square', desc:'多轮聊天和提示词辅助。' },
+            { id:'canvas', label:'智能画布', icon:'layout-grid', desc:'参考图、节点、连线和多模型工作流。' }
+        ];
+
+        let currentPageId = DEFAULT_PAGE_ID;
+        let activeShellMode = 'agent';
+        let activeFrameId = '';
+        let currentAgentTask = null;
+        let agentContextOverride = null;
+        let agentPollTimer = null;
+        let agentProviders = [];
+        let recentAgentItems = [];
+        let activeAgentConversationId = '';
+        let activeAgentMode = localStorage.getItem('studio_agent_mode') || 'design';
+        let activeAgentChatConversationId = '';
+        let agentHomeProviderModels = [];
+        let selectedAgentWikiRoot = localStorage.getItem('studio_agent_selected_wiki_root') || '';
+
+        const appBody = document.querySelector('.app-body');
+        const agentView = document.getElementById('agentView');
+        const workbenchView = document.getElementById('workbenchView');
+        const workbenchStage = document.getElementById('workbenchStage');
+        const leftPanel = document.querySelector('.left-panel');
+        const workbenchToolList = document.getElementById('workbenchToolList');
+        const agentRightPanel = document.getElementById('agentRightPanel');
+        const workbenchRightPanel = document.getElementById('workbenchRightPanel');
+        const newAgentBtn = document.getElementById('newAgentBtn');
+        const agentNavBtn = newAgentBtn;
+        const drawerToggleBtn = document.getElementById('drawerToggleBtn');
+        const recentAgentList = document.getElementById('recentAgentList');
+        const agentGoalInput = document.getElementById('agentGoalInput');
+        const agentPlanBtn = document.getElementById('agentPlanBtn');
+        const agentRunBtn = document.getElementById('agentRunBtn');
+        const agentCancelBtn = document.getElementById('agentCancelBtn');
+        const agentContextMeta = document.getElementById('agentContextMeta');
+        const agentStatusBadge = document.getElementById('agentStatusBadge');
+        const agentStatusText = document.getElementById('agentStatusText');
+        const agentTaskMeta = document.getElementById('agentTaskMeta');
+        const agentTaskEvents = document.getElementById('agentTaskEvents');
+        const agentStatusSteps = document.getElementById('agentStatusSteps');
+        const agentPlanResult = document.getElementById('agentPlanResult');
+        const agentResult = document.getElementById('agentResult');
+        const agentConfigCard = document.getElementById('agentConfigCard');
+        const agentProviderSelect = document.getElementById('agentProviderSelect');
+        const agentModelSelect = document.getElementById('agentModelSelect');
+        const agentConfigHint = document.getElementById('agentConfigHint');
+        const agentUserBubble = document.getElementById('agentUserBubble');
+        const agentUserText = document.getElementById('agentUserText');
+        const agentUserTime = document.getElementById('agentUserTime');
+        const agentBreadcrumbContext = document.getElementById('agentBreadcrumbContext');
+        const workbenchBreadcrumb = document.getElementById('workbenchBreadcrumb');
+        const workbenchToolTitle = document.getElementById('workbenchToolTitle');
+        const workbenchToolDesc = document.getElementById('workbenchToolDesc');
+        const modelSummaryText = document.getElementById('modelSummaryText');
+        const agentHomeInput = document.getElementById('agentHomeInput');
+        const agentHomeModelSelect = document.getElementById('agentHomeModelSelect');
+        const agentHomeSendBtn = document.getElementById('agentHomeSendBtn');
+        const agentLiveMessages = document.getElementById('agentLiveMessages');
+        const agentProviderPicker = document.getElementById('agentProviderPicker');
+        const agentModelPicker = document.getElementById('agentModelPicker');
+        const agentProviderTrigger = document.getElementById('agentProviderTrigger');
+        const agentModelTrigger = document.getElementById('agentModelTrigger');
+        const agentProviderLabel = document.getElementById('agentProviderLabel');
+        const agentModelLabel = document.getElementById('agentModelLabel');
+        const agentProviderList = document.getElementById('agentProviderList');
+        const agentModelList = document.getElementById('agentModelList');
+        const agentPlusWraps = document.querySelectorAll('[data-agent-plus]');
+        const agentWikiLists = document.querySelectorAll('[data-agent-wiki-list]');
+        const agentWikiChips = document.querySelectorAll('[data-agent-wiki-chip]');
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatShortTime(value) {
+            const date = value ? new Date(Number(value)) : new Date();
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+        }
+
+        function formatAgentTime(value) {
+            const date = value ? new Date(Number(value)) : null;
+            if (!date || Number.isNaN(date.getTime())) return '';
+            return date.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        }
+
+        function humanPageLabel(pageId) {
+            const map = {
+                agent: 'Agent',
+                workbench: '工作台',
+                library: '资源库',
+                wiki: '知识库',
+                canvas: '智能画布/画布',
+                home: '首页工作台',
+                zimage: 'Z-Image',
+                enhance: '增强页',
+                klein: '编辑页',
+                angle: '角度页',
+                online: '在线生图',
+                'gpt-chat': 'GPT 对话',
+                'api-settings': 'API 设置',
+                'comfyui-settings': 'ComfyUI 设置'
+            };
+            return map[pageId] || '当前页面';
+        }
+
+        function toolById(id) {
+            return WORKBENCH_TOOLS.find(tool => tool.id === id) || null;
+        }
+
+        function isWorkbenchToolPage(id) {
+            return Boolean(toolById(id));
+        }
+
+        function renderWorkbenchTools() {
+            if (!workbenchToolList) return;
+            workbenchToolList.innerHTML = WORKBENCH_TOOLS.map(tool => `
+                <button class="tool-list-item ${tool.id === activeFrameId ? 'active' : ''}" type="button" data-tool-id="${escapeHtml(tool.id)}">
+                    <span class="tool-list-icon"><i data-lucide="${escapeHtml(tool.icon)}"></i></span>
+                    <span class="tool-list-copy">
+                        <span class="tool-list-title">${escapeHtml(tool.label)}</span>
+                        <span class="tool-list-desc">${escapeHtml(tool.desc)}</span>
+                    </span>
+                </button>
+            `).join('');
+            refreshIcons();
+        }
+
+        function renderWorkbenchPanel(id = activeFrameId) {
+            const tool = toolById(id);
+            if (workbenchToolTitle) workbenchToolTitle.textContent = tool?.label || '工具';
+            if (workbenchToolDesc) workbenchToolDesc.textContent = tool?.desc || '生图、编辑、增强、对话和画布入口。';
+            workbenchBreadcrumb.textContent = tool?.label || '工具';
+        }
+
+        function syncPrimaryNav() {
+            document.querySelectorAll('[data-nav-page]').forEach(btn => {
+                const page = btn.dataset.navPage;
+                const active = page === 'workbench'
+                    ? activeShellMode === 'workbench' && (currentPageId === 'workbench' || isWorkbenchToolPage(currentPageId))
+                    : currentPageId === page;
+                btn.classList.toggle('active', active);
+            });
+        }
+
+        function setDrawerCollapsed(collapsed, remember = true) {
+            appBody.classList.toggle('drawer-collapsed', Boolean(collapsed));
+            drawerToggleBtn?.setAttribute('title', collapsed ? '展开菜单' : '收起菜单');
+            drawerToggleBtn?.setAttribute('aria-label', collapsed ? '展开菜单' : '收起菜单');
+            if (drawerToggleBtn) {
+                drawerToggleBtn.innerHTML = collapsed
+                    ? '<i data-lucide="panel-left-open"></i>'
+                    : '<i data-lucide="panel-left-close"></i>';
+            }
+            if (remember) localStorage.setItem(DRAWER_COLLAPSED_KEY, collapsed ? '1' : '0');
+            refreshIcons();
+        }
+
+        function switchShellMode(mode, options = {}) {
+            activeShellMode = mode === 'workbench' ? 'workbench' : 'agent';
+            agentView.classList.toggle('active', activeShellMode === 'agent');
+            workbenchView.classList.toggle('active', activeShellMode === 'workbench');
+            agentRightPanel?.classList.add('hide');
+            workbenchRightPanel?.classList.add('hide');
+            appBody.classList.toggle('workbench-layout', activeShellMode === 'workbench');
+            agentNavBtn?.classList.toggle('active', activeShellMode === 'agent');
+            syncPrimaryNav();
+            if (!options.skipRemember) {
+                localStorage.setItem(ACTIVE_PAGE_KEY, activeShellMode === 'agent' ? 'agent' : (activeFrameId || 'workbench'));
+            }
+            updateAgentContextMeta();
+            refreshIcons();
+        }
+
+        function switchUI(el, id, options = {}) {
+            if (!PAGE_IDS.includes(id)) id = DEFAULT_PAGE_ID;
+            if (id === 'agent') {
+                currentPageId = 'agent';
+                switchShellMode('agent', options);
+                return;
+            }
+            if (id === 'workbench') {
+                currentPageId = 'workbench';
+                activeFrameId = '';
+                document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
+                workbenchStage.classList.add('empty');
+                workbenchView.classList.remove('has-frame');
+                renderWorkbenchTools();
+                renderWorkbenchPanel('');
+                switchShellMode('workbench', options);
+                return;
+            }
+            activateFrame(id, '', options);
+        }
+
+        function activateFrame(id, url = '', options = {}) {
+            if (!FRAME_PAGE_IDS.includes(id)) id = 'online';
+            const target = document.getElementById('frame-' + id);
+            if (!target) return;
+            activeFrameId = id;
+            currentPageId = id;
+            document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
+            if (url) target.src = url;
+            else if (!target.src) target.src = target.dataset.src;
+            target.classList.add('active');
+            workbenchStage.classList.remove('empty');
+            workbenchView.classList.add('has-frame');
+            renderWorkbenchTools();
+            renderWorkbenchPanel(id);
+            switchShellMode('workbench', options);
+            syncThemeToFrame(target);
+            syncLanguageToFrame(target);
+            if (id === 'canvas' && target.src) {
+                try { target.contentWindow?.postMessage({ type: 'canvas-focus' }, '*'); } catch(e) {}
+            }
+        }
+
+        function requestedPageId() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const page = params.get('page') || params.get('tab') || '';
+                if (PAGE_IDS.includes(page)) return page;
+            } catch(e) {}
+            return '';
+        }
+
+        function restoreActivePage() {
+            renderWorkbenchTools();
+            renderRecentAgentThreads();
+            setDrawerCollapsed(localStorage.getItem(DRAWER_COLLAPSED_KEY) === '1', false);
+            const requested = requestedPageId();
+            if (requested) switchUI(null, requested, { skipRemember: true });
+            else switchUI(null, DEFAULT_PAGE_ID, { skipRemember: true });
+            document.documentElement.classList.remove('studio-route-booting');
+        }
+
+        function openStudioPage(pageId, url = '') {
+            const id = PAGE_IDS.includes(pageId) ? pageId : DEFAULT_PAGE_ID;
+            if (FRAME_PAGE_IDS.includes(id)) activateFrame(id, url);
+            else switchUI(null, id);
+        }
+
+        function handleTopAction(action) {
+            if (action === 'models' || action === 'settings') openStudioPage('api-settings');
+        }
+
+        function syncThemeToFrame(iframe) {
+            const theme = (window.StudioTheme || {get: () => 'dark'}).get();
+            try {
+                iframe?.contentWindow?.postMessage({ type: 'studio-theme', theme }, '*');
+            } catch (e) {}
+        }
+
+        function broadcastTheme(theme) {
+            if (window.StudioTheme) window.StudioTheme.set(theme);
+            document.querySelectorAll('iframe').forEach(frame => syncThemeToFrame(frame));
+            updateThemeIcon(theme);
+        }
+
+        function updateThemeIcon(theme) {
+            const moon = document.getElementById('icon-moon');
+            const sun = document.getElementById('icon-sun');
+            if (!moon || !sun) return;
+            moon.classList.toggle('hide', theme === 'dark');
+            sun.classList.toggle('hide', theme !== 'dark');
+            refreshIcons();
+        }
+
+        function toggleTheme() {
+            const current = window.StudioTheme ? window.StudioTheme.get() : 'dark';
+            broadcastTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        function toggleLanguage() {
+            if(!window.StudioI18n) return;
+            window.StudioI18n.toggle();
+            broadcastLanguage();
+        }
+
+        function syncLanguageToFrame(frame) {
+            if(!window.StudioI18n || !frame) return;
+            try {
+                frame.contentWindow?.postMessage({ type:'studio-lang', lang:window.StudioI18n.lang() }, '*');
+            } catch(e) {}
+        }
+
+        function broadcastLanguage() {
+            document.querySelectorAll('iframe').forEach(frame => syncLanguageToFrame(frame));
+        }
+
+        function stopAgentPolling() {
+            if (agentPollTimer) {
+                clearInterval(agentPollTimer);
+                agentPollTimer = null;
+            }
+        }
+
+        function agentTaskNeedsModelConfig(task = currentAgentTask) {
+            const toolIds = task?.plan?.tool_ids || [];
+            return Array.isArray(toolIds) && toolIds.includes('tag_library_images');
+        }
+
+        function findAgentProvider(providerId) {
+            return agentProviders.find(item => item.id === providerId) || null;
+        }
+
+        function providerModelOptions(providerId) {
+            const provider = findAgentProvider(providerId);
+            return Array.isArray(provider?.chat_models) ? provider.chat_models : [];
+        }
+
+        function renderAgentModelOptions(preferredModel = '') {
+            const providerId = agentProviderSelect.value;
+            const models = providerModelOptions(providerId);
+            agentModelSelect.innerHTML = '';
+            if (models.length) {
+                models.forEach(model => {
+                    const opt = document.createElement('option');
+                    opt.value = model;
+                    opt.textContent = model;
+                    agentModelSelect.appendChild(opt);
+                });
+                agentModelSelect.value = models.includes(preferredModel) ? preferredModel : models[0];
+            } else {
+                agentModelSelect.innerHTML = '<option value="">-- 请先配置可用模型 --</option>';
+            }
+        }
+
+        async function ensureAgentProvidersLoaded() {
+            if (agentProviders.length) return;
+            try {
+                const res = await fetch('/api/providers');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || '加载 Provider 失败');
+                agentProviders = (data.providers || []).filter(item => item.enabled);
+            } catch (err) {
+                agentProviders = [];
+            }
+        }
+
+        async function syncAgentConfigCard(task = currentAgentTask) {
+            if (!agentTaskNeedsModelConfig(task)) {
+                agentConfigCard.style.display = 'none';
+                return;
+            }
+            agentConfigCard.style.display = '';
+            await ensureAgentProvidersLoaded();
+            const ctx = buildAgentContext();
+            const currentProvider = ctx.provider || '';
+            const currentModel = ctx.model || '';
+            agentProviderSelect.innerHTML = '<option value="">默认</option>';
+            agentProviders.forEach(provider => {
+                const opt = document.createElement('option');
+                opt.value = provider.id;
+                opt.textContent = provider.name || provider.id;
+                agentProviderSelect.appendChild(opt);
+            });
+            agentProviderSelect.value = currentProvider;
+            renderAgentModelOptions(currentModel);
+            if (currentModel) {
+                const models = providerModelOptions(agentProviderSelect.value);
+                if (models.includes(currentModel)) agentModelSelect.value = currentModel;
+            }
+            agentConfigHint.textContent = agentModelSelect.value
+                ? `当前将使用 ${agentProviderSelect.value || '默认'} / ${agentModelSelect.value} 进行批量标注。`
+                : '批量标注需要显式选择可用的聊天模型。';
+            updateAgentRunAvailability();
+        }
+
+        function agentContextOverridesFromControls() {
+            if (!agentTaskNeedsModelConfig()) return {};
+            return {
+                provider: agentProviderSelect.value || '',
+                model: agentModelSelect.value || ''
+            };
+        }
+
+        function currentAgentModeConfig() {
+            return AGENT_MODES[activeAgentMode] || AGENT_MODES.design;
+        }
+
+        function activeLocalWikiContext() {
+            try {
+                const root = localStorage.getItem('studio_active_local_wiki') || '';
+                if (!root) return {};
+                const all = JSON.parse(localStorage.getItem('studio_local_wikis') || '[]');
+                const item = Array.isArray(all) ? all.find(entry => entry.root === root) : null;
+                return {
+                    local_wiki_root: root,
+                    local_wiki_name: item?.name || '本地知识库'
+                };
+            } catch(e) {
+                return {};
+            }
+        }
+
+        function localWikiRegistry() {
+            try {
+                const all = JSON.parse(localStorage.getItem('studio_local_wikis') || '[]');
+                const list = Array.isArray(all) ? all.filter(item => item?.root) : [];
+                const active = localStorage.getItem('studio_active_local_wiki') || '';
+                if (active && !list.some(item => item.root === active)) {
+                    list.unshift({ root: active, name: active.split('/').filter(Boolean).pop() || '本地知识库' });
+                }
+                return list;
+            } catch(e) {
+                return [];
+            }
+        }
+
+        function selectedAgentWiki() {
+            const list = localWikiRegistry();
+            return list.find(item => item.root === selectedAgentWikiRoot) || null;
+        }
+
+        function closeAgentPlusMenus(except = null) {
+            agentPlusWraps.forEach(wrap => {
+                if (wrap !== except) wrap.classList.remove('open');
+            });
+        }
+
+        function setSelectedAgentWiki(root) {
+            selectedAgentWikiRoot = root || '';
+            if (selectedAgentWikiRoot) {
+                localStorage.setItem('studio_agent_selected_wiki_root', selectedAgentWikiRoot);
+                localStorage.setItem('studio_active_local_wiki', selectedAgentWikiRoot);
+            } else {
+                localStorage.removeItem('studio_agent_selected_wiki_root');
+            }
+            renderAgentWikiPickers();
+            closeAgentPlusMenus();
+        }
+
+        function renderAgentWikiPickers() {
+            const list = localWikiRegistry();
+            if (selectedAgentWikiRoot && !list.some(item => item.root === selectedAgentWikiRoot)) selectedAgentWikiRoot = '';
+            const current = selectedAgentWiki();
+            const html = [
+                `<button class="agent-wiki-option ${!selectedAgentWikiRoot ? 'active' : ''}" type="button" data-agent-wiki-root=""><span>不调用知识库</span></button>`,
+                ...list.map(item => `<button class="agent-wiki-option ${item.root === selectedAgentWikiRoot ? 'active' : ''}" type="button" data-agent-wiki-root="${escapeHtml(item.root)}"><span>${escapeHtml(item.name || item.root)}</span></button>`)
+            ].join('');
+            agentWikiLists.forEach(el => {
+                el.innerHTML = list.length ? html : '<div class="agent-empty">请先在知识库页面创建或打开知识库</div>';
+            });
+            agentWikiChips.forEach(chip => {
+                chip.classList.toggle('active', Boolean(current));
+                const span = chip.querySelector('span');
+                if (span) span.textContent = current ? current.name || '本地知识库' : '';
+            });
+            refreshIcons();
+        }
+
+        function setAgentMode(mode, remember = true) {
+            activeAgentMode = AGENT_MODES[mode] ? mode : 'design';
+            if (remember) localStorage.setItem('studio_agent_mode', activeAgentMode);
+            document.querySelectorAll('[data-agent-mode]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.agentMode === activeAgentMode);
+            });
+            const cfg = currentAgentModeConfig();
+            if (agentHomeInput) agentHomeInput.placeholder = cfg.placeholder;
+            if (agentGoalInput) agentGoalInput.placeholder = `${cfg.label}模式：继续对话，或输入 / 调用工具`;
+            updateAgentContextMeta();
+        }
+
+        function buildAgentContext() {
+            const modeCfg = currentAgentModeConfig();
+            const base = {
+                active_page: currentPageId === 'agent' ? 'Agent' : currentPageId,
+                active_page_label: humanPageLabel(currentPageId),
+                mode: activeAgentMode,
+                task_type: modeCfg.taskType,
+                ...activeLocalWikiContext()
+            };
+            return {
+                ...base,
+                ...(agentContextOverride || {}),
+                ...agentContextOverridesFromControls(),
+                active_page: (agentContextOverride || {}).active_page || base.active_page,
+                active_page_label: (agentContextOverride || {}).active_page_label || base.active_page_label,
+                mode: (agentContextOverride || {}).mode || base.mode,
+                task_type: (agentContextOverride || {}).task_type || base.task_type
+            };
+        }
+
+        function updateAgentContextMeta() {
+            const ctx = buildAgentContext();
+            const modeCfg = AGENT_MODES[ctx.mode] || currentAgentModeConfig();
+            const parts = [`模式：${modeCfg.label}`, `当前入口：${ctx.active_page_label}`];
+            if (ctx.source_name) parts.push(`来源：${ctx.source_name}`);
+            if (ctx.query) parts.push(`搜索词：${ctx.query}`);
+            if (ctx.category) parts.push(`分类：${ctx.category}`);
+            if (ctx.local_wiki_name) parts.push(`本地知识库：${ctx.local_wiki_name}`);
+            if (ctx.provider) parts.push(`Provider：${ctx.provider}`);
+            if (ctx.model) parts.push(`模型：${ctx.model}`);
+            if (Number(ctx.visible_count || 0) > 0) parts.push(`当前可见：${ctx.visible_count} 张`);
+            if (Number(ctx.selected_count || 0) > 0) parts.push(`当前选中：${ctx.selected_count} 张`);
+            agentContextMeta.textContent = `${parts.join('，')}。`;
+            agentBreadcrumbContext.textContent = `${modeCfg.label} / ${ctx.active_page_label || 'Agent'}`;
+        }
+
+        function setAgentStatus(status, message) {
+            const labels = {
+                idle: '未开始',
+                loading: '生成中',
+                chatting: '对话中',
+                replied: '已回复',
+                planned: '已生成计划',
+                running: '执行中',
+                succeeded: '执行完成',
+                failed: '执行失败',
+                cancelled: '已取消',
+                error: '出错了'
+            };
+            agentStatusText.textContent = labels[status] || status;
+            agentStatusBadge.className = `agent-status ${escapeHtml(status || 'idle')}`;
+            if(message) agentTaskMeta.textContent = message;
+            renderAgentStatusSteps(status);
+        }
+
+        function setAgentHomeVisible(visible) {
+            agentView.classList.toggle('is-home', Boolean(visible));
+        }
+
+        function setAgentDirectChat(active) {
+            agentView.classList.toggle('is-direct-chat', Boolean(active));
+            if (agentGoalInput) {
+                agentGoalInput.placeholder = active ? '继续输入消息...' : `${currentAgentModeConfig().label}模式：继续对话，或输入 / 调用工具`;
+            }
+            if (active && agentPlanBtn) agentPlanBtn.disabled = false;
+        }
+
+        function renderAgentStatusSteps(status = currentAgentTask?.status || 'idle') {
+            const rank = { idle:0, loading:1, planned:2, running:3, succeeded:4, failed:3, cancelled:3, error:2 };
+            const current = rank[status] || 0;
+            const taskType = currentAgentTask?.task_type || currentAgentTask?.plan?.task_type || currentAgentModeConfig().taskType;
+            const mode = currentAgentTask?.mode || currentAgentTask?.plan?.mode || activeAgentMode;
+            let steps = [
+                ['读取资源', 1],
+                ['优化提示词', 2],
+                ['生成图片', 3],
+                ['等待用户选择', 4]
+            ];
+            if (taskType === 'wiki_task') {
+                steps = [['检索 Wiki', 1], ['生成问答', 2], ['写入档案', 3], ['等待继续提问', 4]];
+            } else if (taskType === 'work_task' && mode !== 'code') {
+                steps = [['检索 Wiki', 1], ['整理资料', 2], ['生成报告', 3], ['写回产物', 4]];
+            } else if (mode === 'code') {
+                steps = [['记录入口', 1], ['等待 Pi Agent', 2], ['后续接入', 3], ['暂停执行', 4]];
+            }
+            agentStatusSteps.innerHTML = steps.map(([label, level]) =>
+                `<div class="status-step ${current >= level ? 'done' : ''}">${label}</div>`
+            ).join('');
+        }
+
+        function renderAgentEvents(task) {
+            const events = Array.isArray(task?.events) ? task.events : [];
+            if (!events.length) {
+                agentTaskEvents.innerHTML = '';
+                return;
+            }
+            agentTaskEvents.innerHTML = events.map(event => `
+                <div class="agent-event ${escapeHtml(event.type || '')}">
+                    <div>${escapeHtml(event.message || '')}</div>
+                    <span class="agent-event-time">${escapeHtml(formatAgentTime(event.at))}${event.progress_total ? ` · ${escapeHtml(event.progress_current || 0)}/${escapeHtml(event.progress_total)}` : ''}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateAgentRunAvailability() {
+            if (agentView.classList.contains('is-direct-chat')) {
+                agentRunBtn.disabled = true;
+                agentCancelBtn.disabled = true;
+                if (agentPlanBtn) agentPlanBtn.disabled = false;
+                return;
+            }
+            if (!currentAgentTask?.id) {
+                agentRunBtn.disabled = true;
+                agentCancelBtn.disabled = true;
+                return;
+            }
+            const status = currentAgentTask.status || 'planned';
+            if (status === 'running') {
+                agentRunBtn.disabled = true;
+                agentCancelBtn.disabled = false;
+                return;
+            }
+            if (['succeeded', 'failed', 'cancelled'].includes(status)) {
+                agentRunBtn.disabled = true;
+                agentCancelBtn.disabled = true;
+                return;
+            }
+            const plan = resolveAgentPlanForDisplay(currentAgentTask);
+            const blockers = Array.isArray(plan?.blockers) ? plan.blockers : [];
+            const canRun = Boolean(plan && plan.can_run !== false && blockers.length === 0);
+            agentRunBtn.disabled = !canRun;
+            agentCancelBtn.disabled = true;
+        }
+
+        function resolveAgentPlanForDisplay(task) {
+            const rawPlan = task?.plan;
+            if (!rawPlan) return null;
+            const plan = {
+                ...rawPlan,
+                preview: { ...(rawPlan.preview || {}) },
+                blockers: Array.isArray(rawPlan.blockers) ? [...rawPlan.blockers] : []
+            };
+            if (agentTaskNeedsModelConfig(task)) {
+                if (agentProviderSelect.value) plan.preview.provider = agentProviderSelect.value;
+                if (agentModelSelect.value) {
+                    plan.preview.model = agentModelSelect.value;
+                    plan.blockers = plan.blockers.filter(item => !String(item).includes('Provider 和模型'));
+                }
+                plan.can_run = Boolean((plan.preview.effective_count || 0) > 0 && agentModelSelect.value);
+            }
+            return plan;
+        }
+
+        function renderAgentPlan(task) {
+            const plan = resolveAgentPlanForDisplay(task);
+            if(!plan) {
+                agentPlanResult.innerHTML = '<div class="agent-empty">还没有可展示的计划。</div>';
+                return;
+            }
+            const contextLines = Array.isArray(plan.context_summary) ? plan.context_summary : [];
+            const steps = Array.isArray(plan.steps) ? plan.steps : [];
+            const preview = plan.preview || {};
+            const blockers = Array.isArray(plan.blockers) ? plan.blockers : [];
+            const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
+            const usedContext = Array.isArray(plan.used_context) ? plan.used_context : [];
+            const outputs = Array.isArray(plan.outputs) ? plan.outputs : [];
+            const modeLabel = AGENT_MODES[plan.mode]?.label || AGENT_MODES[activeAgentMode]?.label || 'Agent';
+            agentPlanResult.innerHTML = `
+                <div class="agent-plan-title">${escapeHtml(plan.title || '任务计划')}</div>
+                <div class="agent-plan-summary">${escapeHtml(plan.summary || '')}</div>
+                <div class="agent-preview-grid">
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">Agent 模式</div>
+                        <div class="agent-preview-v">${escapeHtml(modeLabel)}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">任务类型</div>
+                        <div class="agent-preview-v">${escapeHtml(plan.task_type || 'work_task')}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">使用上下文</div>
+                        <div class="agent-preview-v">${escapeHtml(usedContext.join(' / ') || '当前页面上下文')}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">产物</div>
+                        <div class="agent-preview-v">${escapeHtml(outputs.map(item => item.label || item.type).join(' / ') || '任务结果')}</div>
+                    </div>
+                </div>
+                <ul class="agent-list">
+                    ${contextLines.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+                </ul>
+                <div class="agent-preview-grid">
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">目标来源</div>
+                        <div class="agent-preview-v">${escapeHtml(preview.target_source_label || '当前上下文')}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">命中 / 实际处理</div>
+                        <div class="agent-preview-v">${escapeHtml(preview.matched_total || 0)} / ${escapeHtml(preview.effective_count || 0)}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">写入目标</div>
+                        <div class="agent-preview-v">${escapeHtml(preview.write_target_label || '无写入')}</div>
+                    </div>
+                    <div class="agent-preview-item">
+                        <div class="agent-preview-k">执行上限</div>
+                        <div class="agent-preview-v">${escapeHtml(preview.limit || 0)}${preview.truncated ? '（已截断）' : ''}</div>
+                    </div>
+                </div>
+                ${warnings.map(item => `<div class="agent-note warning">${escapeHtml(item)}</div>`).join('')}
+                ${blockers.map(item => `<div class="agent-note error">${escapeHtml(item)}</div>`).join('')}
+                <div class="agent-plan-summary" style="margin-top:12px;">目标产出：${escapeHtml(plan.output_target || '未定义')}</div>
+                <ul class="agent-list">
+                    ${steps.map((step, index) => `<li>${index + 1}. ${escapeHtml(step.title || '')}${step.writes ? '（需确认）' : ''}</li>`).join('')}
+                </ul>
+                <div class="agent-note">${blockers.length ? '执行前还需要先解决上面的阻塞项。' : '确认无误后，再执行当前计划。'}</div>
+            `;
+        }
+
+        function renderAgentResult(task) {
+            const result = task?.result;
+            if(!result) {
+                agentResult.innerHTML = '<div class="agent-empty">执行完成后，这里会展示回跳入口。</div>';
+                return;
+            }
+            if(result.error) {
+                agentResult.innerHTML = `<div class="agent-empty">${escapeHtml(result.error)}</div>`;
+                return;
+            }
+            if(result.kind === 'smart_canvas_created') {
+                agentResult.innerHTML = `
+                    <div class="agent-plan-title">${escapeHtml(result.canvas_title || '智能画布草稿')}</div>
+                    <div class="agent-plan-summary">已插入 ${escapeHtml(result.inserted_image_count || 0)} 张图片，命中总数 ${escapeHtml(result.matched_total || 0)}${result.truncated ? '，已按上限截断。' : '。'}</div>
+                    <div class="agent-actions" style="margin-top:12px;">
+                        <button class="agent-btn primary" type="button" id="agentOpenCanvasBtn">打开智能画布</button>
+                    </div>
+                `;
+                document.getElementById('agentOpenCanvasBtn')?.addEventListener('click', () => {
+                    if(result.open_url) window.location.href = result.open_url;
+                });
+                return;
+            }
+            if(result.kind === 'library_imported' || result.kind === 'library_tagged') {
+                const title = result.kind === 'library_tagged' ? '批量标注完成' : '资源库回存完成';
+                const summary = result.kind === 'library_tagged'
+                    ? `已处理 ${escapeHtml(result.count || 0)} 张资源库图片，成功 ${escapeHtml(result.success_count || 0)} 张，失败 ${escapeHtml(result.failed_count || 0)} 张。`
+                    : `已导入 ${escapeHtml(result.count || 0)} 张图片${Array.isArray(result.skipped) && result.skipped.length ? `，跳过 ${escapeHtml(result.skipped.length)}` : ''}。`;
+                agentResult.innerHTML = `
+                    <div class="agent-plan-title">${title}</div>
+                    <div class="agent-plan-summary">${summary}</div>
+                    <div class="agent-actions" style="margin-top:12px;">
+                        <button class="agent-btn primary" type="button" id="agentOpenLibraryBtn">打开资源库</button>
+                    </div>
+                `;
+                document.getElementById('agentOpenLibraryBtn')?.addEventListener('click', () => {
+                    openStudioPage('library', result.open_url || '/static/library.html?v=20260603-prompt-library-shell');
+                });
+                return;
+            }
+            if(result.kind === 'design_agent_output') {
+                agentResult.innerHTML = `
+                    <div class="agent-plan-title">${escapeHtml(result.wiki_page_title || '设计 Agent 产物')}</div>
+                    <div class="agent-plan-summary">Wiki 命中 ${escapeHtml(result.wiki_match_count || 0)} 条，资源库参考 ${escapeHtml(result.library_match_count || 0)} 条，生成图片 ${escapeHtml((result.image_urls || []).length)} 张${result.image_error ? '；生图接口未完成，请查看提示词后手动继续。' : '。'}</div>
+                    ${result.image_error ? `<div class="agent-note warning">${escapeHtml(result.image_error)}</div>` : ''}
+                    <div class="agent-note">正向提示词：${escapeHtml(result.prompt || '')}</div>
+                    <div class="agent-actions" style="margin-top:12px;">
+                        <button class="agent-btn primary" type="button" id="agentOpenWikiDesignBtn">打开 Wiki 简报</button>
+                        <button class="agent-btn" type="button" id="agentOpenOnlineBtn">打开在线生图</button>
+                        ${result.imported_count ? '<button class="agent-btn" type="button" id="agentOpenDesignLibraryBtn">打开资源库</button>' : ''}
+                        ${result.canvas_open_url ? '<button class="agent-btn" type="button" id="agentOpenDesignCanvasBtn">打开智能画布</button>' : ''}
+                    </div>
+                `;
+                document.getElementById('agentOpenWikiDesignBtn')?.addEventListener('click', () => {
+                    openStudioPage('wiki', `/static/wiki.html?page=${encodeURIComponent(result.wiki_page_id || '')}&v=20260608-qa-bottom-composer`);
+                });
+                document.getElementById('agentOpenOnlineBtn')?.addEventListener('click', () => {
+                    openStudioPage('online', result.online_open_url || '/static/online.html?v=20260512-i18n2');
+                });
+                document.getElementById('agentOpenDesignLibraryBtn')?.addEventListener('click', () => {
+                    openStudioPage('library', result.library_open_url || '/static/library.html?v=20260603-prompt-library-shell');
+                });
+                document.getElementById('agentOpenDesignCanvasBtn')?.addEventListener('click', () => {
+                    if(result.canvas_open_url) window.location.href = result.canvas_open_url;
+                });
+                return;
+            }
+            if(result.kind === 'wiki_qa_created' || result.kind === 'wiki_report_created') {
+                const title = result.kind === 'wiki_qa_created' ? '知识库问答已保存' : '工作报告已保存';
+                agentResult.innerHTML = `
+                    <div class="agent-plan-title">${escapeHtml(title)}</div>
+                    <div class="agent-plan-summary">${escapeHtml(result.wiki_page_title || '')}</div>
+                    <div class="agent-note">${escapeHtml(String(result.answer || '').slice(0, 420))}</div>
+                    <div class="agent-actions" style="margin-top:12px;">
+                        <button class="agent-btn primary" type="button" id="agentOpenWikiOutputBtn">打开知识库</button>
+                    </div>
+                `;
+                document.getElementById('agentOpenWikiOutputBtn')?.addEventListener('click', () => {
+                    openStudioPage('wiki', result.wiki_open_url || '/static/wiki.html?v=20260608-qa-bottom-composer');
+                });
+                return;
+            }
+            agentResult.innerHTML = `<div class="agent-empty">${escapeHtml(JSON.stringify(result))}</div>`;
+        }
+
+        function loadRecentAgentThreads() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(RECENT_AGENT_KEY) || '[]');
+                return Array.isArray(raw) ? raw.slice(0, 20) : [];
+            } catch(e) {
+                return [];
+            }
+        }
+
+        function saveRecentAgentThreads(items) {
+            localStorage.setItem(RECENT_AGENT_KEY, JSON.stringify(items.slice(0, 20)));
+        }
+
+        function renderRecentAgentThreads(activeTaskId = currentAgentTask?.id || '') {
+            recentAgentItems = loadRecentAgentThreads();
+            if (!recentAgentItems.length) {
+                recentAgentList.innerHTML = '<div class="agent-empty" style="padding:8px">暂无对话记录</div>';
+                return;
+            }
+            recentAgentList.innerHTML = recentAgentItems.map(item => `
+                <button class="recent-item ${(item.taskId && item.taskId === activeTaskId) || (!activeTaskId && item.id === activeAgentConversationId) ? 'active' : ''}" type="button" data-recent-id="${escapeHtml(item.id || '')}" data-recent-task="${escapeHtml(item.taskId || '')}">
+                    <i data-lucide="${item.mode === 'code' ? 'code-2' : item.taskType === 'wiki_task' ? 'book-open' : item.taskType === 'work_task' ? 'file-text' : item.taskId ? 'sparkles' : 'message-square'}" style="width:14px;height:14px"></i>
+                    <span class="recent-title">${escapeHtml(item.title || item.goal || 'Agent 任务')}</span>
+                    <span class="recent-time">${escapeHtml(formatShortTime(item.updatedAt))}</span>
+                </button>
+            `).join('');
+            refreshIcons();
+        }
+
+        function persistCurrentAgentThread(task, goal) {
+            if (!task?.id) return;
+            const title = task.plan?.title || goal || task.goal || 'Agent 任务';
+            const item = {
+                id: activeAgentConversationId || task.id,
+                taskId: task.id,
+                title: String(title).slice(0, 42),
+                taskType: task.task_type || task.plan?.task_type || '',
+                mode: task.mode || task.plan?.mode || activeAgentMode,
+                status: task.status || '',
+                outputs: task.outputs || task.plan?.outputs || [],
+                goal: goal || task.goal || '',
+                updatedAt: Date.now()
+            };
+            const rest = loadRecentAgentThreads().filter(x => x.id !== item.id && x.taskId !== item.taskId);
+            saveRecentAgentThreads([item, ...rest]);
+            activeAgentConversationId = item.id;
+            renderRecentAgentThreads(item.taskId);
+        }
+
+        function showAgentUserGoal(goal) {
+            const text = String(goal || '').trim();
+            setAgentHomeVisible(!text && !currentAgentTask?.id);
+            agentUserBubble.classList.toggle('hide', !text);
+            agentUserText.textContent = text;
+            agentUserTime.textContent = text ? formatShortTime(Date.now()) : '';
+        }
+
+        function appendAgentLiveMessage(role, content, meta = '') {
+            if (!agentLiveMessages) return null;
+            const row = document.createElement('div');
+            row.className = `message-row ${role === 'user' ? 'user' : ''}`;
+            row.innerHTML = `
+                <div class="avatar-small ${role === 'assistant' ? 'agent' : ''}">${role === 'assistant' ? '<i data-lucide="sparkles" style="width:16px;height:16px"></i>' : '我'}</div>
+                <div class="message-card">
+                    <div class="message-name">
+                        <span>${role === 'assistant' ? 'Agent' : '我'}</span>
+                        <span>${escapeHtml(meta || formatShortTime(Date.now()))}</span>
+                    </div>
+                    <div class="message-text">${escapeHtml(content || '')}</div>
+                </div>
+            `;
+            agentLiveMessages.appendChild(row);
+            refreshIcons();
+            row.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            return row.querySelector('.message-text');
+        }
+
+        function persistAgentChatRecent(title) {
+            const item = {
+                id: activeAgentChatConversationId || `chat-${Date.now()}`,
+                taskId: '',
+                title: String(title || '新对话').slice(0, 42),
+                taskType: 'chat',
+                mode: activeAgentMode,
+                status: 'chat',
+                outputs: [],
+                goal: title || '',
+                updatedAt: Date.now()
+            };
+            activeAgentConversationId = item.id;
+            const rest = loadRecentAgentThreads().filter(x => x.id !== item.id);
+            saveRecentAgentThreads([item, ...rest]);
+            renderRecentAgentThreads('');
+        }
+
+        function resetAgentWorkspace() {
+            stopAgentPolling();
+            currentAgentTask = null;
+            agentContextOverride = null;
+            activeAgentChatConversationId = '';
+            currentPageId = 'agent';
+            agentGoalInput.value = '';
+            if (agentHomeInput) agentHomeInput.value = '';
+            if (agentLiveMessages) agentLiveMessages.innerHTML = '';
+            setAgentDirectChat(false);
+            showAgentUserGoal('');
+            renderAgentPlan(null);
+            renderAgentResult(null);
+            renderAgentEvents(null);
+            setAgentStatus('idle', '还没有生成计划。');
+            updateAgentContextMeta();
+            updateAgentRunAvailability();
+            syncAgentConfigCard(null);
+            switchShellMode('agent');
+        }
+
+        function createLocalAgentConversation() {
+            const id = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const item = {
+                id,
+                taskId: '',
+                title: '新对话',
+                taskType: currentAgentModeConfig().taskType,
+                mode: activeAgentMode,
+                status: 'local',
+                outputs: [],
+                goal: '',
+                updatedAt: Date.now()
+            };
+            const rest = loadRecentAgentThreads().filter(x => x.id !== id);
+            saveRecentAgentThreads([item, ...rest]);
+            activeAgentConversationId = id;
+            renderRecentAgentThreads('');
+            return item;
+        }
+
+        function newAgentConversation() {
+            switchUI(null, 'agent');
+            resetAgentWorkspace();
+            createLocalAgentConversation();
+        }
+
+        function loadLocalAgentConversation(conversationId) {
+            activeAgentConversationId = conversationId || '';
+            resetAgentWorkspace();
+            const saved = loadRecentAgentThreads().find(item => item.id === conversationId);
+            if (saved?.taskType === 'chat' || saved?.status === 'chat') {
+                activeAgentChatConversationId = conversationId || '';
+                setAgentDirectChat(true);
+                setAgentHomeVisible(false);
+                currentAgentTask = null;
+                if (agentLiveMessages) agentLiveMessages.innerHTML = '';
+                if (saved.goal) appendAgentLiveMessage('user', saved.goal);
+            }
+            renderRecentAgentThreads('');
+        }
+
+        async function createAgentPlan() {
+            const goal = agentGoalInput.value.trim();
+            setAgentHomeVisible(false);
+            stopAgentPolling();
+            agentPlanBtn.disabled = true;
+            agentRunBtn.disabled = true;
+            agentCancelBtn.disabled = true;
+            showAgentUserGoal(goal);
+            renderAgentResult(null);
+            renderAgentEvents(null);
+            setAgentStatus('loading', '正在生成计划...');
+            try {
+                const res = await fetch('/api/agent/plan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        goal,
+                        page: currentPageId,
+                        context: buildAgentContext()
+                    })
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || '生成计划失败');
+                currentAgentTask = data;
+                await syncAgentConfigCard(data);
+                updateAgentContextMeta();
+                renderAgentPlan(data);
+                renderAgentResult(data);
+                renderAgentEvents(data);
+                setAgentStatus('planned', `任务 ID：${data.id}，当前状态：${data.status}`);
+                updateAgentRunAvailability();
+                persistCurrentAgentThread(data, goal);
+            } catch (err) {
+                renderAgentPlan(null);
+                renderAgentResult(null);
+                renderAgentEvents(null);
+                setAgentHomeVisible(!goal);
+                setAgentStatus('error', err.message || '生成计划失败');
+            } finally {
+                agentPlanBtn.disabled = false;
+            }
+        }
+
+        async function pollAgentTask(taskId) {
+            if (!taskId) return;
+            try {
+                const res = await fetch(`/api/agent/tasks/${encodeURIComponent(taskId)}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || '读取任务状态失败');
+                currentAgentTask = data;
+                renderAgentPlan(data);
+                renderAgentResult(data);
+                renderAgentEvents(data);
+                const lastEvent = Array.isArray(data.events) && data.events.length ? data.events[data.events.length - 1] : null;
+                const message = data.current_step?.message || lastEvent?.message || `任务 ${data.id} 状态：${data.status}`;
+                setAgentStatus(data.status || 'running', message);
+                updateAgentRunAvailability();
+                renderRecentAgentThreads(data.id);
+                if (['succeeded', 'failed', 'cancelled'].includes(data.status)) {
+                    stopAgentPolling();
+                    agentPlanBtn.disabled = false;
+                    agentCancelBtn.disabled = true;
+                }
+            } catch (err) {
+                stopAgentPolling();
+                setAgentStatus('error', err.message || '读取任务状态失败');
+                agentPlanBtn.disabled = false;
+                agentCancelBtn.disabled = true;
+            }
+        }
+
+        function startAgentPolling(taskId) {
+            stopAgentPolling();
+            pollAgentTask(taskId);
+            agentPollTimer = setInterval(() => pollAgentTask(taskId), 1000);
+        }
+
+        async function runAgentTask() {
+            if(!currentAgentTask?.id) return;
+            agentPlanBtn.disabled = true;
+            agentRunBtn.disabled = true;
+            agentCancelBtn.disabled = false;
+            setAgentStatus('running', `任务 ${currentAgentTask.id} 执行中...`);
+            try {
+                const res = await fetch('/api/agent/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        task_id: currentAgentTask.id,
+                        context_overrides: agentContextOverridesFromControls()
+                    })
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || '执行失败');
+                currentAgentTask = data;
+                updateAgentContextMeta();
+                renderAgentPlan(data);
+                renderAgentResult(data);
+                renderAgentEvents(data);
+                setAgentStatus('running', `任务 ${data.id} 已开始执行`);
+                startAgentPolling(data.id);
+            } catch (err) {
+                setAgentStatus('failed', err.message || '执行失败');
+                renderAgentResult({ result: { error: err.message || '执行失败' } });
+                agentCancelBtn.disabled = true;
+            } finally {
+                updateAgentRunAvailability();
+            }
+        }
+
+        async function cancelAgentTask() {
+            if(!currentAgentTask?.id) return;
+            agentRunBtn.disabled = true;
+            agentCancelBtn.disabled = true;
+            try {
+                const res = await fetch(`/api/agent/cancel/${encodeURIComponent(currentAgentTask.id)}`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || '取消任务失败');
+                currentAgentTask = data;
+                stopAgentPolling();
+                renderAgentEvents(data);
+                setAgentStatus('cancelled', `任务 ${data.id} 已取消`);
+            } catch (err) {
+                setAgentStatus('error', err.message || '取消任务失败');
+                agentCancelBtn.disabled = false;
+            } finally {
+                agentPlanBtn.disabled = false;
+            }
+        }
+
+        async function loadRecentAgentTask(taskId) {
+            if (!taskId) return;
+            switchShellMode('agent');
+            try {
+                const res = await fetch(`/api/agent/tasks/${encodeURIComponent(taskId)}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || '读取任务状态失败');
+                currentAgentTask = data;
+                if (data.mode) setAgentMode(data.mode);
+                setAgentHomeVisible(false);
+                const saved = loadRecentAgentThreads().find(item => item.taskId === taskId);
+                if (saved?.goal) {
+                    agentGoalInput.value = saved.goal;
+                    showAgentUserGoal(saved.goal);
+                }
+                await syncAgentConfigCard(data);
+                renderAgentPlan(data);
+                renderAgentResult(data);
+                renderAgentEvents(data);
+                setAgentStatus(data.status || 'planned', `任务 ID：${data.id}，当前状态：${data.status}`);
+                updateAgentRunAvailability();
+                renderRecentAgentThreads(data.id);
+                if (data.status === 'running') startAgentPolling(data.id);
+            } catch (err) {
+                setAgentStatus('error', err.message || '读取任务状态失败');
+            }
+        }
+
+        async function requestAgentPlanFromContext(payload = {}) {
+            const nextPage = payload.page;
+            if (nextPage && PAGE_IDS.includes(nextPage)) currentPageId = nextPage;
+            agentContextOverride = payload.context && typeof payload.context === 'object'
+                ? { ...payload.context }
+                : null;
+            if (typeof payload.goal === 'string' && payload.goal.trim()) {
+                agentGoalInput.value = payload.goal.trim();
+                showAgentUserGoal(payload.goal.trim());
+            }
+            switchShellMode('agent');
+            updateAgentContextMeta();
+            await syncAgentConfigCard();
+            if (payload.autoPlan !== false) {
+                await createAgentPlan();
+            }
+        }
+
+        async function syncStatus() {
+            try {
+                const res = await fetch(`/api/queue_status?client_id=${CID}`);
+                const data = await res.json();
+                const monitor = document.getElementById('nano-monitor');
+                const queueVal = document.getElementById('queue-val');
+                const total = data.total || 0;
+                const pos = data.position || 0;
+                if (pos > 0) {
+                    monitor.classList.add('is-busy');
+                    queueVal.innerText = `${pos}/${total}`;
+                } else {
+                    monitor.classList.remove('is-busy');
+                    queueVal.innerText = total > 0 ? total : '0';
+                }
+            } catch (e) { }
+        }
+
+        async function loadModelSummary() {
+            try {
+                const cfg = await fetch('/api/config').then(r => r.json());
+                const providers = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
+                const imageCount = providers.reduce((sum, item) => sum + ((item.image_models || []).length), 0);
+                const chatCount = providers.reduce((sum, item) => sum + ((item.chat_models || []).length), 0);
+                const videoCount = providers.reduce((sum, item) => sum + ((item.video_models || []).length), 0);
+                if (modelSummaryText) modelSummaryText.textContent = `${providers.length} 个平台，${imageCount} 个生图模型，${chatCount} 个聊天模型，${videoCount} 个视频模型。`;
+                hydrateAgentHomeModels(providers, cfg);
+            } catch(e) {
+                if (modelSummaryText) modelSummaryText.textContent = '模型配置会从现有 API 设置页读取。';
+                hydrateAgentHomeModels([], {});
+            }
+        }
+
+        function fallbackAgentChatModels(provider, cfg = {}) {
+            const id = String(provider?.id || '').toLowerCase();
+            const name = String(provider?.name || '').toLowerCase();
+            const base = String(provider?.base_url || '').toLowerCase();
+            if (id.includes('deepseek') || name.includes('deepseek') || base.includes('deepseek')) return ['deepseek-chat', 'deepseek-reasoner'];
+            if (id === 'apimart' || base.includes('apimart')) return ['deepseek-v4-flash'];
+            if (id === 'modelscope' || base.includes('modelscope')) return cfg.ms_chat_models || [];
+            return provider?.chat_models || cfg.chat_models || (cfg.chat_model ? [cfg.chat_model] : []);
+        }
+
+        function collectChatModels(providers = [], cfg = {}) {
+            const options = [];
+            providers
+                .filter(provider => provider.enabled !== false && provider.has_key === true)
+                .filter(provider => !['runninghub', 'volcengine', 'jimeng'].includes(String(provider.protocol || '').toLowerCase()))
+                .forEach(provider => {
+                    const models = [...new Set([...(provider.chat_models || []), ...fallbackAgentChatModels(provider, cfg)].filter(Boolean))];
+                    models.forEach(model => {
+                        const value = `${provider.id}::${model}`;
+                        if (!options.some(item => item.value === value)) {
+                            options.push({ value, provider: provider.id, model, label: `${provider.name || provider.id} / ${model}` });
+                        }
+                    });
+                });
+            if (!options.length && cfg.chat_model) {
+                options.push({ value: `comfly::${cfg.chat_model}`, provider: 'comfly', model: cfg.chat_model, label: `默认 API / ${cfg.chat_model}` });
+            }
+            return options;
+        }
+
+        function agentProviderName(providerId) {
+            const item = agentHomeProviderModels.find(model => model.provider === providerId);
+            if (!item) return providerId || 'API 平台';
+            return (item.label || '').split(' / ')[0] || providerId || 'API 平台';
+        }
+
+        function agentProviderIds() {
+            return [...new Set(agentHomeProviderModels.map(item => item.provider).filter(Boolean))];
+        }
+
+        function closeAgentModelPickers(except = null) {
+            [agentProviderPicker, agentModelPicker].forEach(picker => {
+                if (picker && picker !== except) picker.classList.remove('open');
+            });
+        }
+
+        function renderAgentModelPicker() {
+            if (!agentProviderList || !agentModelList || !agentHomeModelSelect) return;
+            const selected = selectedAgentHomeModel();
+            const providerIds = agentProviderIds();
+            agentProviderLabel.textContent = selected.provider ? agentProviderName(selected.provider) : 'API 平台';
+            agentModelLabel.textContent = selected.model || '模型';
+            agentProviderList.innerHTML = providerIds.length
+                ? providerIds.map(providerId => `
+                    <button class="agent-model-provider ${providerId === selected.provider ? 'active' : ''}" type="button" data-agent-provider="${escapeHtml(providerId)}">
+                        <span>${escapeHtml(agentProviderName(providerId))}</span>
+                        <span class="agent-model-provider-dot"></span>
+                    </button>
+                `).join('')
+                : '<div class="agent-empty">请先配置已填 Key 的聊天 API</div>';
+            const models = agentHomeProviderModels.filter(item => item.provider === selected.provider);
+            agentModelList.innerHTML = models.length
+                ? models.map(item => `
+                    <button class="agent-model-provider ${item.value === selected.value ? 'active' : ''}" type="button" data-agent-model-value="${escapeHtml(item.value)}">
+                        <span>${escapeHtml(item.model)}</span>
+                        <span class="agent-model-provider-dot"></span>
+                    </button>
+                `).join('')
+                : '<div class="agent-empty">这个平台还没有聊天模型</div>';
+            refreshIcons();
+        }
+
+        function renderModelOptions(select, providers = [], cfg = {}) {
+            if (!select) return;
+            agentHomeProviderModels = collectChatModels(providers, cfg);
+            select.innerHTML = (agentHomeProviderModels.length ? agentHomeProviderModels : [{ value:'', label:'请先配置已填 Key 的聊天 API' }]).map(item =>
+                `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+            ).join('');
+            select.disabled = !agentHomeProviderModels.length;
+            renderAgentModelPicker();
+        }
+
+        function hydrateAgentHomeModels(providers = [], cfg = {}) {
+            renderModelOptions(agentHomeModelSelect, providers, cfg);
+        }
+
+        function selectedAgentHomeModel() {
+            const value = agentHomeModelSelect?.value || '';
+            return agentHomeProviderModels.find(item => item.value === value) || agentHomeProviderModels[0] || { provider: '', model: '' };
+        }
+
+        function selectAgentHomeProvider(providerId) {
+            const next = agentHomeProviderModels.find(item => item.provider === providerId);
+            if (!next || !agentHomeModelSelect) return;
+            agentHomeModelSelect.value = next.value;
+            renderAgentModelPicker();
+            closeAgentModelPickers(agentModelPicker);
+        }
+
+        function selectAgentHomeModel(value) {
+            if (!agentHomeProviderModels.some(item => item.value === value) || !agentHomeModelSelect) return;
+            agentHomeModelSelect.value = value;
+            renderAgentModelPicker();
+            closeAgentModelPickers();
+        }
+
+        function isAgentDirectChatMode() {
+            if (agentView.classList.contains('is-direct-chat')) return true;
+            const saved = loadRecentAgentThreads().find(item => item.id === activeAgentConversationId);
+            return Boolean(saved?.taskType === 'chat' || saved?.status === 'chat');
+        }
+
+        function shouldUseSelectedWiki(prompt) {
+            if (!selectedAgentWiki()) return false;
+            const text = String(prompt || '').trim().toLowerCase();
+            const compact = text.replace(/[\s，。！？!?,.~～]+/g, '');
+            if (!compact) return false;
+            const casual = new Set(['你好', '您好', '嗨', 'hi', 'hello', 'hey', '在吗', '谢谢', 'thanks', 'thankyou', '早', '早上好', '晚上好', 'ok', '好的']);
+            if (casual.has(compact)) return false;
+            if (compact.length <= 4 && /^(你好|您好|hi|hello|hey|在吗|谢谢|ok|好的)$/.test(compact)) return false;
+            const wikiIntent = /(知识库|资料|文档|文件|pdf|ppt|word|来源|引用|根据|基于|总结|归纳|提炼|检索|查找|报告|摘要|项目|方案|这份|这些|里面|上传)/i;
+            if (wikiIntent.test(text)) return true;
+            return compact.length > 8;
+        }
+
+        async function sendAgentHomePrompt(sourceInput = agentHomeInput) {
+            const input = sourceInput?.value !== undefined ? sourceInput : agentHomeInput;
+            const prompt = String(input?.value || '').trim();
+            if (!prompt) {
+                input?.focus();
+                return;
+            }
+            const selected = selectedAgentHomeModel();
+            if (!selected.provider || !selected.model) {
+                setAgentDirectChat(true);
+                setAgentHomeVisible(false);
+                appendAgentLiveMessage('assistant', '请先在 API 设置里选择一个已经填写 Key 的聊天 API。', '配置缺失');
+                return;
+            }
+            setAgentDirectChat(true);
+            setAgentHomeVisible(false);
+            stopAgentPolling();
+            currentAgentTask = null;
+            renderAgentPlan(null);
+            renderAgentResult(null);
+            renderAgentEvents(null);
+            const selectedWiki = shouldUseSelectedWiki(prompt) ? selectedAgentWiki() : null;
+            setAgentStatus('chatting', selectedWiki ? `正在检索 ${selectedWiki.name || '知识库'}...` : `正在请求 ${selected.provider} / ${selected.model}...`);
+            appendAgentLiveMessage('user', prompt);
+            const pendingNode = appendAgentLiveMessage('assistant', selectedWiki ? '正在扫描知识库...' : '正在思考...', selected.model);
+            input.value = '';
+            if (agentHomeSendBtn) agentHomeSendBtn.disabled = true;
+            if (agentPlanBtn) agentPlanBtn.disabled = true;
+            try {
+                const res = await fetch(selectedWiki ? '/api/local-wiki/qa' : '/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(selectedWiki ? {
+                        root: selectedWiki.root,
+                        question: prompt,
+                        save: true,
+                        use_llm: true,
+                        provider: selected.provider,
+                        model: selected.model
+                    } : {
+                        conversation_id: activeAgentChatConversationId || '',
+                        message: prompt,
+                        mode: 'chat',
+                        provider: selected.provider,
+                        model: selected.model,
+                        ms_model: selected.provider === 'modelscope' ? selected.model : ''
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || '请求失败');
+                if (selectedWiki) {
+                    if (pendingNode) pendingNode.textContent = data.answer || '知识库没有返回回答。';
+                    setAgentStatus(data.meta?.llm_error ? 'error' : 'replied', data.meta?.llm_error ? data.meta.llm_error : `已基于 ${selectedWiki.name || '知识库'} 回复。`);
+                } else {
+                    activeAgentChatConversationId = data.conversation?.id || activeAgentChatConversationId;
+                    if (pendingNode) pendingNode.textContent = data.message?.content || '接口返回了空回复。';
+                    setAgentStatus('replied', `已使用 ${data.message?.model || selected.model} 回复。`);
+                }
+                persistAgentChatRecent(prompt);
+            } catch (err) {
+                if (pendingNode) pendingNode.textContent = err.message || '请求失败';
+                setAgentStatus('error', err.message || '请求失败');
+            } finally {
+                if (agentHomeSendBtn) agentHomeSendBtn.disabled = false;
+                if (agentPlanBtn) agentPlanBtn.disabled = false;
+                if (!agentView.classList.contains('is-direct-chat')) updateAgentRunAvailability();
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            const data = event?.data;
+            if (!data || typeof data !== 'object') return;
+            if (data.type === 'studio-agent-request') {
+                requestAgentPlanFromContext(data);
+            }
+            if (data.type === 'providers-changed') {
+                loadModelSummary();
+                document.querySelectorAll('iframe').forEach(frame => {
+                    try { frame.contentWindow?.postMessage({ type: 'providers-changed' }, '*'); } catch(e) {}
+                });
+            }
+        });
+
+        window.addEventListener('studio-theme-change', (e) => {
+            updateThemeIcon(e.detail.theme);
+        });
+        window.addEventListener('storage', event => {
+            if (['studio_local_wikis', 'studio_active_local_wiki'].includes(event.key)) renderAgentWikiPickers();
+        });
+        try {
+            const apiChannel = new BroadcastChannel('studio-api');
+            apiChannel.onmessage = (event) => {
+                if (event.data?.type !== 'providers-changed') return;
+                loadModelSummary();
+                document.querySelectorAll('iframe').forEach(frame => {
+                    try { frame.contentWindow?.postMessage({ type: 'providers-changed' }, '*'); } catch(e) {}
+                });
+            };
+        } catch(e) {}
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshIcons();
+            restoreActivePage();
+            const theme = window.StudioTheme ? window.StudioTheme.get() : 'dark';
+            updateThemeIcon(theme);
+            if(window.StudioI18n) window.StudioI18n.apply();
+            broadcastLanguage();
+            setAgentMode(activeAgentMode, false);
+            updateAgentContextMeta();
+            setAgentStatus('idle', '还没有生成计划。');
+            renderAgentEvents(null);
+            loadModelSummary();
+            renderAgentWikiPickers();
+        }, { once: true });
+
+        document.querySelectorAll('[data-nav-page]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = btn.dataset.navPage;
+                if (page === 'wiki') openStudioPage('wiki', '/static/wiki.html?v=20260608-qa-bottom-composer');
+                else if (page === 'library') openStudioPage('library', '/static/library.html?v=20260603-prompt-library-shell');
+                else openStudioPage(page);
+            });
+        });
+
+        document.querySelectorAll('[data-top-action]').forEach(btn => {
+            btn.addEventListener('click', () => handleTopAction(btn.dataset.topAction));
+        });
+
+        document.querySelectorAll('[data-quick-page]').forEach(btn => {
+            btn.addEventListener('click', () => openStudioPage(btn.dataset.quickPage));
+        });
+
+        workbenchToolList.addEventListener('click', (event) => {
+            const item = event.target.closest('[data-tool-id]');
+            if (item) openStudioPage(item.dataset.toolId);
+        });
+
+        agentHomeSendBtn?.addEventListener('click', () => sendAgentHomePrompt(agentHomeInput));
+
+        agentProviderTrigger?.addEventListener('click', event => {
+            event.stopPropagation();
+            const nextOpen = !agentProviderPicker.classList.contains('open');
+            closeAgentModelPickers();
+            agentProviderPicker.classList.toggle('open', nextOpen);
+        });
+
+        agentModelTrigger?.addEventListener('click', event => {
+            event.stopPropagation();
+            const nextOpen = !agentModelPicker.classList.contains('open');
+            closeAgentModelPickers();
+            agentModelPicker.classList.toggle('open', nextOpen);
+        });
+
+        agentProviderList?.addEventListener('click', event => {
+            const item = event.target.closest('[data-agent-provider]');
+            if (!item) return;
+            event.stopPropagation();
+            selectAgentHomeProvider(item.dataset.agentProvider);
+        });
+
+        agentModelList?.addEventListener('click', event => {
+            const item = event.target.closest('[data-agent-model-value]');
+            if (!item) return;
+            event.stopPropagation();
+            selectAgentHomeModel(item.dataset.agentModelValue);
+        });
+
+        document.addEventListener('click', event => {
+            if (!event.target.closest('[data-agent-plus]')) closeAgentPlusMenus();
+            if (event.target.closest('.agent-model-control')) return;
+            closeAgentModelPickers();
+        });
+
+        agentPlusWraps.forEach(wrap => {
+            const btn = wrap.querySelector('.agent-plus-btn');
+            btn?.addEventListener('click', event => {
+                event.stopPropagation();
+                renderAgentWikiPickers();
+                const nextOpen = !wrap.classList.contains('open');
+                closeAgentPlusMenus();
+                wrap.classList.toggle('open', nextOpen);
+            });
+        });
+
+        agentWikiLists.forEach(list => {
+            list.addEventListener('click', event => {
+                const item = event.target.closest('[data-agent-wiki-root]');
+                if (!item) return;
+                event.stopPropagation();
+                setSelectedAgentWiki(item.dataset.agentWikiRoot || '');
+            });
+        });
+
+        agentHomeInput?.addEventListener('keydown', event => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                sendAgentHomePrompt(agentHomeInput);
+            }
+        });
+
+        document.querySelectorAll('[data-agent-mode]').forEach(btn => {
+            btn.addEventListener('click', () => setAgentMode(btn.dataset.agentMode));
+        });
+
+        recentAgentList.addEventListener('click', (event) => {
+            const item = event.target.closest('[data-recent-task]');
+            if (!item) return;
+            if (item.dataset.recentTask) loadRecentAgentTask(item.dataset.recentTask);
+            else loadLocalAgentConversation(item.dataset.recentId);
+        });
+
+        drawerToggleBtn?.addEventListener('click', () => {
+            setDrawerCollapsed(!appBody.classList.contains('drawer-collapsed'));
+        });
+        newAgentBtn.addEventListener('click', newAgentConversation);
+        agentPlanBtn.addEventListener('click', () => {
+            if (isAgentDirectChatMode()) sendAgentHomePrompt(agentGoalInput);
+            else createAgentPlan();
+        });
+        agentRunBtn.addEventListener('click', runAgentTask);
+        agentCancelBtn.addEventListener('click', cancelAgentTask);
+        document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+        agentGoalInput.addEventListener('keydown', event => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                if (isAgentDirectChatMode()) sendAgentHomePrompt(agentGoalInput);
+                else createAgentPlan();
+            }
+        });
+        agentProviderSelect.addEventListener('change', () => {
+            renderAgentModelOptions('');
+            agentConfigHint.textContent = agentModelSelect.value
+                ? `当前将使用 ${agentProviderSelect.value || '默认'} / ${agentModelSelect.value} 进行批量标注。`
+                : '批量标注需要显式选择可用的聊天模型。';
+            updateAgentContextMeta();
+            renderAgentPlan(currentAgentTask);
+            updateAgentRunAvailability();
+        });
+        agentModelSelect.addEventListener('change', () => {
+            agentConfigHint.textContent = agentModelSelect.value
+                ? `当前将使用 ${agentProviderSelect.value || '默认'} / ${agentModelSelect.value} 进行批量标注。`
+                : '批量标注需要显式选择可用的聊天模型。';
+            updateAgentContextMeta();
+            renderAgentPlan(currentAgentTask);
+            updateAgentRunAvailability();
+        });
+
+        document.querySelectorAll('iframe').forEach(frame => {
+            frame.addEventListener('load', () => {
+                syncThemeToFrame(frame);
+                syncLanguageToFrame(frame);
+            });
+        });
+
+        const host = window.location.host;
+        if (host) {
+            const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+            const ws = new WebSocket(`${protocol}://${host}/ws/stats?client_id=${CID}`);
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'stats') {
+                    document.getElementById('online-val').innerText = data.online_count;
+                } else if (data.type === 'cloud_status' || data.type === 'canvas_updated') {
+                    const iframe = document.querySelector('iframe.active');
+                    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage(data, '*');
+                }
+            };
+            setInterval(syncStatus, 2000);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/logo.png" type="image/png">
+    <title>资源库</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+                var params = new URLSearchParams(location.search);
+                if (window.top === window && params.get('standalone') !== '1') {
+                    localStorage.setItem('studio_active_page', 'library');
+                    location.replace('/?page=library');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/static/theme.js?v=20260518"></script>
+    <script src="/static/i18n.js?v=20260518"></script>
+    <link rel="stylesheet" href="/static/theme.css?v=20260510-studio-pages-blue-dark10">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap');
+        :root { --accent:#111827; --bg:#f8fafc; --card:#ffffff; --border:#e5e7eb; --muted:#6b7280; --easing:cubic-bezier(0.4,0,0.2,1); }
+        html, body { background:var(--bg); }
+        body { font-family:'Inter',-apple-system,sans-serif; color:var(--accent); -webkit-font-smoothing:antialiased; margin:0; }
+        .page-wrap { padding:32px 40px; min-height:100vh; }
+        .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+        .page-title { font-size:24px; font-weight:700; }
+        .library-tabs { display:flex; gap:4px; padding:3px; border:1px solid var(--border); border-radius:12px; background:var(--card); }
+        .library-tab { border:0; background:transparent; color:var(--muted); border-radius:9px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer; }
+        .library-tab.active { background:#111827; color:#fff; }
+        .glass-btn { background:#111827; color:#fff; border:none; border-radius:12px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .3s var(--easing); display:inline-flex; align-items:center; gap:6px; }
+        .glass-btn:hover { background:#000; transform:translateY(-1px); box-shadow:0 12px 24px rgba(0,0,0,.1); }
+        .glass-btn.outline { background:transparent; color:var(--accent); border:1px solid var(--border); }
+        .glass-btn.outline:hover { background:#f3f4f6; }
+        .glass-btn.danger { background:#ef4444; }
+        .glass-btn.danger:hover { background:#dc2626; }
+        .glass-btn.sm { padding:5px 12px; font-size:11px; border-radius:8px; }
+        .glass-btn.agent { background:#0f172a; color:#fff; }
+        .glass-btn.agent:hover { background:#020617; }
+        .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+        .filter-pills { display:flex; gap:6px; flex-wrap:wrap; }
+        .pill { background:#f3f4f6; border:1px solid transparent; border-radius:999px; padding:5px 14px; font-size:12px; font-weight:500; cursor:pointer; transition:all .2s var(--easing); color:#6b7280; white-space:nowrap; }
+        .pill:hover { background:#e5e7eb; }
+        .pill.active { background:#111827; color:#fff; }
+        .search-box { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:7px 14px; font-size:13px; outline:none; width:220px; transition:border-color .2s; }
+        .search-box:focus { border-color:#111827; }
+        .image-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px; }
+        .image-card { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; cursor:pointer; transition:all .3s var(--easing); position:relative; }
+        .image-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.08); }
+        .image-card.selected { border-color:#0f172a; box-shadow:0 0 0 2px rgba(15,23,42,.08), 0 8px 24px rgba(0,0,0,.08); }
+        .image-card .thumb { width:100%; aspect-ratio:1; object-fit:cover; display:block; background:#f3f4f6; }
+        .image-card .card-info { padding:10px 12px; }
+        .image-card .card-filename { font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .image-card .card-tags { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+        .image-card .card-tag { background:#f3f4f6; border-radius:6px; padding:2px 7px; font-size:10px; color:#6b7280; }
+        .image-card .card-cat { position:absolute; top:8px; left:8px; background:rgba(17,24,39,.75); color:#fff; border-radius:8px; padding:2px 8px; font-size:10px; font-weight:600; backdrop-filter:blur(4px); }
+        .image-card .card-fav { position:absolute; top:8px; right:8px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.8); border-radius:50%; font-size:12px; }
+        .image-card .card-select {
+            position:absolute;
+            top:8px;
+            right:38px;
+            width:24px;
+            height:24px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:rgba(255,255,255,.9);
+            border-radius:50%;
+            border:1px solid rgba(15,23,42,.08);
+            color:#64748b;
+            cursor:pointer;
+            z-index:2;
+        }
+        .image-card.selected .card-select {
+            background:#0f172a;
+            color:#fff;
+            border-color:#0f172a;
+        }
+        .selection-summary {
+            display:none;
+            align-items:center;
+            gap:8px;
+            padding:0 4px;
+            color:var(--muted);
+            font-size:12px;
+            font-weight:600;
+        }
+        .selection-summary.show { display:flex; }
+        .drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
+        .drawer-overlay.open { opacity:1; pointer-events:auto; }
+        .drawer { position:fixed; top:0; right:-480px; width:480px; height:100vh; background:var(--card); border-left:1px solid var(--border); z-index:101; transition:right .35s var(--easing); overflow-y:auto; box-shadow:-8px 0 32px rgba(0,0,0,.08); }
+        .drawer.open { right:0; }
+        .drawer-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--card); z-index:1; }
+        .drawer-body { padding:20px; }
+        .drawer-img-wrap { width:100%; border-radius:12px; overflow:hidden; margin-bottom:16px; background:#000; }
+        .drawer-img-wrap img { width:100%; max-height:400px; object-fit:contain; display:block; }
+        .meta-section { margin-bottom:16px; }
+        .meta-label { font-size:11px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+        .tag-list { display:flex; flex-wrap:wrap; gap:6px; }
+        .tag-chip { background:#f3f4f6; border-radius:8px; padding:4px 10px; font-size:12px; display:flex; align-items:center; gap:4px; }
+        .tag-chip .remove { cursor:pointer; opacity:.5; font-size:14px; }
+        .tag-chip .remove:hover { opacity:1; }
+        .tag-input-wrap { display:flex; gap:6px; margin-top:6px; }
+        .tag-input { border:1px solid var(--border); border-radius:8px; padding:4px 10px; font-size:12px; outline:none; flex:1; background:transparent; }
+        .tag-input:focus { border-color:#111827; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s; }
+        .modal-overlay.open { opacity:1; pointer-events:auto; }
+        .modal { background:var(--card); border-radius:20px; padding:24px; width:440px; max-height:80vh; overflow-y:auto; box-shadow:0 24px 48px rgba(0,0,0,.12); }
+        .modal h3 { font-size:18px; font-weight:700; margin-bottom:16px; }
+        .form-row { margin-bottom:14px; }
+        .form-label { display:block; font-size:12px; font-weight:600; color:#6b7280; margin-bottom:4px; }
+        .form-input { width:100%; border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:13px; outline:none; background:transparent; box-sizing:border-box; }
+        .form-input:focus { border-color:#111827; }
+        .form-select { width:100%; border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:13px; outline:none; background:var(--card); }
+        .stats-bar { display:flex; gap:20px; align-items:center; }
+        .stat-item { font-size:12px; color:#6b7280; }
+        .stat-item strong { color:var(--accent); font-weight:700; }
+        .empty-state { text-align:center; padding:80px 20px; color:#9ca3af; }
+        .empty-state svg { width:48px; height:48px; margin:0 auto 12px; opacity:.4; }
+        .progress-bar { height:3px; background:#e5e7eb; border-radius:2px; overflow:hidden; margin-top:8px; }
+        .progress-bar .fill { height:100%; background:#111827; transition:width .3s; }
+        .source-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .source-info { display:flex; flex-direction:column; gap:2px; }
+        .source-name { font-size:13px; font-weight:600; }
+        .source-path { font-size:11px; color:#9ca3af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; }
+        .source-actions { display:flex; gap:6px; }
+        .drawer-actions { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+        .drawer-meta-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; font-size:12px; color:var(--muted); }
+        .drawer-meta-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#f3f4f6; color:#4b5563; }
+        .prompt-layout { display:grid; grid-template-columns:240px minmax(0, 1fr) 340px; gap:16px; align-items:start; }
+        .prompt-sidebar, .prompt-panel, .prompt-detail { background:var(--card); border:1px solid var(--border); border-radius:16px; min-height:360px; }
+        .prompt-sidebar { padding:12px; }
+        .prompt-panel { padding:14px; }
+        .prompt-detail { padding:16px; position:sticky; top:20px; }
+        .prompt-section-title { font-size:12px; font-weight:800; color:var(--muted); margin:6px 0 8px; }
+        .prompt-tree-row { width:100%; border:0; background:transparent; color:var(--accent); border-radius:10px; padding:8px 10px; font-size:13px; font-weight:700; text-align:left; cursor:pointer; display:flex; justify-content:space-between; gap:8px; }
+        .prompt-tree-row span:last-child { color:var(--muted); font-size:11px; font-weight:600; }
+        .prompt-tree-row:hover, .prompt-tree-row.active { background:#f3f4f6; }
+        .prompt-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+        .prompt-source-bar { display:none; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:#f8fafc; color:var(--muted); font-size:12px; }
+        .prompt-source-bar.show { display:flex; }
+        .prompt-filter-row { display:none; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+        .prompt-filter-row.show { display:flex; }
+        .prompt-list { display:flex; flex-direction:column; gap:10px; }
+        .prompt-row { border:1px solid var(--border); border-radius:14px; padding:12px; cursor:pointer; transition:all .2s var(--easing); display:flex; gap:12px; }
+        .prompt-row:hover, .prompt-row.active { border-color:#111827; box-shadow:0 6px 18px rgba(0,0,0,.06); }
+        .prompt-row-thumb { width:76px; height:76px; border-radius:10px; object-fit:cover; flex:0 0 auto; background:#f3f4f6; border:1px solid var(--border); }
+        .prompt-row-main { min-width:0; flex:1; }
+        .prompt-row-title { display:flex; justify-content:space-between; gap:10px; font-size:13px; font-weight:800; }
+        .prompt-row-meta { margin-top:4px; font-size:11px; color:var(--muted); }
+        .prompt-snippet { margin-top:8px; color:#4b5563; font-size:12px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .prompt-detail-image { width:100%; max-height:260px; object-fit:cover; border-radius:12px; border:1px solid var(--border); background:#f3f4f6; margin-bottom:14px; }
+        .prompt-block { margin-top:14px; }
+        .prompt-block label { display:block; color:var(--muted); font-size:11px; font-weight:800; margin-bottom:5px; }
+        .prompt-copy-row { display:flex; align-items:flex-start; gap:8px; }
+        .prompt-copy-row pre { flex:1; white-space:pre-wrap; word-break:break-word; margin:0; padding:10px; border-radius:10px; background:#f3f4f6; color:var(--accent); font-size:12px; line-height:1.5; max-height:180px; overflow:auto; }
+        .prompt-textarea { min-height:90px; resize:vertical; }
+        .prompt-empty { color:var(--muted); text-align:center; padding:60px 20px; font-size:13px; }
+        /* Dark mode */
+        html.theme-dark, html.studio-theme-dark, body.theme-dark, body.studio-theme-dark { --bg:#08090c; --card:#111216; --border:#25262b; --accent:#e8e8ea; --muted:#8f9aab; }
+        html.theme-dark body .glass-btn, html.studio-theme-dark body .glass-btn, body.theme-dark .glass-btn, body.studio-theme-dark .glass-btn { background:#d8dee9; color:#10141d; }
+        html.theme-dark body .glass-btn.outline, html.studio-theme-dark body .glass-btn.outline, body.theme-dark .glass-btn.outline, body.studio-theme-dark .glass-btn.outline { background:transparent; color:#e8e8ea; border-color:#25262b; }
+        html.theme-dark body .glass-btn.outline:hover, html.studio-theme-dark body .glass-btn.outline:hover, body.theme-dark .glass-btn.outline:hover, body.studio-theme-dark .glass-btn.outline:hover { background:#171d29; }
+        html.theme-dark body .pill, html.studio-theme-dark body .pill, body.theme-dark .pill, body.studio-theme-dark .pill { background:#171d29; color:#8f9aab; }
+        html.theme-dark body .pill:hover, html.studio-theme-dark body .pill:hover, body.theme-dark .pill:hover, body.studio-theme-dark .pill:hover { background:#1d2533; }
+        html.theme-dark body .pill.active, html.studio-theme-dark body .pill.active, body.theme-dark .pill.active, body.studio-theme-dark .pill.active { background:#d8dee9; color:#10141d; }
+        html.theme-dark body .library-tab.active, html.studio-theme-dark body .library-tab.active, body.theme-dark .library-tab.active, body.studio-theme-dark .library-tab.active { background:#d8dee9; color:#10141d; }
+        html.theme-dark body .search-box, html.studio-theme-dark body .search-box, body.theme-dark .search-box, body.studio-theme-dark .search-box { background:#111216; border-color:#25262b; color:#e8e8ea; }
+        html.theme-dark body .tag-chip, html.studio-theme-dark body .tag-chip, body.theme-dark .tag-chip, body.studio-theme-dark .tag-chip { background:#171d29; color:#cbd5e1; }
+        html.theme-dark body .form-input, html.studio-theme-dark body .form-input, html.theme-dark body .form-select, html.studio-theme-dark body .form-select, body.theme-dark .form-input, body.studio-theme-dark .form-input, body.theme-dark .form-select, body.studio-theme-dark .form-select { background:#111216; border-color:#25262b; color:#e8e8ea; }
+        html.theme-dark body .card-tag, html.studio-theme-dark body .card-tag, body.theme-dark .card-tag, body.studio-theme-dark .card-tag { background:#171d29; color:#cbd5e1; }
+        html.theme-dark body .drawer-meta-pill, html.studio-theme-dark body .drawer-meta-pill, body.theme-dark .drawer-meta-pill, body.studio-theme-dark .drawer-meta-pill { background:#171d29; color:#cbd5e1; }
+        html.theme-dark body .prompt-tree-row:hover, html.theme-dark body .prompt-tree-row.active, html.studio-theme-dark body .prompt-tree-row:hover, html.studio-theme-dark body .prompt-tree-row.active, body.theme-dark .prompt-tree-row:hover, body.theme-dark .prompt-tree-row.active, body.studio-theme-dark .prompt-tree-row:hover, body.studio-theme-dark .prompt-tree-row.active { background:#171d29; }
+        html.theme-dark body .prompt-source-bar, html.studio-theme-dark body .prompt-source-bar, body.theme-dark .prompt-source-bar, body.studio-theme-dark .prompt-source-bar { background:#0f141d; }
+        html.theme-dark body .prompt-copy-row pre, html.studio-theme-dark body .prompt-copy-row pre, body.theme-dark .prompt-copy-row pre, body.studio-theme-dark .prompt-copy-row pre { background:#171d29; color:#e8e8ea; }
+        html.theme-dark body .prompt-snippet, html.studio-theme-dark body .prompt-snippet, body.theme-dark .prompt-snippet, body.studio-theme-dark .prompt-snippet { color:#cbd5e1; }
+        /* Toast */
+        .toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        .toast { pointer-events:auto; background:#111827; color:#fff; padding:10px 18px; border-radius:12px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:8px; box-shadow:0 8px 24px rgba(0,0,0,.15); animation:toastIn .3s var(--easing); max-width:360px; }
+        .toast.success { background:#059669; }
+        .toast.error { background:#dc2626; }
+        .toast.leaving { animation:toastOut .3s var(--easing) forwards; }
+        @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
+        .toast .spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        /* Skeleton */
+        .skeleton { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:12px; }
+        @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+        body.theme-dark .skeleton { background:linear-gradient(90deg,#25262b 25%,#2f3035 50%,#25262b 75%); background-size:200% 100%; }
+        /* Button loading */
+        .glass-btn.loading { opacity:.7; pointer-events:none; position:relative; }
+        .glass-btn.loading::after { content:''; width:12px; height:12px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; margin-left:4px; }
+        .glass-btn.outline.loading::after { border-color:rgba(0,0,0,.2); border-top-color:#111827; }
+        /* Page loading overlay */
+        .page-loading { position:fixed; inset:0; background:var(--bg); z-index:50; display:flex; align-items:center; justify-content:center; transition:opacity .4s; }
+        .page-loading.done { opacity:0; pointer-events:none; }
+        .page-loading .loader { width:32px; height:32px; border:3px solid var(--border); border-top-color:#111827; border-radius:50%; animation:spin .7s linear infinite; }
+        body.theme-dark .page-loading .loader { border-top-color:#e8e8ea; }
+        @media (max-width: 1100px) {
+            .page-header { align-items:flex-start; gap:12px; flex-direction:column; }
+            .prompt-layout { grid-template-columns:1fr; }
+            .prompt-detail { position:static; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-loading" id="page-loading"><div class="loader"></div></div>
+    <div class="toast-container" id="toast-container"></div>
+    <div class="page-wrap">
+        <!-- Header -->
+        <div class="page-header">
+            <div style="display:flex;align-items:center;gap:12px">
+                <h1 class="page-title" data-i18n="library.title">资源库</h1>
+                <div class="library-tabs">
+                    <button class="library-tab active" id="tab-images" onclick="switchLibraryView('images')">图片素材</button>
+                    <button class="library-tab" id="tab-prompts" onclick="switchLibraryView('prompts')">提示词库</button>
+                </div>
+                <div class="stats-bar" id="stats-bar"></div>
+            </div>
+            <div id="image-header-actions" style="display:flex;gap:8px">
+                <button class="glass-btn agent" onclick="planAgentForLibrary()">
+                    <i data-lucide="sparkles" style="width:14px;height:14px"></i>
+                    <span>让助手整理当前结果</span>
+                </button>
+                <button class="glass-btn outline" onclick="openSourcesModal()" data-i18n="library.manageSources">管理来源</button>
+                <button class="glass-btn" onclick="openAddSourceModal()">
+                    <i data-lucide="plus" style="width:14px;height:14px"></i>
+                    <span data-i18n="library.addSource">添加来源</span>
+                </button>
+            </div>
+            <div id="prompt-header-actions" style="display:none;gap:8px">
+                <button class="glass-btn outline" onclick="createPromptLibrary()">新建提示词库</button>
+                <button class="glass-btn" id="prompt-header-new-item-btn" onclick="openPromptCreate()">
+                    <i data-lucide="plus" style="width:14px;height:14px"></i>
+                    <span>新增提示词</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="image-workspace">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <select id="source-filter" class="form-select" style="width:160px;border-radius:999px;font-size:12px;padding:6px 12px" onchange="loadImages()">
+                <option value="" data-i18n="library.allSources">全部来源</option>
+            </select>
+            <div class="filter-pills" id="category-pills"></div>
+            <input type="text" class="search-box" id="search-input" data-i18n-placeholder="library.searchPlaceholder" placeholder="搜索标签、文件名..." oninput="debounceSearch()">
+            <div style="flex:1"></div>
+            <button class="glass-btn outline sm" id="btn-untagged" onclick="toggleUntagged()">
+                <i data-lucide="tag" style="width:12px;height:12px"></i>
+                <span data-i18n="library.untagged">未标注</span>
+            </button>
+            <button class="glass-btn outline sm" id="btn-fav" onclick="toggleFavFilter()">
+                <i data-lucide="heart" style="width:12px;height:12px"></i>
+                <span data-i18n="library.favorites">收藏</span>
+            </button>
+            <button class="glass-btn sm" id="btn-ai-tag" onclick="openTagModal()">
+                <i data-lucide="sparkles" style="width:12px;height:12px"></i>
+                <span data-i18n="library.aiTag">AI 标注</span>
+            </button>
+            <button class="glass-btn outline sm" onclick="planAgentForLibraryTag()">
+                <i data-lucide="wand-sparkles" style="width:12px;height:12px"></i>
+                <span>让助手批量标注</span>
+            </button>
+            <button class="glass-btn outline sm" onclick="sendVisibleToAgentCanvas()">
+                <i data-lucide="gallery-horizontal-end" style="width:12px;height:12px"></i>
+                <span>发送到智能画布</span>
+            </button>
+            <div class="selection-summary" id="selection-summary">
+                <span id="selection-count">0</span>
+                <span>张已选</span>
+                <button class="glass-btn outline sm" onclick="clearSelection()">清空</button>
+            </div>
+        </div>
+
+        <!-- Image Grid -->
+        <div id="image-grid" class="image-grid"></div>
+        <div id="empty-state" class="empty-state" style="display:none">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            <p data-i18n="library.noImages">暂无图片，请先添加来源并扫描</p>
+        </div>
+        <div id="load-more" style="text-align:center;padding:20px;display:none">
+            <button class="glass-btn outline" onclick="loadMore()" data-i18n="library.loadMore">加载更多</button>
+        </div>
+        </div>
+
+        <div id="prompt-workspace" style="display:none">
+            <div class="prompt-layout">
+                <aside class="prompt-sidebar">
+                    <div class="prompt-section-title">提示词库</div>
+                    <div id="prompt-library-tree"></div>
+                </aside>
+                <section class="prompt-panel">
+                    <div class="prompt-source-bar" id="prompt-source-bar">
+                        <span id="prompt-source-status">提示词案例库尚未同步</span>
+                        <button class="glass-btn outline sm" id="prompt-source-sync-btn" onclick="syncAwesomePromptSource()">更新提示词案例库</button>
+                    </div>
+                    <div class="prompt-toolbar">
+                        <input type="text" class="search-box" id="prompt-search" placeholder="搜索提示词..." oninput="debouncePromptSearch()">
+                        <button class="glass-btn outline sm" id="prompt-new-category-btn" onclick="createPromptCategory()">新分组</button>
+                        <button class="glass-btn sm" id="prompt-new-item-btn" onclick="openPromptCreate()">新增提示词</button>
+                    </div>
+                    <div class="prompt-filter-row" id="prompt-filter-row">
+                        <select class="form-select" id="prompt-kind-filter" style="width:130px" onchange="setPromptKindFilter(this.value)">
+                            <option value="">全部类型</option>
+                            <option value="template">工业模板</option>
+                            <option value="case">案例参考</option>
+                        </select>
+                        <select class="form-select" id="prompt-style-filter" style="width:150px" onchange="setPromptStyleFilter(this.value)"></select>
+                        <select class="form-select" id="prompt-scene-filter" style="width:150px" onchange="setPromptSceneFilter(this.value)"></select>
+                    </div>
+                    <div id="prompt-list" class="prompt-list"></div>
+                </section>
+                <section class="prompt-detail" id="prompt-detail"></section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Detail Drawer -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="drawer">
+        <div class="drawer-header">
+            <span id="drawer-filename" style="font-weight:600;font-size:14px"></span>
+            <button class="glass-btn outline sm" onclick="closeDrawer()">
+                <i data-lucide="x" style="width:14px;height:14px"></i>
+            </button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-img-wrap"><img id="drawer-img" src="" alt=""></div>
+            <!-- Category -->
+            <div class="meta-section">
+                <div class="meta-label" data-i18n="library.category">分类</div>
+                <div id="drawer-categories" class="tag-list"></div>
+                <div class="tag-input-wrap" style="margin-top:8px">
+                    <select id="drawer-cat-select" class="form-select" style="flex:1;font-size:12px;padding:5px 8px;border-radius:8px"></select>
+                    <button class="glass-btn sm" onclick="setCategory()" data-i18n="library.set">设置</button>
+                </div>
+            </div>
+            <!-- AI Tags -->
+            <div class="meta-section">
+                <div class="meta-label" data-i18n="library.aiTags">AI 标签</div>
+                <div id="drawer-ai-tags" class="tag-list"></div>
+            </div>
+            <!-- Manual Tags -->
+            <div class="meta-section">
+                <div class="meta-label" data-i18n="library.manualTags">手动标签</div>
+                <div id="drawer-manual-tags" class="tag-list"></div>
+                <div class="tag-input-wrap">
+                    <input type="text" class="tag-input" id="new-tag-input" placeholder="输入标签..." onkeydown="if(event.key==='Enter')addManualTag()">
+                    <button class="glass-btn sm" onclick="addManualTag()" data-i18n="library.add">添加</button>
+                </div>
+            </div>
+            <!-- Notes -->
+            <div class="meta-section">
+                <div class="meta-label" data-i18n="library.notes">备注</div>
+                <textarea id="drawer-notes" class="form-input" rows="3" style="resize:vertical;font-size:12px" onchange="saveNotes()"></textarea>
+            </div>
+            <!-- Actions -->
+            <div class="drawer-actions">
+                <button class="glass-btn sm" onclick="sendCurrentToSmartCanvas()" id="drawer-send-smart-btn">
+                    <i data-lucide="sparkles" style="width:12px;height:12px"></i>
+                    <span data-i18n="library.sendToSmartCanvas">发送到智能画布</span>
+                </button>
+                <button class="glass-btn outline sm" onclick="openSourceCanvas()" id="drawer-source-canvas-btn" style="display:none">
+                    <i data-lucide="history" style="width:12px;height:12px"></i>
+                    <span data-i18n="library.backToSourceCanvas">回到来源画布</span>
+                </button>
+                <button class="glass-btn outline sm" onclick="toggleFav()" id="drawer-fav-btn">
+                    <i data-lucide="heart" style="width:12px;height:12px"></i>
+                    <span data-i18n="library.favorite">收藏</span>
+                </button>
+                <button class="glass-btn outline sm" onclick="tagCurrentImage()">
+                    <i data-lucide="sparkles" style="width:12px;height:12px"></i>
+                    <span data-i18n="library.aiTagThis">AI 标注</span>
+                </button>
+                <div style="flex:1"></div>
+                <button class="glass-btn danger sm" onclick="deleteCurrentImage()">
+                    <i data-lucide="trash-2" style="width:12px;height:12px"></i>
+                    <span data-i18n="library.delete">删除</span>
+                </button>
+            </div>
+            <div class="drawer-meta-row" id="drawer-workflow-meta"></div>
+            <!-- Meta info -->
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:#9ca3af">
+                <div id="drawer-meta"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Source Modal -->
+    <div class="modal-overlay" id="add-source-modal">
+        <div class="modal">
+            <h3 data-i18n="library.addSource">添加来源</h3>
+            <div class="form-row">
+                <label class="form-label" data-i18n="library.sourceName">来源名称</label>
+                <input type="text" class="form-input" id="src-name" placeholder="我的素材库">
+            </div>
+            <div class="form-row">
+                <label class="form-label" data-i18n="library.sourceType">类型</label>
+                <select class="form-select" id="src-type" onchange="toggleSourceType()">
+                    <option value="local" data-i18n="library.localFolder">本地文件夹</option>
+                    <option value="remote" data-i18n="library.remoteApi">远程 API</option>
+                </select>
+            </div>
+            <div class="form-row" id="src-path-row">
+                <label class="form-label" data-i18n="library.folderPath">文件夹路径</label>
+                <div style="display:flex;gap:6px">
+                    <input type="text" class="form-input" id="src-path" placeholder="D:/photos/stock" style="flex:1">
+                    <button class="glass-btn outline sm" onclick="openBrowser()" type="button" data-i18n="library.browse">浏览</button>
+                </div>
+                <div id="folder-browser" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:10px;max-height:200px;overflow-y:auto">
+                    <div id="browser-breadcrumb" style="padding:8px 12px;font-size:11px;color:#6b7280;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;flex-wrap:wrap"></div>
+                    <div id="browser-list"></div>
+                </div>
+            </div>
+            <div class="form-row" id="src-url-row" style="display:none">
+                <label class="form-label" data-i18n="library.apiUrl">API 地址</label>
+                <input type="text" class="form-input" id="src-url" placeholder="https://api.example.com">
+            </div>
+            <div class="form-row" id="src-key-row" style="display:none">
+                <label class="form-label" data-i18n="library.apiKey">API Key</label>
+                <input type="text" class="form-input" id="src-api-key" placeholder="sk-...">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+                <button class="glass-btn outline" onclick="closeAddSourceModal()" data-i18n="common.cancel">取消</button>
+                <button class="glass-btn" onclick="createSource()" data-i18n="common.confirm">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sources Manager Modal -->
+    <div class="modal-overlay" id="sources-modal">
+        <div class="modal" style="width:520px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <h3 style="margin:0" data-i18n="library.manageSources">管理来源</h3>
+                <button class="glass-btn outline sm" onclick="closeSourcesModal()">
+                    <i data-lucide="x" style="width:14px;height:14px"></i>
+                </button>
+            </div>
+            <div id="sources-list"></div>
+        </div>
+    </div>
+
+    <!-- AI Tag Modal -->
+    <div class="modal-overlay" id="tag-modal">
+        <div class="modal">
+            <h3 data-i18n="library.batchAiTag">批量 AI 标注</h3>
+            <div class="form-row">
+                <label class="form-label" data-i18n="library.provider">API 提供商</label>
+                <select class="form-select" id="tag-provider" onchange="onProviderChange()"></select>
+            </div>
+            <div class="form-row">
+                <label class="form-label" data-i18n="library.model">模型</label>
+                <select class="form-select" id="tag-model"></select>
+            </div>
+            <div class="form-row">
+                <label class="form-label" data-i18n="library.tagScope">标注范围</label>
+                <select class="form-select" id="tag-scope">
+                    <option value="untagged" data-i18n="library.scopeUntagged">仅未标注的</option>
+                    <option value="all" data-i18n="library.scopeAll">全部图片</option>
+                    <option value="selected" data-i18n="library.scopeVisible">当前可见</option>
+                </select>
+            </div>
+            <div id="tag-progress" style="display:none">
+                <div style="font-size:12px;color:#6b7280" id="tag-progress-text"></div>
+                <div class="progress-bar"><div class="fill" id="tag-progress-fill" style="width:0"></div></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+                <button class="glass-btn outline" onclick="closeTagModal()" data-i18n="common.cancel">取消</button>
+                <button class="glass-btn" onclick="startAiTag()" id="btn-start-tag" data-i18n="library.startTag">开始标注</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- State ---
+    let allImages = [];
+    let currentImageId = null;
+    let selectedImageIds = new Set();
+    let currentPage = 1;
+    let totalImages = 0;
+    let filterUntagged = false;
+    let filterFav = false;
+    let searchTimer = null;
+    let categories = {presets:[], custom:[]};
+    let sources = [];
+    let libraryView = 'images';
+    let promptLibraryData = {libraries:[]};
+    let activePromptLibraryId = 'system';
+    let activePromptCategory = 'all';
+    let selectedPromptId = '';
+    let promptQuery = '';
+    let promptSearchTimer = null;
+    let promptEditMode = 'view';
+    let promptSourceStatus = null;
+    let promptKindFilter = '';
+    let promptStyleFilter = '';
+    let promptSceneFilter = '';
+    let promptVisibleCount = 80;
+    const SMART_CANVAS_IMPORT_KEY = 'smart_canvas_pending_import_v1';
+
+    // --- Init ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        lucide.createIcons();
+        renderSkeletonGrid();
+        try { await loadSources(); } catch(e) { console.error('loadSources:', e); }
+        try { await loadCategories(); } catch(e) { console.error('loadCategories:', e); }
+        try { await loadImages(); } catch(e) { console.error('loadImages:', e); }
+        try { loadStats(); } catch(e) { console.error('loadStats:', e); }
+        try { await loadProviders(); } catch(e) { console.error('loadProviders:', e); }
+        try { await loadPromptSourceStatus(); } catch(e) { console.error('loadPromptSourceStatus:', e); }
+        try { await loadPromptLibraries(); } catch(e) { console.error('loadPromptLibraries:', e); }
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            if ((params.get('view') || '').toLowerCase() === 'prompts') switchLibraryView('prompts');
+        } catch(e) {}
+        document.getElementById('page-loading').classList.add('done');
+    });
+
+    // --- API helpers ---
+    async function api(url, opts = {}) {
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || res.statusText);
+        }
+        return res.json();
+    }
+
+    function tr(key) {
+        return window.StudioI18n?.t(key) || key;
+    }
+
+    function currentImageRecord() {
+        return allImages.find(i => i.id === currentImageId) || null;
+    }
+
+    function currentSelectedImages() {
+        return allImages.filter(img => selectedImageIds.has(img.id));
+    }
+
+    function currentSourceRecord() {
+        const sourceId = document.getElementById('source-filter')?.value || '';
+        return sources.find(s => s.id === sourceId) || null;
+    }
+
+    function currentLibraryTagConfig() {
+        const providerId = document.getElementById('tag-provider')?.value || '';
+        const model = document.getElementById('tag-model')?.value || '';
+        const provider = allProviders.find(item => item.id === providerId) || null;
+        return {
+            provider: providerId,
+            provider_label: provider?.name || providerId || '',
+            model,
+            model_label: model || ''
+        };
+    }
+
+    function buildLibraryAgentContext(extra = {}) {
+        const source = currentSourceRecord();
+        const query = document.getElementById('search-input')?.value.trim() || '';
+        return {
+            active_page: 'library',
+            active_page_label: '资源库',
+            source_id: source?.id || '',
+            source_name: source?.name || '',
+            category: activeCategory || '',
+            query,
+            visible_count: allImages.length,
+            selected_count: selectedImageIds.size,
+            selected_image_ids: Array.from(selectedImageIds),
+            filter_untagged: filterUntagged,
+            filter_favorited: filterFav,
+            ...extra
+        };
+    }
+
+    function updateSelectionSummary() {
+        const wrap = document.getElementById('selection-summary');
+        const count = document.getElementById('selection-count');
+        const size = selectedImageIds.size;
+        count.textContent = String(size);
+        wrap.classList.toggle('show', size > 0);
+    }
+
+    function clearSelection() {
+        selectedImageIds.clear();
+        updateSelectionSummary();
+        renderGrid();
+    }
+
+    function toggleImageSelection(id, event) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        if (!id) return;
+        if (selectedImageIds.has(id)) selectedImageIds.delete(id);
+        else selectedImageIds.add(id);
+        updateSelectionSummary();
+        renderGrid();
+    }
+
+    function requestTopAgent(payload) {
+        if (window.top && window.top !== window) {
+            window.top.postMessage({
+                type: 'studio-agent-request',
+                ...payload
+            }, '*');
+            return true;
+        }
+        return false;
+    }
+
+    function smartCanvasImportPayload(images, canvasId = '') {
+        return {
+            canvas_id: canvasId,
+            created_at: Date.now(),
+            images: (images || []).map(img => ({
+                id: img.id,
+                url: img.url,
+                thumb_url: img.thumb_url || '',
+                filename: img.filename || 'library-image',
+                width: Number(img.width) || 0,
+                height: Number(img.height) || 0,
+                source_id: img.source_id || '',
+                source_name: img.source_name || '',
+                categories: Array.isArray(img.categories) ? img.categories : [],
+                tags: Array.isArray(img.tags) ? img.tags : []
+            }))
+        };
+    }
+
+    function smartCanvasTitleForImage(img) {
+        const base = (img?.source_canvas_title || img?.filename || tr('canvas.newSmartCanvas')).trim();
+        return `${base} · ${new Date().toLocaleTimeString(window.StudioI18n?.lang() === 'en' ? 'en-US' : 'zh-CN', {hour:'2-digit', minute:'2-digit'})}`;
+    }
+
+    function openSmartCanvasUrl(canvasId) {
+        const url = `/static/smart-canvas.html?id=${encodeURIComponent(canvasId)}&v=20260521-smart-library-workflow`;
+        if (window.top && window.top !== window) window.top.location.href = url;
+        else window.location.href = url;
+    }
+
+    async function sendCurrentToSmartCanvas() {
+        const img = currentImageRecord();
+        if (!img) return;
+        const btn = document.getElementById('drawer-send-smart-btn');
+        setBtnLoading(btn, true);
+        try {
+            const data = await api('/api/canvases', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    title: smartCanvasTitleForImage(img),
+                    icon: 'sparkles',
+                    kind: 'smart'
+                })
+            });
+            const canvasId = data.canvas?.id;
+            if (!canvasId) throw new Error(tr('canvas.createFailed'));
+            localStorage.setItem(SMART_CANVAS_IMPORT_KEY, JSON.stringify(smartCanvasImportPayload([img], canvasId)));
+            toast(tr('library.openingSmartCanvas'), 'success', 1200);
+            setTimeout(() => openSmartCanvasUrl(canvasId), 120);
+        } catch (e) {
+            toast(`${tr('library.createSmartCanvasFailed')}: ${e.message}`, 'error');
+        } finally {
+            setBtnLoading(btn, false);
+        }
+    }
+
+    function planAgentForLibrary() {
+        const ok = requestTopAgent({
+            page: 'library',
+            goal: '整理当前资源库结果并给出下一步建议',
+            context: buildLibraryAgentContext()
+        });
+        if (!ok) {
+            toast('当前不在工作台主容器中，无法打开顶层 Agent。', 'error');
+        }
+    }
+
+    function planAgentForLibraryTag() {
+        const selected = currentSelectedImages();
+        const tagConfig = currentLibraryTagConfig();
+        const ok = requestTopAgent({
+            page: 'library',
+            goal: selected.length ? '给当前选中的资源库图片批量打标签和分类' : '给当前资源库结果批量打标签和分类',
+            context: buildLibraryAgentContext({
+                intent: 'batch_tag',
+                provider: tagConfig.provider,
+                provider_label: tagConfig.provider_label,
+                model: tagConfig.model,
+                model_label: tagConfig.model_label,
+                selected_image_ids: selected.map(img => img.id),
+                visible_image_ids: allImages.slice(0, 100).map(img => img.id)
+            })
+        });
+        if (!ok) {
+            toast('当前不在工作台主容器中，无法打开顶层 Agent。', 'error');
+        }
+    }
+
+    function sendVisibleToAgentCanvas() {
+        const selected = currentSelectedImages();
+        const ok = requestTopAgent({
+            page: 'library',
+            goal: selected.length ? '把当前选中的资源库图片送入智能画布并生成草稿计划' : '把当前资源库结果送入智能画布并生成草稿计划',
+            context: buildLibraryAgentContext({
+                intent: 'send_to_smart_canvas',
+                visible_image_ids: allImages.slice(0, 50).map(img => img.id),
+                selected_image_ids: selected.map(img => img.id)
+            })
+        });
+        if (!ok) {
+            toast('当前不在工作台主容器中，无法打开顶层 Agent。', 'error');
+        }
+    }
+
+    function openSourceCanvas() {
+        const img = currentImageRecord();
+        const canvasId = String(img?.source_canvas_id || '').trim();
+        if (!canvasId) return;
+        openSmartCanvasUrl(canvasId);
+    }
+
+    // --- Prompt Library ---
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[ch]));
+    }
+
+    function switchLibraryView(view) {
+        libraryView = view === 'prompts' ? 'prompts' : 'images';
+        document.getElementById('tab-images')?.classList.toggle('active', libraryView === 'images');
+        document.getElementById('tab-prompts')?.classList.toggle('active', libraryView === 'prompts');
+        document.getElementById('image-workspace').style.display = libraryView === 'images' ? '' : 'none';
+        document.getElementById('prompt-workspace').style.display = libraryView === 'prompts' ? '' : 'none';
+        document.getElementById('image-header-actions').style.display = libraryView === 'images' ? 'flex' : 'none';
+        document.getElementById('prompt-header-actions').style.display = libraryView === 'prompts' ? 'flex' : 'none';
+        if (libraryView === 'prompts') renderPromptWorkspace();
+        lucide.createIcons();
+    }
+
+    function promptLibraries() {
+        return promptLibraryData.libraries || [];
+    }
+
+    function activePromptLibrary() {
+        return promptLibraries().find(lib => lib.id === activePromptLibraryId) || promptLibraries()[0] || null;
+    }
+
+    function promptCategories(lib = activePromptLibrary()) {
+        return lib?.categories || [];
+    }
+
+    function promptCategoryLabel(categoryId) {
+        const cat = promptCategories().find(item => item.id === categoryId);
+        return cat?.name || categoryId || '未分组';
+    }
+
+    function isExternalPromptLibrary(lib = activePromptLibrary()) {
+        return Boolean(lib?.external || lib?.readonly);
+    }
+
+    function promptItemKindLabel(item) {
+        return item?.source_kind === 'case' ? '案例参考' : (item?.source_kind === 'template' ? '工业模板' : '提示词');
+    }
+
+    function promptItemSearchText(item) {
+        return [
+            item.name,
+            item.positive,
+            item.negative,
+            item.scene,
+            promptCategoryLabel(item.category),
+            item.source_kind,
+            ...(item.styles || []),
+            ...(item.scenes || []),
+            ...(item.tags || []),
+            item.source_label,
+        ].join(' ').toLowerCase();
+    }
+
+    function filteredPromptItems() {
+        const lib = activePromptLibrary();
+        if (!lib) return [];
+        const q = promptQuery.trim().toLowerCase();
+        return (lib.items || []).filter(item => {
+            if (activePromptCategory !== 'all' && item.category !== activePromptCategory) return false;
+            if (promptKindFilter && item.source_kind !== promptKindFilter) return false;
+            if (promptStyleFilter && !(item.styles || []).includes(promptStyleFilter)) return false;
+            if (promptSceneFilter && !(item.scenes || []).includes(promptSceneFilter)) return false;
+            if (!q) return true;
+            return promptItemSearchText(item).includes(q);
+        });
+    }
+
+    async function loadPromptSourceStatus() {
+        promptSourceStatus = await api('/api/prompt-sources/awesome-gpt-image-2/status');
+    }
+
+    async function loadPromptLibraries() {
+        promptLibraryData = await api('/api/prompt-libraries');
+        if (!activePromptLibrary()) activePromptLibraryId = promptLibraries()[0]?.id || 'system';
+        if (selectedPromptId && !filteredPromptItems().some(item => item.id === selectedPromptId)) selectedPromptId = '';
+        renderPromptWorkspace();
+    }
+
+    function renderPromptWorkspace() {
+        renderPromptSourceBar();
+        renderPromptFilters();
+        renderPromptActions();
+        renderPromptTree();
+        renderPromptList();
+        renderPromptDetail();
+    }
+
+    function renderPromptActions() {
+        const readonly = isExternalPromptLibrary();
+        document.getElementById('prompt-new-category-btn')?.style.setProperty('display', readonly ? 'none' : '');
+        document.getElementById('prompt-new-item-btn')?.style.setProperty('display', readonly ? 'none' : '');
+        document.getElementById('prompt-header-new-item-btn')?.style.setProperty('display', readonly ? 'none' : '');
+    }
+
+    function renderPromptSourceBar() {
+        const bar = document.getElementById('prompt-source-bar');
+        const status = document.getElementById('prompt-source-status');
+        if (!bar || !status) return;
+        const external = activePromptLibraryId === 'awesome_gpt_image_2' || !promptSourceStatus?.synced;
+        bar.classList.toggle('show', Boolean(external));
+        const synced = promptSourceStatus?.synced;
+        const tpl = Number(promptSourceStatus?.template_count || 0);
+        const cases = Number(promptSourceStatus?.case_count || 0);
+        const imgs = Number(promptSourceStatus?.image_count || 0);
+        status.textContent = synced
+            ? `提示词案例库已同步：${tpl} 个模板，${cases} 个案例，${imgs} 张示例图`
+            : '提示词案例库尚未同步，点击右侧按钮拉取本地镜像';
+    }
+
+    function renderPromptFilters() {
+        const row = document.getElementById('prompt-filter-row');
+        const lib = activePromptLibrary();
+        if (!row || !lib) return;
+        const show = isExternalPromptLibrary(lib);
+        row.classList.toggle('show', show);
+        if (!show) {
+            promptKindFilter = '';
+            promptStyleFilter = '';
+            promptSceneFilter = '';
+            return;
+        }
+        const kind = document.getElementById('prompt-kind-filter');
+        const style = document.getElementById('prompt-style-filter');
+        const scene = document.getElementById('prompt-scene-filter');
+        if (kind) kind.value = promptKindFilter;
+        if (style) {
+            const styles = lib.filters?.styles || [];
+            style.innerHTML = '<option value="">全部风格</option>' + styles.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
+            style.value = promptStyleFilter;
+        }
+        if (scene) {
+            const scenes = lib.filters?.scenes || [];
+            scene.innerHTML = '<option value="">全部场景</option>' + scenes.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
+            scene.value = promptSceneFilter;
+        }
+    }
+
+    function renderPromptTree() {
+        const el = document.getElementById('prompt-library-tree');
+        if (!el) return;
+        el.innerHTML = promptLibraries().map(lib => {
+            const categories = promptCategories(lib);
+            const kindRows = isExternalPromptLibrary(lib) ? [
+                `<button class="prompt-tree-row ${activePromptLibraryId === lib.id && promptKindFilter === 'template' ? 'active' : ''}" onclick="selectPromptKind('${escapeHtml(lib.id)}','template')"><span>工业模板</span><span>${(lib.items || []).filter(item => item.source_kind === 'template').length}</span></button>`,
+                `<button class="prompt-tree-row ${activePromptLibraryId === lib.id && promptKindFilter === 'case' ? 'active' : ''}" onclick="selectPromptKind('${escapeHtml(lib.id)}','case')"><span>案例参考</span><span>${(lib.items || []).filter(item => item.source_kind === 'case').length}</span></button>`
+            ].join('') : '';
+            const categoryRows = [
+                `<button class="prompt-tree-row ${activePromptLibraryId === lib.id && activePromptCategory === 'all' ? 'active' : ''}" onclick="selectPromptCategory('${escapeHtml(lib.id)}','all')"><span>全部提示词</span><span>${(lib.items || []).length}</span></button>`,
+                kindRows,
+                ...categories.map(cat => {
+                    const count = (lib.items || []).filter(item => item.category === cat.id).length;
+                    const active = activePromptLibraryId === lib.id && activePromptCategory === cat.id ? 'active' : '';
+                    return `<button class="prompt-tree-row ${active}" onclick="selectPromptCategory('${escapeHtml(lib.id)}','${escapeHtml(cat.id)}')"><span>${escapeHtml(cat.name)}</span><span>${count}</span></button>`;
+                })
+            ].join('');
+            const active = activePromptLibraryId === lib.id ? 'active' : '';
+            return `
+                <div style="margin-bottom:12px">
+                    <button class="prompt-tree-row ${active}" onclick="selectPromptLibrary('${escapeHtml(lib.id)}')">
+                        <span>${escapeHtml(lib.name)}</span>
+                        <span>${(lib.items || []).length}</span>
+                    </button>
+                    <div style="padding-left:8px">${categoryRows}</div>
+                </div>
+            `;
+        }).join('') || '<div class="prompt-empty">暂无提示词库</div>';
+    }
+
+    function renderPromptList() {
+        const el = document.getElementById('prompt-list');
+        if (!el) return;
+        const allItems = filteredPromptItems();
+        const external = isExternalPromptLibrary();
+        const items = external ? allItems.slice(0, promptVisibleCount) : allItems;
+        if (!selectedPromptId && items.length) selectedPromptId = items[0].id;
+        if (!items.length) {
+            el.innerHTML = '<div class="prompt-empty">没有匹配的提示词</div>';
+            return;
+        }
+        el.innerHTML = items.map(item => `
+            <div class="prompt-row ${item.id === selectedPromptId ? 'active' : ''}" onclick="selectPrompt('${escapeHtml(item.id)}')">
+                ${item.image_url ? `<img class="prompt-row-thumb" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.image_alt || item.name)}" loading="lazy">` : ''}
+                <div class="prompt-row-main">
+                    <div class="prompt-row-title">
+                        <span>${escapeHtml(item.name)}</span>
+                        <span class="drawer-meta-pill">${escapeHtml(promptItemKindLabel(item))}</span>
+                    </div>
+                    <div class="prompt-row-meta">${escapeHtml(promptCategoryLabel(item.category))}${item.source_label ? ` · ${escapeHtml(item.source_label)}` : ''}${item.styles?.length ? ` · ${escapeHtml(item.styles.join(' / '))}` : ''}${item.scenes?.length ? ` · ${escapeHtml(item.scenes.join(' / '))}` : ''}</div>
+                    <div class="prompt-snippet">${escapeHtml(item.positive || '未填写正向提示词')}</div>
+                </div>
+            </div>
+        `).join('') + (external && allItems.length > items.length ? `
+            <div style="text-align:center;padding:8px">
+                <button class="glass-btn outline sm" onclick="loadMorePrompts()">加载更多（${items.length}/${allItems.length}）</button>
+            </div>
+        ` : '');
+    }
+
+    function selectedPrompt() {
+        const lib = activePromptLibrary();
+        return (lib?.items || []).find(item => item.id === selectedPromptId) || null;
+    }
+
+    function renderPromptDetail() {
+        const el = document.getElementById('prompt-detail');
+        if (!el) return;
+        const item = selectedPrompt();
+        if (promptEditMode === 'create' || promptEditMode === 'edit') {
+            renderPromptForm(item);
+            return;
+        }
+        if (!item) {
+            el.innerHTML = '<div class="prompt-empty">选择一条提示词查看详情</div>';
+            return;
+        }
+        const external = Boolean(item.external || activePromptLibrary()?.external || activePromptLibrary()?.readonly);
+        el.innerHTML = `
+            ${item.image_url ? `<img class="prompt-detail-image" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.image_alt || item.name)}" loading="lazy">` : ''}
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div>
+                    <div style="font-size:18px;font-weight:800">${escapeHtml(item.name)}</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                        <div class="drawer-meta-pill">${escapeHtml(promptCategoryLabel(item.category))}</div>
+                        <div class="drawer-meta-pill">${escapeHtml(promptItemKindLabel(item))}</div>
+                        ${external ? '<div class="drawer-meta-pill">只读来源</div>' : ''}
+                    </div>
+                </div>
+                <div style="display:${external ? 'none' : 'flex'};gap:6px">
+                    <button class="glass-btn outline sm" onclick="openPromptEdit()">编辑</button>
+                    <button class="glass-btn danger sm" onclick="deletePrompt('${escapeHtml(item.id)}')">删除</button>
+                </div>
+            </div>
+            <div class="prompt-block">
+                <label>使用场景</label>
+                <div style="font-size:13px;color:var(--muted);line-height:1.6">${escapeHtml(item.scene || '未填写')}</div>
+            </div>
+            ${(item.styles?.length || item.scenes?.length || item.source_url || item.github_url) ? `
+                <div class="prompt-block">
+                    <label>来源与标签</label>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        ${(item.styles || []).map(x => `<span class="drawer-meta-pill">${escapeHtml(x)}</span>`).join('')}
+                        ${(item.scenes || []).map(x => `<span class="drawer-meta-pill">${escapeHtml(x)}</span>`).join('')}
+                        ${item.source_url ? `<a class="drawer-meta-pill" href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">原始来源</a>` : ''}
+                        ${item.github_url ? `<a class="drawer-meta-pill" href="${escapeHtml(item.github_url)}" target="_blank" rel="noopener">GitHub Case</a>` : ''}
+                    </div>
+                </div>
+            ` : ''}
+            ${renderPromptTextBlock('正向提示词', item.positive, 'positive')}
+            ${renderPromptTextBlock('反向提示词', item.negative, 'negative')}
+        `;
+        lucide.createIcons();
+    }
+
+    function renderPromptTextBlock(label, text, kind) {
+        return `
+            <div class="prompt-block">
+                <label>${label}</label>
+                <div class="prompt-copy-row">
+                    <pre>${escapeHtml(text || '未填写')}</pre>
+                    <button class="glass-btn outline sm" onclick="copyPromptText('${kind}')">复制</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderPromptForm(item) {
+        const lib = activePromptLibrary();
+        const editing = promptEditMode === 'edit';
+        const draft = item || {name:'', category: activePromptCategory === 'all' ? 'custom' : activePromptCategory, scene:'', positive:'', negative:''};
+        document.getElementById('prompt-detail').innerHTML = `
+            <div style="font-size:18px;font-weight:800;margin-bottom:14px">${editing ? '编辑提示词' : '新增提示词'}</div>
+            <div class="form-row">
+                <label class="form-label">名称</label>
+                <input class="form-input" id="prompt-form-name" value="${escapeHtml(draft.name)}" placeholder="提示词名称">
+            </div>
+            <div class="form-row">
+                <label class="form-label">分组</label>
+                <select class="form-select" id="prompt-form-category">
+                    ${promptCategories(lib).map(cat => `<option value="${escapeHtml(cat.id)}" ${cat.id === draft.category ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="form-row">
+                <label class="form-label">使用场景</label>
+                <input class="form-input" id="prompt-form-scene" value="${escapeHtml(draft.scene)}" placeholder="这条提示词适合什么时候用">
+            </div>
+            <div class="form-row">
+                <label class="form-label">正向提示词</label>
+                <textarea class="form-input prompt-textarea" id="prompt-form-positive" placeholder="positive prompt">${escapeHtml(draft.positive)}</textarea>
+            </div>
+            <div class="form-row">
+                <label class="form-label">反向提示词</label>
+                <textarea class="form-input prompt-textarea" id="prompt-form-negative" placeholder="negative prompt">${escapeHtml(draft.negative)}</textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+                <button class="glass-btn outline" onclick="cancelPromptEdit()">取消</button>
+                <button class="glass-btn" onclick="savePromptForm()">保存</button>
+            </div>
+        `;
+    }
+
+    function selectPromptLibrary(id) {
+        activePromptLibraryId = id;
+        activePromptCategory = 'all';
+        selectedPromptId = '';
+        promptEditMode = 'view';
+        promptKindFilter = '';
+        promptStyleFilter = '';
+        promptSceneFilter = '';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function selectPromptCategory(libraryId, categoryId) {
+        activePromptLibraryId = libraryId;
+        activePromptCategory = categoryId;
+        selectedPromptId = '';
+        promptEditMode = 'view';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function selectPromptKind(libraryId, kind) {
+        activePromptLibraryId = libraryId;
+        activePromptCategory = 'all';
+        promptKindFilter = kind || '';
+        selectedPromptId = '';
+        promptEditMode = 'view';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function setPromptKindFilter(value) {
+        promptKindFilter = value || '';
+        selectedPromptId = '';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function setPromptStyleFilter(value) {
+        promptStyleFilter = value || '';
+        selectedPromptId = '';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function setPromptSceneFilter(value) {
+        promptSceneFilter = value || '';
+        selectedPromptId = '';
+        promptVisibleCount = 80;
+        renderPromptWorkspace();
+    }
+
+    function loadMorePrompts() {
+        promptVisibleCount += 80;
+        renderPromptList();
+    }
+
+    function selectPrompt(id) {
+        selectedPromptId = id;
+        promptEditMode = 'view';
+        renderPromptWorkspace();
+    }
+
+    function debouncePromptSearch() {
+        clearTimeout(promptSearchTimer);
+        promptSearchTimer = setTimeout(() => {
+            promptQuery = document.getElementById('prompt-search')?.value || '';
+            selectedPromptId = '';
+            promptVisibleCount = 80;
+            renderPromptWorkspace();
+        }, 160);
+    }
+
+    function openPromptCreate() {
+        if (libraryView !== 'prompts') switchLibraryView('prompts');
+        if (isExternalPromptLibrary()) return toast('外部来源库为只读，不能新增提示词', 'error');
+        promptEditMode = 'create';
+        renderPromptDetail();
+    }
+
+    function openPromptEdit() {
+        if (!selectedPrompt()) return;
+        if (isExternalPromptLibrary()) return toast('外部来源库为只读，不能编辑', 'error');
+        promptEditMode = 'edit';
+        renderPromptDetail();
+    }
+
+    function cancelPromptEdit() {
+        promptEditMode = 'view';
+        renderPromptDetail();
+    }
+
+    async function savePromptForm() {
+        const lib = activePromptLibrary();
+        if (isExternalPromptLibrary(lib)) return toast('外部来源库为只读，不能保存', 'error');
+        if (!lib) return;
+        const payload = {
+            library_id: lib.id,
+            name: document.getElementById('prompt-form-name').value.trim(),
+            category: document.getElementById('prompt-form-category').value,
+            scene: document.getElementById('prompt-form-scene').value.trim(),
+            positive: document.getElementById('prompt-form-positive').value.trim(),
+            negative: document.getElementById('prompt-form-negative').value.trim()
+        };
+        if (!payload.name) return toast('请输入提示词名称', 'error');
+        try {
+            const item = selectedPrompt();
+            const url = promptEditMode === 'edit' && item ? `/api/prompt-libraries/items/${encodeURIComponent(item.id)}` : '/api/prompt-libraries/items';
+            const method = promptEditMode === 'edit' && item ? 'PATCH' : 'POST';
+            const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+            promptLibraryData = data;
+            selectedPromptId = data.item?.id || item?.id || '';
+            promptEditMode = 'view';
+            toast('提示词已保存', 'success');
+            renderPromptWorkspace();
+        } catch (e) {
+            toast('保存失败: ' + e.message, 'error');
+        }
+    }
+
+    async function deletePrompt(id) {
+        if (isExternalPromptLibrary()) return toast('外部来源库为只读，不能删除', 'error');
+        if (!id || !confirm('确定删除这条提示词？')) return;
+        try {
+            const data = await api(`/api/prompt-libraries/items/${encodeURIComponent(id)}`, {method:'DELETE'});
+            promptLibraryData = data;
+            selectedPromptId = '';
+            toast('提示词已删除', 'success');
+            renderPromptWorkspace();
+        } catch (e) {
+            toast('删除失败: ' + e.message, 'error');
+        }
+    }
+
+    async function createPromptLibrary() {
+        const name = prompt('新提示词库名称', '我的提示词库');
+        if (!name || !name.trim()) return;
+        try {
+            const data = await api('/api/prompt-libraries', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name.trim()})});
+            promptLibraryData = data;
+            activePromptLibraryId = data.library?.id || activePromptLibraryId;
+            activePromptCategory = 'all';
+            selectedPromptId = '';
+            switchLibraryView('prompts');
+            toast('提示词库已创建', 'success');
+        } catch (e) {
+            toast('创建失败: ' + e.message, 'error');
+        }
+    }
+
+    async function createPromptCategory() {
+        const lib = activePromptLibrary();
+        if (isExternalPromptLibrary(lib)) return toast('外部来源库为只读，不能新增分组', 'error');
+        if (!lib) return;
+        const name = prompt('新分组名称', '新分组');
+        if (!name || !name.trim()) return;
+        try {
+            const data = await api('/api/prompt-libraries/categories', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({library_id:lib.id, name:name.trim()})});
+            promptLibraryData = data;
+            activePromptCategory = data.category?.id || activePromptCategory;
+            renderPromptWorkspace();
+            toast('分组已创建', 'success');
+        } catch (e) {
+            toast('创建分组失败: ' + e.message, 'error');
+        }
+    }
+
+    async function copyPromptText(kind) {
+        const item = selectedPrompt();
+        if (!item) return;
+        const text = kind === 'negative' ? item.negative : item.positive;
+        if (!text) return toast('这段提示词为空', 'error');
+        try {
+            await navigator.clipboard.writeText(text);
+            toast('已复制提示词', 'success');
+        } catch (e) {
+            toast('复制失败: ' + e.message, 'error');
+        }
+    }
+
+    async function syncAwesomePromptSource() {
+        const btn = document.getElementById('prompt-source-sync-btn');
+        setBtnLoading(btn, true);
+        const t = toast('正在更新提示词案例库，首次同步可能需要一点时间...', 'info', 99999);
+        try {
+            promptSourceStatus = await api('/api/prompt-sources/awesome-gpt-image-2/sync', {method:'POST'});
+            await loadPromptLibraries();
+            activePromptLibraryId = 'awesome_gpt_image_2';
+            activePromptCategory = 'all';
+            selectedPromptId = '';
+            promptKindFilter = '';
+            promptStyleFilter = '';
+            promptSceneFilter = '';
+            promptVisibleCount = 80;
+            t.remove();
+            toast('提示词案例库已更新', 'success');
+            renderPromptWorkspace();
+        } catch (e) {
+            t.remove();
+            toast('同步失败: ' + e.message, 'error');
+        } finally {
+            setBtnLoading(btn, false);
+        }
+    }
+
+    // --- Sources ---
+    async function loadSources() {
+        const data = await api('/api/library/sources');
+        sources = data.sources || [];
+        renderSourceFilter();
+    }
+
+    function renderSourceFilter() {
+        const sel = document.getElementById('source-filter');
+        const val = sel.value;
+        sel.innerHTML = '<option value="" data-i18n="library.allSources">全部来源</option>';
+        sources.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = `${s.name} (${s.image_count})`;
+            sel.appendChild(opt);
+        });
+        sel.value = val;
+    }
+
+    function openAddSourceModal() {
+        document.getElementById('add-source-modal').classList.add('open');
+        document.getElementById('src-name').value = '';
+        document.getElementById('src-path').value = '';
+        document.getElementById('src-url').value = '';
+        document.getElementById('src-api-key').value = '';
+        document.getElementById('src-type').value = 'local';
+        toggleSourceType();
+    }
+    function closeAddSourceModal() { document.getElementById('add-source-modal').classList.remove('open'); }
+
+    function toggleSourceType() {
+        const t = document.getElementById('src-type').value;
+        document.getElementById('src-path-row').style.display = t === 'local' ? '' : 'none';
+        document.getElementById('src-url-row').style.display = t === 'remote' ? '' : 'none';
+        document.getElementById('src-key-row').style.display = t === 'remote' ? '' : 'none';
+    }
+
+    async function createSource() {
+        const name = document.getElementById('src-name').value.trim();
+        if (!name) return toast('请输入来源名称', 'error');
+        const body = {
+            name,
+            type: document.getElementById('src-type').value,
+            path: document.getElementById('src-path').value.trim(),
+            url: document.getElementById('src-url').value.trim(),
+            api_key: document.getElementById('src-api-key').value.trim(),
+        };
+        const t = toast('正在创建来源...', 'info', 99999);
+        try {
+            await api('/api/library/sources', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+            t.remove();
+            toast('来源创建成功', 'success');
+            closeAddSourceModal();
+            await loadSources();
+            loadStats();
+        } catch(e) {
+            t.remove();
+            toast('创建失败: ' + e.message, 'error');
+        }
+    }
+
+    // --- Folder Browser ---
+    let browserPath = '';
+
+    async function openBrowser() {
+        const el = document.getElementById('folder-browser');
+        el.style.display = el.style.display === 'none' ? '' : 'none';
+        if (el.style.display !== 'none') {
+            await browseTo('');
+        }
+    }
+
+    async function browseTo(path) {
+        browserPath = path;
+        const breadcrumb = document.getElementById('browser-breadcrumb');
+        const list = document.getElementById('browser-list');
+        list.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px">加载中...</div>';
+        try {
+            const data = await api('/api/library/browse?path=' + encodeURIComponent(path));
+            browserPath = data.current || '';
+            // Breadcrumb
+            const parts = browserPath ? browserPath.replace(/\\/g, '/').split('/').filter(Boolean) : [];
+            let acc = '';
+            let crumbs = `<span style="cursor:pointer;color:#111827;font-weight:600" onclick="browseTo('')">根目录</span>`;
+            parts.forEach(p => {
+                acc += (acc && !acc.endsWith('/') && !acc.endsWith('\\') ? '/' : '') + p;
+                crumbs += ` <span style="color:#9ca3af">/</span> <span style="cursor:pointer;color:#111827" onclick="browseTo('${escJs(acc)}')">${esc(p)}</span>`;
+            });
+            breadcrumb.innerHTML = crumbs;
+            // List
+            const entries = data.entries || [];
+            if (!entries.length) {
+                list.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px">空文件夹</div>';
+                return;
+            }
+            list.innerHTML = entries.map(e => `
+                <div style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''" onclick="browseTo('${escJs(e.path)}')">
+                    <svg width="16" height="16" fill="none" stroke="#6b7280" viewBox="0 0 24 24" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span>${esc(e.name)}</span>
+                </div>
+            `).join('') + (browserPath ? `
+                <div style="padding:8px 12px;text-align:center">
+                    <button class="glass-btn sm" onclick="selectFolder('${escJs(browserPath)}')" data-i18n="library.selectThisFolder">选择此文件夹</button>
+                </div>` : '');
+        } catch(e) {
+            list.innerHTML = `<div style="padding:12px;text-align:center;color:#ef4444;font-size:12px">${esc(e.message)}</div>`;
+        }
+    }
+
+    function selectFolder(path) {
+        document.getElementById('src-path').value = path;
+        document.getElementById('folder-browser').style.display = 'none';
+    }
+
+    function openSourcesModal() {
+        document.getElementById('sources-modal').classList.add('open');
+        renderSourcesList();
+    }
+    function closeSourcesModal() { document.getElementById('sources-modal').classList.remove('open'); }
+
+    function renderSourcesList() {
+        const el = document.getElementById('sources-list');
+        if (!sources.length) {
+            el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px">暂无来源</div>';
+            return;
+        }
+        el.innerHTML = sources.map(s => `
+            <div class="source-card">
+                <div class="source-info">
+                    <div class="source-name">${esc(s.name)} <span style="font-size:11px;color:#9ca3af">${s.type === 'local' ? '本地' : '远程'}</span></div>
+                    <div class="source-path">${esc(s.path || s.url || '')}</div>
+                    <div style="font-size:11px;color:#9ca3af">${s.image_count} 张图片</div>
+                </div>
+                <div class="source-actions">
+                    ${s.type === 'local' ? `<button class="glass-btn sm" onclick="scanSource('${s.id}')" data-i18n="library.scan">扫描</button>` : ''}
+                    <button class="glass-btn danger sm" onclick="deleteSource('${s.id}')">
+                        <i data-lucide="trash-2" style="width:12px;height:12px"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    async function scanSource(id) {
+        const t = toast('正在扫描文件夹...', 'info', 99999);
+        try {
+            const res = await api(`/api/library/sources/${id}/scan`, { method: 'POST' });
+            t.remove();
+            toast(`扫描完成，新增 ${res.added} 张图片`, 'success');
+            await Promise.all([loadSources(), loadImages()]);
+            loadStats();
+            renderSourcesList();
+        } catch(e) {
+            t.remove();
+            toast('扫描失败: ' + e.message, 'error');
+        }
+    }
+
+    async function deleteSource(id) {
+        if (!confirm('确定删除此来源？该来源下的所有图片记录将被移除。')) return;
+        const t = toast('正在删除...', 'info', 99999);
+        try {
+            await api(`/api/library/sources/${id}`, { method: 'DELETE' });
+            t.remove();
+            toast('来源已删除', 'success');
+            await loadSources();
+            await loadImages();
+            loadStats();
+            renderSourcesList();
+        } catch(e) {
+            t.remove();
+            toast('删除失败: ' + e.message, 'error');
+        }
+    }
+
+    // --- Categories ---
+    async function loadCategories() {
+        const data = await api('/api/library/categories');
+        categories = data.categories || {presets:[], custom:[]};
+        renderCategoryPills();
+    }
+
+    function renderCategoryPills() {
+        const el = document.getElementById('category-pills');
+        const presets = categories.presets || [];
+        const custom = categories.custom || [];
+        // 按维度分组
+        const groups = [
+            { label: '类型', items: presets.slice(0, 8) },
+            { label: '场景', items: presets.slice(8, 14) },
+            { label: '景观', items: presets.slice(14, 17) },
+            { label: '视角', items: presets.slice(17) },
+        ];
+        let html = `<div class="pill active" onclick="filterCategory(this,'')" data-i18n="library.allCategories">全部</div>`;
+        groups.forEach(g => {
+            if (!g.items.length) return;
+            html += `<span style="color:#9ca3af;font-size:10px;font-weight:600;letter-spacing:.04em;padding:0 4px;align-self:center">${g.label}</span>`;
+            g.items.forEach(c => {
+                html += `<div class="pill" onclick="filterCategory(this,'${esc(c)}')">${esc(c)}</div>`;
+            });
+        });
+        if (custom.length) {
+            html += `<span style="color:#9ca3af;font-size:10px;font-weight:600;letter-spacing:.04em;padding:0 4px;align-self:center">自定义</span>`;
+            custom.forEach(c => {
+                html += `<div class="pill" onclick="filterCategory(this,'${esc(c)}')">${esc(c)}</div>`;
+            });
+        }
+        el.innerHTML = html;
+    }
+
+    let activeCategory = '';
+    function filterCategory(el, cat) {
+        document.querySelectorAll('#category-pills .pill').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        activeCategory = cat;
+        currentPage = 1;
+        loadImages();
+    }
+
+    // --- Images ---
+    async function loadImages(append = false) {
+        if (!append) renderSkeletonGrid();
+        const params = new URLSearchParams();
+        const src = document.getElementById('source-filter').value;
+        if (src) params.set('source_id', src);
+        if (activeCategory) params.set('category', activeCategory);
+        const q = document.getElementById('search-input').value.trim();
+        if (q) params.set('q', q);
+        if (filterUntagged) params.set('ai_tagged', 'false');
+        if (filterFav) params.set('favorited', 'true');
+        params.set('page', currentPage);
+        params.set('page_size', 50);
+        try {
+            const data = await api('/api/library/images?' + params);
+            if (append) {
+                allImages = allImages.concat(data.images || []);
+            } else {
+                allImages = data.images || [];
+            }
+            const visibleIds = new Set(allImages.map(img => img.id));
+            selectedImageIds = new Set(Array.from(selectedImageIds).filter(id => visibleIds.has(id)));
+            totalImages = data.total;
+            updateSelectionSummary();
+            renderGrid();
+        } catch(e) {
+            console.error('loadImages failed:', e);
+            document.getElementById('image-grid').innerHTML = '';
+        }
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('image-grid');
+        const empty = document.getElementById('empty-state');
+        const more = document.getElementById('load-more');
+        if (!allImages.length) {
+            grid.innerHTML = '';
+            empty.style.display = '';
+            more.style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
+        grid.innerHTML = allImages.map(img => {
+            const cat = (img.categories && img.categories[0]) || '';
+            const tags = (img.tags || []).slice(0, 3);
+            const selected = selectedImageIds.has(img.id);
+            return `
+                <div class="image-card ${selected ? 'selected' : ''}" onclick="openDrawer('${img.id}')">
+                    <img class="thumb" src="${esc(img.thumb_url || img.url)}" alt="" loading="lazy" onerror="this.style.background='#f3f4f6'">
+                    ${cat ? `<div class="card-cat">${esc(cat)}</div>` : ''}
+                    <button class="card-select" onclick="toggleImageSelection('${img.id}', event)" title="${selected ? '取消选择' : '选择'}">${selected ? '&#10003;' : '+'}</button>
+                    ${img.favorited ? `<div class="card-fav">&#10084;</div>` : ''}
+                    <div class="card-info">
+                        <div class="card-filename">${esc(img.filename)}</div>
+                        <div class="card-tags">${tags.map(t => `<span class="card-tag">${esc(t)}</span>`).join('')}</div>
+                    </div>
+                </div>`;
+        }).join('');
+        more.style.display = allImages.length < totalImages ? '' : 'none';
+    }
+
+    function loadMore() {
+        currentPage++;
+        loadImages(true);
+    }
+
+    function debounceSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { currentPage = 1; loadImages(); }, 300);
+    }
+
+    function toggleUntagged() {
+        filterUntagged = !filterUntagged;
+        document.getElementById('btn-untagged').classList.toggle('active', filterUntagged);
+        currentPage = 1;
+        loadImages();
+    }
+
+    function toggleFavFilter() {
+        filterFav = !filterFav;
+        document.getElementById('btn-fav').classList.toggle('active', filterFav);
+        currentPage = 1;
+        loadImages();
+    }
+
+    // --- Drawer ---
+    function openDrawer(id) {
+        currentImageId = id;
+        const img = allImages.find(i => i.id === id);
+        if (!img) return;
+        const sourceCanvasBtn = document.getElementById('drawer-source-canvas-btn');
+        const workflowMeta = document.getElementById('drawer-workflow-meta');
+        document.getElementById('drawer-overlay').classList.add('open');
+        document.getElementById('drawer').classList.add('open');
+        document.getElementById('drawer-img').src = img.url;
+        document.getElementById('drawer-filename').textContent = img.filename;
+        // Categories
+        renderDrawerCategories(img);
+        // Tags
+        renderDrawerTags('drawer-ai-tags', img.ai_tags || [], false);
+        renderDrawerTags('drawer-manual-tags', img.manual_tags || [], true);
+        // Notes
+        document.getElementById('drawer-notes').value = img.notes || '';
+        // Fav
+        updateFavBtn(img.favorited);
+        sourceCanvasBtn.style.display = img.source_canvas_id ? '' : 'none';
+        workflowMeta.innerHTML = [
+            img.source_name ? `<span class="drawer-meta-pill"><i data-lucide="library" style="width:12px;height:12px"></i>${esc(img.source_name)}</span>` : '',
+            img.source_canvas_title ? `<span class="drawer-meta-pill"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${esc(img.source_canvas_title)}</span>` : ''
+        ].filter(Boolean).join('');
+        // Cat select (grouped by dimension)
+        const sel = document.getElementById('drawer-cat-select');
+        const presets = categories.presets || [];
+        const custom = categories.custom || [];
+        const groups = [
+            { label: '建筑类型', items: presets.slice(0, 8) },
+            { label: '空间场景', items: presets.slice(8, 14) },
+            { label: '景观环境', items: presets.slice(14, 17) },
+            { label: '视角表现', items: presets.slice(17) },
+        ];
+        let opts = '<option value="">-- 选择分类 --</option>';
+        groups.forEach(g => {
+            if (!g.items.length) return;
+            opts += `<optgroup label="${g.label}">`;
+            g.items.forEach(c => {
+                opts += `<option value="${esc(c)}" ${(img.categories||[]).includes(c)?'selected':''}>${esc(c)}</option>`;
+            });
+            opts += '</optgroup>';
+        });
+        if (custom.length) {
+            opts += '<optgroup label="自定义">';
+            custom.forEach(c => { opts += `<option value="${esc(c)}">${esc(c)}</option>`; });
+            opts += '</optgroup>';
+        }
+        sel.innerHTML = opts;
+        // Meta
+        const sizeKB = img.size_bytes ? (img.size_bytes / 1024).toFixed(0) : '?';
+        document.getElementById('drawer-meta').innerHTML = [
+            `${img.width}x${img.height}`,
+            `${sizeKB}KB`,
+            img.ai_tagged ? 'AI已标注' : '未标注',
+            img.ai_tag_model ? esc(img.ai_tag_model) : '',
+            img.source_canvas_id ? `Canvas ${esc(img.source_canvas_id)}` : '',
+            img.source_node_id ? `Node ${esc(img.source_node_id)}` : ''
+        ].filter(Boolean).join(' &middot; ');
+        lucide.createIcons();
+    }
+
+    function closeDrawer() {
+        document.getElementById('drawer-overlay').classList.remove('open');
+        document.getElementById('drawer').classList.remove('open');
+        currentImageId = null;
+    }
+
+    function renderDrawerCategories(img) {
+        const el = document.getElementById('drawer-categories');
+        const cats = img.categories || [];
+        el.innerHTML = cats.length ? cats.map(c => `<span class="tag-chip">${esc(c)} <span class="remove" onclick="removeCategory('${esc(c)}')">&times;</span></span>`).join('') : '<span style="color:#9ca3af;font-size:12px">无</span>';
+    }
+
+    async function setCategory() {
+        if (!currentImageId) return;
+        const cat = document.getElementById('drawer-cat-select').value;
+        if (!cat) return;
+        try {
+            const data = await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({categories: [cat]})
+            });
+            updateLocalImage(data.image);
+            renderDrawerCategories(data.image);
+        } catch(e) { alert('设置失败: ' + e.message); }
+    }
+
+    async function removeCategory(cat) {
+        if (!currentImageId) return;
+        try {
+            const data = await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({categories: []})
+            });
+            updateLocalImage(data.image);
+            renderDrawerCategories(data.image);
+        } catch(e) {}
+    }
+
+    function renderDrawerTags(containerId, tags, removable) {
+        const el = document.getElementById(containerId);
+        if (!tags.length) {
+            el.innerHTML = '<span style="color:#9ca3af;font-size:12px">无</span>';
+            return;
+        }
+        el.innerHTML = tags.map(t => `<span class="tag-chip">${esc(t)}${removable ? ` <span class="remove" onclick="removeManualTag('${esc(t)}')">&times;</span>` : ''}</span>`).join('');
+    }
+
+    async function addManualTag() {
+        if (!currentImageId) return;
+        const input = document.getElementById('new-tag-input');
+        const tag = input.value.trim();
+        if (!tag) return;
+        const img = allImages.find(i => i.id === currentImageId);
+        const tags = [...(img?.manual_tags || []), tag];
+        try {
+            const data = await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({manual_tags: tags})
+            });
+            updateLocalImage(data.image);
+            renderDrawerTags('drawer-manual-tags', data.image.manual_tags || [], true);
+            renderDrawerTags('drawer-ai-tags', data.image.ai_tags || [], false);
+            input.value = '';
+        } catch(e) { toast('添加失败: ' + e.message, 'error'); }
+    }
+
+    async function removeManualTag(tag) {
+        if (!currentImageId) return;
+        const img = allImages.find(i => i.id === currentImageId);
+        const tags = (img?.manual_tags || []).filter(t => t !== tag);
+        try {
+            const data = await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({manual_tags: tags})
+            });
+            updateLocalImage(data.image);
+            renderDrawerTags('drawer-manual-tags', data.image.manual_tags || [], true);
+        } catch(e) {}
+    }
+
+    async function saveNotes() {
+        if (!currentImageId) return;
+        const notes = document.getElementById('drawer-notes').value;
+        try {
+            await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({notes})
+            });
+        } catch(e) {}
+    }
+
+    async function toggleFav() {
+        if (!currentImageId) return;
+        const img = allImages.find(i => i.id === currentImageId);
+        try {
+            const data = await api(`/api/library/images/${currentImageId}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({favorited: !img?.favorited})
+            });
+            updateLocalImage(data.image);
+            updateFavBtn(data.image.favorited);
+        } catch(e) {}
+    }
+
+    function updateFavBtn(fav) {
+        const btn = document.getElementById('drawer-fav-btn');
+        btn.style.background = fav ? '#fef2f2' : '';
+        btn.style.color = fav ? '#ef4444' : '';
+        btn.style.borderColor = fav ? '#ef4444' : '';
+    }
+
+    async function deleteCurrentImage() {
+        if (!currentImageId) return;
+        if (!confirm('确定删除此图片记录？')) return;
+        try {
+            await api(`/api/library/images/${currentImageId}`, { method: 'DELETE' });
+            allImages = allImages.filter(i => i.id !== currentImageId);
+            renderGrid();
+            closeDrawer();
+            loadStats();
+            toast('图片已删除', 'success');
+        } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+    }
+
+    function updateLocalImage(img) {
+        const idx = allImages.findIndex(i => i.id === img.id);
+        if (idx >= 0) allImages[idx] = img;
+    }
+
+    // --- AI Tag ---
+    let allProviders = [];
+
+    async function loadProviders() {
+        const data = await api('/api/providers');
+        allProviders = (data.providers || []).filter(p => p.enabled);
+        const sel = document.getElementById('tag-provider');
+        sel.innerHTML = '<option value="">默认</option>';
+        allProviders.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name || p.id;
+            sel.appendChild(opt);
+        });
+        onProviderChange();
+    }
+
+    function onProviderChange() {
+        const providerId = document.getElementById('tag-provider').value;
+        const modelSel = document.getElementById('tag-model');
+        const provider = allProviders.find(p => p.id === providerId);
+        const models = (provider && provider.chat_models) || [];
+        modelSel.innerHTML = '';
+        if (models.length) {
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                modelSel.appendChild(opt);
+            });
+        } else {
+            modelSel.innerHTML = '<option value="">-- 请先在 API 设置中配置模型 --</option>';
+        }
+    }
+
+    function openTagModal() {
+        document.getElementById('tag-modal').classList.add('open');
+        document.getElementById('tag-progress').style.display = 'none';
+    }
+    function closeTagModal() { document.getElementById('tag-modal').classList.remove('open'); }
+
+    async function startAiTag() {
+        const scope = document.getElementById('tag-scope').value;
+        let targets = [];
+        if (scope === 'untagged') {
+            targets = allImages.filter(i => !i.ai_tagged).map(i => i.id);
+        } else if (scope === 'all') {
+            try {
+                const data = await api('/api/library/images?page_size=9999');
+                targets = (data.images || []).map(i => i.id);
+            } catch(e) { toast('获取图片列表失败', 'error'); return; }
+        } else {
+            targets = allImages.map(i => i.id);
+        }
+        if (!targets.length) { toast('没有需要标注的图片', 'error'); return; }
+
+        const provider = document.getElementById('tag-provider').value;
+        const model = document.getElementById('tag-model').value;
+        if (!model) { toast('请先选择模型', 'error'); return; }
+        const progressEl = document.getElementById('tag-progress');
+        const progressText = document.getElementById('tag-progress-text');
+        const progressFill = document.getElementById('tag-progress-fill');
+        progressEl.style.display = '';
+        document.getElementById('btn-start-tag').disabled = true;
+        const t = toast(`开始标注 ${targets.length} 张图片...`, 'info', 99999);
+
+        const chunkSize = 5;
+        let done = 0;
+        let successCount = 0;
+        for (let i = 0; i < targets.length; i += chunkSize) {
+            const chunk = targets.slice(i, i + chunkSize);
+            try {
+                const res = await api('/api/library/tag', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({image_ids: chunk, provider, model})
+                });
+                done += chunk.length;
+                for (const r of (res.results || [])) {
+                    if (r.ok) {
+                        successCount++;
+                        const idx = allImages.findIndex(img => img.id === r.id);
+                        if (idx >= 0) {
+                            allImages[idx].categories = [r.category];
+                            allImages[idx].ai_tags = r.tags;
+                            allImages[idx].tags = [...new Set([...r.tags, ...(allImages[idx].manual_tags || [])])];
+                            allImages[idx].ai_tagged = true;
+                        }
+                    }
+                }
+            } catch(e) {
+                done += chunk.length;
+            }
+            progressText.textContent = `标注中... ${done}/${targets.length}`;
+            progressFill.style.width = `${(done / targets.length * 100).toFixed(0)}%`;
+        }
+
+        document.getElementById('btn-start-tag').disabled = false;
+        t.remove();
+        renderGrid();
+        loadStats();
+        toast(`标注完成！成功 ${successCount}/${targets.length} 张`, 'success');
+        closeTagModal();
+    }
+
+    async function tagCurrentImage() {
+        if (!currentImageId) return;
+        const provider = document.getElementById('tag-provider')?.value || '';
+        const model = document.getElementById('tag-model')?.value || '';
+        if (!model) { toast('请先在 AI 标注弹窗中选择模型', 'error'); return; }
+        const t = toast('正在 AI 标注...', 'info', 99999);
+        try {
+            const res = await api('/api/library/tag', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({image_ids: [currentImageId], provider, model})
+            });
+            const r = res.results?.[0];
+            t.remove();
+            if (r?.ok) {
+                toast('AI 标注完成', 'success');
+                const idx = allImages.findIndex(i => i.id === currentImageId);
+                if (idx >= 0) {
+                    allImages[idx].categories = [r.category];
+                    allImages[idx].ai_tags = r.tags;
+                    allImages[idx].tags = [...new Set([...r.tags, ...(allImages[idx].manual_tags || [])])];
+                    allImages[idx].ai_tagged = true;
+                    openDrawer(currentImageId);
+                }
+            } else {
+                toast('标注失败: ' + (r?.error || '未知错误'), 'error');
+            }
+        } catch(e) {
+            t.remove();
+            toast('标注失败: ' + e.message, 'error');
+        }
+    }
+
+    // --- Stats ---
+    async function loadStats() {
+        try {
+            const data = await api('/api/library/stats');
+            document.getElementById('stats-bar').innerHTML = `
+                <span class="stat-item"><strong>${data.total_images}</strong> 张图片</span>
+                <span class="stat-item"><strong>${data.total_sources}</strong> 个来源</span>
+                <span class="stat-item"><strong>${data.tagged}</strong> 已标注</span>
+            `;
+        } catch(e) {}
+    }
+
+    // --- Utils ---
+    function esc(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escJs(s) {
+        if (!s) return '';
+        return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    }
+
+    // --- Toast ---
+    function toast(msg, type = 'info', duration = 3000) {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast' + (type !== 'info' ? ' ' + type : '');
+        const icon = type === 'success' ? '&#10003;' : type === 'error' ? '&#10007;' : '<div class="spinner"></div>';
+        el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+        container.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('leaving');
+            setTimeout(() => el.remove(), 300);
+        }, duration);
+        return el;
+    }
+
+    function setBtnLoading(btn, loading) {
+        if (!btn) return;
+        if (loading) {
+            btn.classList.add('loading');
+            btn._origText = btn.innerHTML;
+        } else {
+            btn.classList.remove('loading');
+            if (btn._origText) btn.innerHTML = btn._origText;
+        }
+    }
+
+    function renderSkeletonGrid(count = 8) {
+        const grid = document.getElementById('image-grid');
+        grid.innerHTML = Array.from({length: count}, () =>
+            `<div class="skeleton" style="aspect-ratio:1;border-radius:16px"></div>`
+        ).join('');
+    }
+
+    </script>
+</body>
+</html>

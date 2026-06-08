@@ -1,0 +1,147 @@
+[
+  {
+    "id": "modelscope",
+    "name": "ModelScope",
+    "base_url": "https://api-inference.modelscope.cn/v1",
+    "protocol": "openai",
+    "enabled": true,
+    "primary": false,
+    "image_models": [
+      "Tongyi-MAI/Z-Image-Turbo",
+      "Qwen/Qwen-Image-2512",
+      "Qwen/Qwen-Image-Edit-2511",
+      "black-forest-labs/FLUX.2-klein-9B"
+    ],
+    "chat_models": [
+      "Qwen/Qwen3-235B-A22B",
+      "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "MiniMax/MiniMax-M2.7:MiniMax"
+    ],
+    "video_models": [],
+    "ms_loras": [
+      {
+        "id": "Daniel8152/film",
+        "name": "Z-Image Film",
+        "target_model": "Tongyi-MAI/Z-Image-Turbo",
+        "strength": 0.8,
+        "enabled": true,
+        "note": ""
+      },
+      {
+        "id": "Daniel8152/Qwen-Image-2512-Film",
+        "name": "Qwen Image 2512 Film",
+        "target_model": "Qwen/Qwen-Image-2512",
+        "strength": 0.8,
+        "enabled": true,
+        "note": ""
+      },
+      {
+        "id": "Daniel8152/Klein-enhance",
+        "name": "Klein enhance",
+        "target_model": "black-forest-labs/FLUX.2-klein-9B",
+        "strength": 0.8,
+        "enabled": true,
+        "note": ""
+      }
+    ],
+    "ms_defaults_version": 3,
+    "volcengine_project_name": "",
+    "volcengine_region": ""
+  },
+  {
+    "id": "api",
+    "name": "新 API 平台",
+    "base_url": "https://ai.t8star.org",
+    "protocol": "openai",
+    "enabled": true,
+    "primary": false,
+    "image_models": [
+      "gpt-image-2"
+    ],
+    "chat_models": [],
+    "video_models": [],
+    "ms_loras": [],
+    "ms_defaults_version": 0,
+    "volcengine_project_name": "",
+    "volcengine_region": ""
+  },
+  {
+    "id": "apimart",
+    "name": "APIMart",
+    "base_url": "https://api.apimart.ai/v1",
+    "protocol": "apimart",
+    "enabled": true,
+    "primary": false,
+    "image_models": [
+      "gpt-image-2"
+    ],
+    "chat_models": [
+      "deepseek-v4-flash"
+    ],
+    "video_models": [
+      "doubao-seedance-2.0"
+    ],
+    "ms_loras": [],
+    "ms_defaults_version": 0,
+    "volcengine_project_name": "",
+    "volcengine_region": ""
+  },
+  {
+    "id": "runninghub",
+    "name": "RunningHub",
+    "base_url": "https://www.runninghub.cn",
+    "protocol": "runninghub",
+    "enabled": true,
+    "primary": false,
+    "image_models": [
+      "seedream-v5-lite/text-to-image",
+      "seedream-v5-lite/image-to-image"
+    ],
+    "chat_models": [],
+    "video_models": [],
+    "ms_loras": [],
+    "ms_defaults_version": 0,
+    "volcengine_project_name": "",
+    "volcengine_region": ""
+  },
+  {
+    "id": "volcengine",
+    "name": "火山引擎",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "protocol": "volcengine",
+    "enabled": true,
+    "primary": false,
+    "image_models": [],
+    "chat_models": [],
+    "video_models": [
+      "doubao-seedance-2-0-260128",
+      "doubao-seedance-2-0-fast-260128",
+      "doubao-seedance-1-5-pro-251215",
+      "doubao-seedance-1-0-pro-250528",
+      "doubao-seedance-1-0-lite-t2v-250428",
+      "doubao-seedance-1-0-lite-i2v-250428"
+    ],
+    "ms_loras": [],
+    "ms_defaults_version": 0,
+    "volcengine_project_name": "default",
+    "volcengine_region": "cn-beijing"
+  },
+  {
+    "id": "deepseek",
+    "name": "deepseek",
+    "base_url": "https://api.deepseek.com",
+    "protocol": "openai",
+    "enabled": true,
+    "primary": false,
+    "image_models": [],
+    "chat_models": [
+      "deepseek-v4-flash",
+      "deepseek-v4-pro"
+    ],
+    "video_models": [],
+    "ms_loras": [],
+    "ms_defaults_version": 0,
+    "volcengine_project_name": "",
+    "volcengine_region": ""
+  }
+]
