@@ -270,6 +270,9 @@ AWESOME_GPT_IMAGE_2_WEB = "https://github.com/Leslie0Han/awesome-gpt-image-2"
 AWESOME_GPT_IMAGE_2_DIR = os.path.join(EXTERNAL_DIR, "awesome-gpt-image-2")
 AWESOME_GPT_IMAGE_2_LIBRARY_ID = "awesome_gpt_image_2"
 STATIC_GPT_IMAGE_2_LIBRARY_ID = "gpt_image2_industrial_templates"
+ARCHLIB_DIR = os.path.abspath(os.environ.get("ARCHLIB_DIR") or os.path.join(BASE_DIR, "..", "ArchLib"))
+ARCHLIB_CASE_DIR = os.path.join(ARCHLIB_DIR, "案例库")
+ARCHLIB_MATERIAL_CACHE: Dict[str, Any] = {"built_at": 0, "items": []}
 os.makedirs(LIBRARY_DIR, exist_ok=True)
 os.makedirs(EXTERNAL_DIR, exist_ok=True)
 os.makedirs(WIKI_DIR, exist_ok=True)
@@ -3232,7 +3235,8 @@ class AgentRunRequest(BaseModel):
     context_overrides: Dict[str, Any] = {}
 
 class LibraryImportRequest(BaseModel):
-    urls: List[str]
+    urls: List[str] = []
+    items: List[Dict[str, Any]] = []
     source_name: str = "智能画布"
     canvas_id: str = ""
     canvas_title: str = ""
@@ -3746,9 +3750,18 @@ def import_urls_into_library(
     node_id: str = "",
     manual_tags: Optional[List[str]] = None,
     categories: Optional[List[str]] = None,
+    items: Optional[List[Dict[str, Any]]] = None,
 ):
-    urls = [str(url or "").strip() for url in urls[:200] if str(url or "").strip()]
-    if not urls:
+    raw_items = [item for item in (items or []) if isinstance(item, dict)]
+    import_items = []
+    if raw_items:
+        for item in raw_items[:200]:
+            url = str(item.get("url") or "").strip()
+            if url:
+                import_items.append({**item, "url": url})
+    else:
+        import_items = [{"url": str(url or "").strip()} for url in urls[:200] if str(url or "").strip()]
+    if not import_items:
         raise HTTPException(status_code=400, detail="没有可导入的素材")
 
     source_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", (source_name or "smart-canvas").strip().lower()).strip("-") or "smart-canvas"
@@ -3784,7 +3797,8 @@ def import_urls_into_library(
     imported = []
     skipped = []
 
-    for index, url in enumerate(urls, start=1):
+    for index, item in enumerate(import_items, start=1):
+        url = str(item.get("url") or "").strip()
         path = local_asset_path_from_url(url)
         if not path or not os.path.isfile(path):
             skipped.append({"url": url, "reason": "missing"})
@@ -3805,13 +3819,71 @@ def import_urls_into_library(
         shutil.copy2(path, target_path)
         thumb_name, w, h = create_library_thumb_from_path(target_path, source_id)
         filename = os.path.basename(target_path)
+        operation = str(item.get("operation") or "").strip()
+        operation_label = str(item.get("operation_label") or item.get("operationLabel") or operation).strip()
+        material_name = str(item.get("material_name") or item.get("materialName") or "").strip()
+        material_target = str(item.get("material_target") or item.get("materialTarget") or "").strip()
+        material_target_label = str(item.get("material_target_label") or item.get("materialTargetLabel") or material_target).strip()
+        selection_node_id = str(item.get("selection_node_id") or item.get("selectionNodeId") or "").strip()
+        material_node_id = str(item.get("material_node_id") or item.get("materialNodeId") or "").strip()
+        target_node_id = str(item.get("target_node_id") or item.get("targetNodeId") or item.get("source_node_id") or item.get("sourceNodeId") or "").strip()
+        item_node_id = str(item.get("node_id") or item.get("nodeId") or node_id or "").strip()
+        input_node_ids = [str(x).strip() for x in (item.get("input_node_ids") or item.get("inputNodeIds") or []) if str(x).strip()][:24]
+        selection = item.get("selection") if isinstance(item.get("selection"), dict) else None
+        run_prompt = str(item.get("run_prompt") or item.get("runPrompt") or "").strip()
+        try:
+            run_at = int(item.get("run_at") or item.get("runAt") or 0)
+        except (TypeError, ValueError):
+            run_at = 0
+        item_tags = [
+            *(manual_tags or []),
+            operation_label if operation else "",
+            "材质替换" if operation == "swap-material" else "",
+            material_name,
+            material_target_label,
+            "局部选区" if selection_node_id or selection else "",
+        ]
+        item_tags = list(dict.fromkeys([str(x).strip() for x in item_tags if str(x).strip()]))[:24]
+        item_categories = [
+            *(categories or []),
+            "材质替换" if operation == "swap-material" else "",
+        ]
+        item_categories = list(dict.fromkeys([str(x).strip() for x in item_categories if str(x).strip()]))[:8]
+        note_lines = [
+            f"来自智能画布：{canvas_title}" if canvas_title else "",
+            f"画布ID：{canvas_id}" if canvas_id else "",
+            f"节点ID：{item_node_id}" if item_node_id else "",
+            f"操作：{operation_label or operation}" if operation else "",
+            f"材质：{material_name}" if material_name else "",
+            f"目标面：{material_target_label or material_target}" if material_target else "",
+            f"材质节点：{material_node_id}" if material_node_id else "",
+            f"目标节点：{target_node_id}" if target_node_id else "",
+            f"Selection节点：{selection_node_id}" if selection_node_id else "",
+            f"Selection：{json.dumps(selection, ensure_ascii=False)}" if selection else "",
+            f"输入节点：{', '.join(input_node_ids)}" if input_node_ids else "",
+            f"提示词：{run_prompt[:800]}" if run_prompt else "",
+            f"原始路径：{url}",
+        ]
         record = {
             "id": f"img_{uuid.uuid4().hex[:12]}",
             "source_id": source_id,
             "source_name": source_name,
             "source_canvas_id": canvas_id,
             "source_canvas_title": canvas_title,
-            "source_node_id": node_id,
+            "source_node_id": item_node_id,
+            "source_target_node_id": target_node_id,
+            "source_material_node_id": material_node_id,
+            "source_selection_node_id": selection_node_id,
+            "source_input_node_ids": input_node_ids,
+            "source_operation": operation,
+            "source_operation_label": operation_label,
+            "source_url": url,
+            "source_run_prompt": run_prompt,
+            "source_run_at": run_at,
+            "source_selection": selection,
+            "material_name": material_name,
+            "material_target": material_target,
+            "material_target_label": material_target_label,
             "filename": filename,
             "local_path": target_path,
             "url": f"/api/library/file/{source_id}/{urllib.parse.quote(filename)}",
@@ -3819,21 +3891,14 @@ def import_urls_into_library(
             "width": w,
             "height": h,
             "size_bytes": os.path.getsize(target_path),
-            "categories": categories[:],
-            "tags": list(dict.fromkeys(manual_tags)),
+            "categories": item_categories,
+            "tags": item_tags[:],
             "ai_tags": [],
             "ai_tagged": False,
             "ai_tag_model": "",
-            "manual_tags": manual_tags[:],
+            "manual_tags": item_tags[:],
             "favorited": False,
-            "notes": "\n".join([
-                line for line in [
-                    f"来自智能画布：{canvas_title}" if canvas_title else "",
-                    f"画布ID：{canvas_id}" if canvas_id else "",
-                    f"节点ID：{node_id}" if node_id else "",
-                    f"原始路径：{url}",
-                ] if line
-            ]),
+            "notes": "\n".join([line for line in note_lines if line]),
             "created_at": now_ms(),
             "updated_at": now_ms(),
         }
@@ -4252,8 +4317,30 @@ def library_file_from_url(url):
         return None
     return full
 
+def archlib_file_from_url(url):
+    if isinstance(url, dict):
+        url = url.get("url", "")
+    text = str(url or "").strip()
+    if not text.startswith("/api/archlib/file/"):
+        return None
+    rel_path = urllib.parse.unquote(text.split("?", 1)[0][len("/api/archlib/file/"):]).replace("\\", "/")
+    if not rel_path:
+        return None
+    root_abs = os.path.abspath(ARCHLIB_DIR)
+    full = os.path.abspath(os.path.join(root_abs, rel_path))
+    try:
+        if os.path.commonpath([root_abs, full]) != root_abs:
+            return None
+    except ValueError:
+        return None
+    if not os.path.isfile(full):
+        return None
+    if os.path.splitext(full)[1].lower() not in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}:
+        return None
+    return full
+
 def local_asset_path_from_url(url):
-    return output_file_from_url(url) or library_file_from_url(url)
+    return output_file_from_url(url) or library_file_from_url(url) or archlib_file_from_url(url)
 
 def create_library_thumb_from_path(local_path, source_id):
     thumb_dir = os.path.join(LIBRARY_DIR, source_id, "thumbs")
@@ -4313,7 +4400,7 @@ def convert_output_to_jpg(url, quality=88):
 
 def reference_to_data_url(ref, max_size=None):
     """把本地输出文件转为 data URL（base64）。max_size 限制最长边像素，避免 payload 过大。"""
-    path = output_file_from_url(ref.get("url", ""))
+    path = local_asset_path_from_url(ref.get("url", ""))
     if not path:
         return ref.get("url", "")
     if max_size:
@@ -4369,7 +4456,7 @@ def compress_data_url_image(value, max_size=1536, jpeg_quality=88):
 def modelscope_image_url(value, max_size=1536):
     if not value:
         return value
-    if isinstance(value, str) and (value.startswith("/output/") or value.startswith("/assets/")):
+    if isinstance(value, str) and local_asset_path_from_url(value):
         return reference_to_data_url({"url": value}, max_size=max_size)
     if isinstance(value, str) and value.startswith("data:image/"):
         return compress_data_url_image(value, max_size=max_size)
@@ -4436,7 +4523,7 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
     # 当前 APIMart 视频接口只接受 http(s) 或 asset://，不接受 data:image。
     if ref_url.startswith("data:"):
         return ""
-    path = output_file_from_url(ref_url)
+    path = local_asset_path_from_url(ref_url)
     if not path:
         return ""  # 无法解析成本地文件时，避免把无效本地路径传给上游
     try:
@@ -4698,14 +4785,14 @@ async def generate_ai_image(prompt, size, quality, model, reference_images=None,
             edit_failed_text = ""
             try:
                 for ref in image_refs[:4]:
-                    path = output_file_from_url(ref.get("url", ""))
+                    path = local_asset_path_from_url(ref.get("url", ""))
                     if not path:
                         continue
                     fh = open(path, "rb")
                     opened.append(fh)
                     files.append(("image", (os.path.basename(path), fh, content_type_for_path(path))))
                 if mask_refs:
-                    mask_path = output_file_from_url(mask_refs[0].get("url", ""))
+                    mask_path = local_asset_path_from_url(mask_refs[0].get("url", ""))
                     if mask_path:
                         fh = open(mask_path, "rb")
                         opened.append(fh)
@@ -5175,6 +5262,7 @@ async def run_smart_canvas_to_library_task(task_id: str, context: Dict[str, Any]
     node_id = str(context.get("selected_node_id") or "").strip()
     import_result = import_urls_into_library(
         urls=selected_urls,
+        items=context.get("selected_library_import_items") or context.get("selected_import_items") or [],
         source_name="智能画布",
         canvas_id=canvas_id,
         canvas_title=canvas_title,
@@ -7762,6 +7850,7 @@ def library_scan_source(source_id: str):
 def library_import_images(req: LibraryImportRequest):
     return import_urls_into_library(
         urls=req.urls,
+        items=req.items,
         source_name=req.source_name,
         canvas_id=req.canvas_id,
         canvas_title=req.canvas_title,
@@ -7769,6 +7858,119 @@ def library_import_images(req: LibraryImportRequest):
         manual_tags=req.manual_tags,
         categories=req.categories,
     )
+
+def archlib_url_for_path(path: str) -> str:
+    rel = os.path.relpath(path, ARCHLIB_DIR).replace("\\", "/")
+    return f"/api/archlib/file/{urllib.parse.quote(rel, safe='/')}"
+
+def archlib_page_image_for_metadata(metadata_path: str, data: Dict[str, Any]):
+    case_root = os.path.dirname(os.path.dirname(metadata_path))
+    page_number = data.get("page_number")
+    if not page_number:
+        match = re.search(r"page_(\d+)\.json$", os.path.basename(metadata_path), re.I)
+        page_number = int(match.group(1)) if match else 0
+    candidates = []
+    if page_number:
+        stem = f"page_{int(page_number):03d}"
+        candidates.extend([
+            os.path.join(case_root, "pages", f"{stem}.jpg"),
+            os.path.join(case_root, "pages", f"{stem}.jpeg"),
+            os.path.join(case_root, "pages", f"{stem}.png"),
+            os.path.join(case_root, "pages", f"{stem}.webp"),
+        ])
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+def build_archlib_material_index(force: bool = False):
+    now = time.time()
+    if not force and ARCHLIB_MATERIAL_CACHE.get("items") and now - float(ARCHLIB_MATERIAL_CACHE.get("built_at") or 0) < 300:
+        return ARCHLIB_MATERIAL_CACHE["items"]
+    items = []
+    if not os.path.isdir(ARCHLIB_CASE_DIR):
+        ARCHLIB_MATERIAL_CACHE.update({"built_at": now, "items": []})
+        return []
+    for root, dirs, files in os.walk(ARCHLIB_CASE_DIR):
+        if os.path.basename(root) != "metadata":
+            continue
+        for fname in files:
+            if not fname.lower().endswith(".json"):
+                continue
+            metadata_path = os.path.join(root, fname)
+            try:
+                with open(metadata_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                continue
+            materials = [str(x).strip() for x in (data.get("materials") or []) if str(x).strip()]
+            if not materials:
+                continue
+            image_path = archlib_page_image_for_metadata(metadata_path, data)
+            if not image_path:
+                continue
+            case_id = str(data.get("case_id") or os.path.basename(os.path.dirname(os.path.dirname(metadata_path))))
+            page_number = int(data.get("page_number") or 0)
+            common_tags = []
+            for key in ("space_types", "elements", "style", "design_topics", "design_strategy"):
+                common_tags.extend([str(x).strip() for x in (data.get(key) or []) if str(x).strip()])
+            notes = str(data.get("reference_value") or data.get("text_summary") or "").strip()
+            for material in materials:
+                digest = hashlib.sha1(f"{image_path}|{material}".encode("utf-8", "ignore")).hexdigest()[:16]
+                items.append({
+                    "id": f"archlib_{digest}",
+                    "filename": os.path.basename(image_path),
+                    "url": archlib_url_for_path(image_path),
+                    "thumb_url": archlib_url_for_path(image_path),
+                    "width": 0,
+                    "height": 0,
+                    "source_id": "archlib",
+                    "source_name": "ArchLib 案例库",
+                    "categories": [material],
+                    "tags": common_tags[:16],
+                    "material_label": material,
+                    "case_id": case_id,
+                    "case_name": case_id,
+                    "page_number": page_number,
+                    "notes": notes,
+                    "year": data.get("year"),
+                    "location": data.get("location") or "",
+                    "archlib": True,
+                })
+    items.sort(key=lambda x: (str(x.get("year") or ""), str(x.get("case_id") or ""), int(x.get("page_number") or 0)), reverse=True)
+    ARCHLIB_MATERIAL_CACHE.update({"built_at": now, "items": items})
+    return items
+
+@app.get("/api/archlib/materials")
+def archlib_list_materials(q: str = "", material: str = "", page: int = 1, page_size: int = 80):
+    page_size = max(1, min(200, int(page_size or 80)))
+    page = max(1, int(page or 1))
+    result = build_archlib_material_index()
+    if material:
+        ml = material.lower()
+        result = [item for item in result if ml in str(item.get("material_label") or "").lower()]
+    if q:
+        ql = q.lower()
+        def match_item(item):
+            text = " ".join([
+                str(item.get("material_label") or ""),
+                str(item.get("case_name") or ""),
+                str(item.get("notes") or ""),
+                " ".join(item.get("categories") or []),
+                " ".join(item.get("tags") or []),
+            ]).lower()
+            return ql in text
+        result = [item for item in result if match_item(item)]
+    total = len(result)
+    start = (page - 1) * page_size
+    return {"materials": result[start:start + page_size], "total": total, "page": page, "page_size": page_size, "root_exists": os.path.isdir(ARCHLIB_CASE_DIR)}
+
+@app.get("/api/archlib/file/{path:path}")
+def archlib_serve_file(path: str):
+    full = archlib_file_from_url(f"/api/archlib/file/{path}")
+    if not full:
+        raise HTTPException(status_code=404, detail="ArchLib 文件不存在")
+    return FileResponse(full, media_type=content_type_for_path(full))
 
 @app.get("/api/library/images")
 def library_list_images(
