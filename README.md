@@ -78,25 +78,44 @@ python main.py
 
 - `启动服务.bat`
 
-如果目录里已经带好了 `python/` 运行环境，通常直接双击就能启动，不需要额外装 Python。
+双击后会自动：
+
+1. 查找项目内置 `python/`、`.venv/` 或系统 Python
+2. 检查 Python 版本是否为 3.10+
+3. 检查并安装 `requirements.txt` 依赖
+4. 启动服务并自动打开浏览器
+
+如果目录里已经带好了 `python/` 运行环境，用户通常不需要额外安装 Python。否则请先安装 Python 3.10+。
 
 ### 方式三：macOS 启动
 
 项目根目录提供了：
 
+- `mac-启动服务.command`
 - `mac-启动服务.sh`
 - `mac-安装依赖.sh`
 
-如果你是从打包分发的压缩包直接拿到项目，第一次建议先安装依赖，再启动：
+普通用户优先双击：
+
+- `mac-启动服务.command`
+
+脚本会自动查找 Python、检查并安装依赖、启动服务并打开浏览器。
+
+开发或终端用户也可以运行：
+
+```bash
+./mac-启动服务.sh
+```
+
+如果只想提前安装依赖，可以运行：
 
 ```bash
 ./mac-安装依赖.sh
-./mac-启动服务.sh
 ```
 
 ## macOS 首次运行说明
 
-如果你把启动脚本改成了 `.command` 或从外部分发给别人，首次运行 macOS 可能会拦截。
+首次运行 `.command` 文件时，macOS 可能会拦截。
 
 常见处理方式：
 
@@ -110,6 +129,12 @@ python main.py
 2. 进入“隐私与安全性”
 3. 在底部找到被拦截的脚本
 4. 点击“仍要打开”
+
+如果提示没有执行权限，可以在终端里运行：
+
+```bash
+chmod +x ./mac-启动服务.command ./mac-启动服务.sh ./mac-安装依赖.sh
+```
 
 ## 局域网访问
 
@@ -182,6 +207,7 @@ python main.py
 ├── requirements.txt
 ├── InfiniteAgentWork.spec
 ├── 启动服务.bat
+├── mac-启动服务.command
 ├── mac-启动服务.sh
 └── mac-安装依赖.sh
 ```
@@ -204,12 +230,12 @@ python main.py
 
 ### 2. 双击脚本没有反应
 
-- Windows：优先确认目录中是否有可用的 Python 运行环境
-- macOS：先按上面的“首次运行说明”放行脚本
+- Windows：确认已安装 Python 3.10+，或者项目目录中有 `python/python.exe`
+- macOS：先按上面的“首次运行说明”放行脚本，并确认脚本有执行权限
 
 ### 3. 提示缺少 Python
 
-安装 Python 3.10+，或者直接使用项目目录里附带的 `python/` 环境。
+安装 Python 3.10+，或者直接使用项目目录里附带的 `python/` 环境。Windows 会优先识别 `python/python.exe`，macOS 会优先识别 `python/bin/python3`。
 
 ### 4. 依赖安装失败
 
