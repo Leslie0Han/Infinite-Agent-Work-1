@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
 from threading import Lock
 import httpx
-from PIL import Image
+from PIL import Image, ImageOps, UnidentifiedImageError
 from io import BytesIO
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Header, Request, BackgroundTasks, Form
 from fastapi.exceptions import RequestValidationError
@@ -158,6 +158,7 @@ GLOBAL_LOOP = None
 async def startup_event():
     global GLOBAL_LOOP
     GLOBAL_LOOP = asyncio.get_running_loop()
+    ensure_builtin_material_library()
 
 @app.websocket("/ws/stats")
 async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
@@ -221,6 +222,22 @@ LIBRARY_DIR = os.path.join(DATA_DIR, "library")
 LIBRARY_SOURCES_FILE = os.path.join(DATA_DIR, "library.json")
 LIBRARY_IMAGES_FILE = os.path.join(LIBRARY_DIR, "images.json")
 LIBRARY_CATEGORIES_FILE = os.path.join(LIBRARY_DIR, "categories.json")
+BUILTIN_MATERIAL_DIR = os.path.join(BASE_DIR, "static", "materials", "polyhaven-cc0")
+BUILTIN_MATERIAL_SOURCE_ID = "builtin_polyhaven_cc0"
+BUILTIN_MATERIAL_METADATA = {
+    "concrete_panels": ("清水混凝土挂板", ["建筑材质", "混凝土"], ["材质", "清水混凝土", "挂板", "外立面"]),
+    "concrete_slab_wall": ("混凝土墙板", ["建筑材质", "混凝土"], ["材质", "混凝土", "墙面", "清水混凝土"]),
+    "brick_wall_001": ("红砖墙", ["建筑材质", "砖"], ["材质", "红砖", "砖墙", "外立面"]),
+    "rectangular_facade_tiles": ("深色立面砖", ["建筑材质", "砖"], ["材质", "立面砖", "深色", "外立面"]),
+    "granite_tile_03": ("花岗岩墙砖", ["建筑材质", "石材"], ["材质", "花岗岩", "石材", "墙面"]),
+    "marble_01": ("大理石", ["建筑材质", "石材"], ["材质", "大理石", "石材", "室内"]),
+    "brown_planks_05": ("深色木饰面", ["建筑材质", "木材"], ["材质", "木材", "木饰面", "深色"]),
+    "wood_floor": ("木地板", ["建筑材质", "木材"], ["材质", "木材", "木地板", "室内"]),
+    "metal_plate_02": ("金属板", ["建筑材质", "金属"], ["材质", "金属", "金属板", "立面"]),
+    "corrugated_iron_02": ("波纹金属板", ["建筑材质", "金属"], ["材质", "金属", "波纹板", "屋面"]),
+    "clay_roof_tiles_02": ("陶瓦屋面", ["建筑材质", "屋面"], ["材质", "陶瓦", "屋面", "瓦片"]),
+    "concrete_pavers_03": ("混凝土铺装", ["建筑材质", "铺装"], ["材质", "混凝土", "铺装", "室外"]),
+}
 PROMPT_LIBRARY_PATH = os.path.join(DATA_DIR, "prompt_libraries.json")
 WIKI_DIR = os.path.join(DATA_DIR, "wiki")
 WIKI_SOURCES_FILE = os.path.join(WIKI_DIR, "sources.json")
@@ -3025,6 +3042,7 @@ class OnlineImageRequest(BaseModel):
     model: str = ""
     size: str = "1024x1024"
     quality: str = "auto"
+    n: int = Field(default=1, ge=1, le=4)
     reference_images: List[AIReference] = []
 
 CANVAS_TASKS: Dict[str, Dict[str, Any]] = {}
@@ -3111,6 +3129,7 @@ class CanvasSaveRequest(BaseModel):
     connections: List[Dict[str, Any]] = []
     viewport: Dict[str, Any] = {}
     logs: List[Dict[str, Any]] = []
+    generationHistory: List[Dict[str, Any]] = []
     settings: Dict[str, Any] = {}
     client_id: str = ""
     base_updated_at: int = 0
@@ -5876,23 +5895,82 @@ async def upload_image(files: List[UploadFile] = File(...)):
 
     return {"files": uploaded_files}
 
+AI_REFERENCE_MAX_FILES = 20
+AI_REFERENCE_MAX_BYTES = 30 * 1024 * 1024
+AI_REFERENCE_MAX_PIXELS = 60_000_000
+AI_REFERENCE_DIRECT_FORMATS = {
+    "PNG": (".png", "image/png"),
+    "JPEG": (".jpg", "image/jpeg"),
+    "WEBP": (".webp", "image/webp"),
+}
+
+
+def normalize_ai_reference_image(content: bytes, original_name: str = ""):
+    if not content:
+        raise ValueError("文件为空")
+    if len(content) > AI_REFERENCE_MAX_BYTES:
+        raise ValueError("单张图片不能超过 30MB")
+    try:
+        with Image.open(BytesIO(content)) as probe:
+            image_format = str(probe.format or "").upper()
+            width, height = probe.size
+            probe.verify()
+        if width <= 0 or height <= 0 or width * height > AI_REFERENCE_MAX_PIXELS:
+            raise ValueError("图片尺寸无效或像素总量超过 6000 万")
+        if image_format in AI_REFERENCE_DIRECT_FORMATS:
+            with Image.open(BytesIO(content)) as decoded:
+                decoded.load()
+            ext, media_type = AI_REFERENCE_DIRECT_FORMATS[image_format]
+            return content, ext, media_type, width, height
+        with Image.open(BytesIO(content)) as source:
+            source.seek(0)
+            normalized = ImageOps.exif_transpose(source)
+            normalized.load()
+            if normalized.mode not in ("RGB", "RGBA"):
+                normalized = normalized.convert("RGBA" if "transparency" in normalized.info else "RGB")
+            buffer = BytesIO()
+            normalized.save(buffer, format="PNG", optimize=True)
+            width, height = normalized.size
+            return buffer.getvalue(), ".png", "image/png", width, height
+    except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
+        ext = os.path.splitext(original_name or "")[1].lower()
+        if ext in (".heic", ".heif"):
+            raise ValueError("当前环境无法解析 HEIC/HEIF，请先导出为 JPG、PNG 或 WebP") from exc
+        raise ValueError("文件内容不是可解析的图片，可能已经损坏") from exc
+
+
 @app.post("/api/ai/upload")
 async def upload_ai_reference(files: List[UploadFile] = File(...)):
+    if len(files) > AI_REFERENCE_MAX_FILES:
+        raise HTTPException(status_code=413, detail=f"一次最多上传 {AI_REFERENCE_MAX_FILES} 张图片")
     uploaded = []
+    errors = []
     for file in files:
-        content = await file.read()
-        if not content:
-            continue
-        ext = os.path.splitext(file.filename or "")[1].lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            content_type = (file.content_type or "").lower()
-            ext = ".jpg" if "jpeg" in content_type else ".webp" if "webp" in content_type else ".png"
-        filename = f"ai_ref_{uuid.uuid4().hex[:12]}{ext}"
-        path = output_path_for(filename, "input")
-        with open(path, "wb") as f:
-            f.write(content)
-        uploaded.append({"url": output_url_for(filename, "input"), "name": file.filename or filename})
-    return {"files": uploaded}
+        display_name = os.path.basename(file.filename or "未命名图片")
+        try:
+            content = await file.read(AI_REFERENCE_MAX_BYTES + 1)
+            normalized, ext, media_type, width, height = normalize_ai_reference_image(content, display_name)
+            filename = f"ai_ref_{uuid.uuid4().hex[:12]}{ext}"
+            path = output_path_for(filename, "input")
+            with open(path, "wb") as target:
+                target.write(normalized)
+            uploaded.append({
+                "url": output_url_for(filename, "input"),
+                "name": display_name,
+                "width": width,
+                "height": height,
+                "content_type": media_type,
+            })
+        except ValueError as exc:
+            errors.append({"name": display_name, "message": str(exc)})
+        except Exception:
+            logging.exception("Failed to store smart-canvas upload: %s", display_name)
+            errors.append({"name": display_name, "message": "服务器保存失败，请重试"})
+        finally:
+            await file.close()
+    if not uploaded:
+        raise HTTPException(status_code=415, detail={"message": "没有可用图片", "errors": errors})
+    return {"files": uploaded, "errors": errors}
 
 @app.get("/api/config")
 async def ai_config():
@@ -6119,8 +6197,15 @@ async def build_online_image_result(payload: OnlineImageRequest):
     model = selected_model(payload.model, default_model)
     refs = [ref.dict() for ref in payload.reference_images if ref.url]
     try:
-        image_data, raw = await generate_ai_image(payload.prompt, payload.size, payload.quality, model, refs, provider["id"])
-        local_url = await save_ai_image_to_output(image_data, prefix="online_")
+        generated = []
+        for _ in range(payload.n):
+            generated.append(
+                await generate_ai_image(payload.prompt, payload.size, payload.quality, model, refs, provider["id"])
+            )
+        local_urls = [
+            await save_ai_image_to_output(image_data, prefix="online_")
+            for image_data, _ in generated
+        ]
     except httpx.HTTPStatusError as exc:
         text = exc.response.text or ''
         # 把上游英文错误转成中文友好提示
@@ -6142,9 +6227,10 @@ async def build_online_image_result(payload: OnlineImageRequest):
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"请求上游生图接口失败：{exc}") from exc
 
+    raw = generated[0][1]
     result = {
         "prompt": payload.prompt,
-        "images": [local_url],
+        "images": local_urls,
         "timestamp": time.time(),
         "type": "online",
         "model": model,
@@ -6152,7 +6238,7 @@ async def build_online_image_result(payload: OnlineImageRequest):
         "provider_name": provider.get("name") or provider["id"],
         "task_id": extract_task_id(raw) if isinstance(raw, dict) else None,
         "request_id": raw.get("id") if isinstance(raw, dict) else None,
-        "params": {"provider_id": provider["id"], "model": model, "size": payload.size, "quality": payload.quality, "reference_images": refs},
+        "params": {"provider_id": provider["id"], "model": model, "size": payload.size, "quality": payload.quality, "n": payload.n, "reference_images": refs},
         "raw_usage": raw.get("usage") if isinstance(raw, dict) else None,
     }
     save_to_history(result)
@@ -6443,6 +6529,50 @@ async def canvas_video(payload: CanvasVideoRequest):
 
 # --- Canvas LLM ---
 
+def canvas_decision_from_text(text: str) -> dict:
+    """Return an additive structured decision while preserving the original text response."""
+    source = (text or "").strip()
+    parsed = None
+    match = re.search(r"\{[\s\S]*\}", source)
+    if match:
+        try:
+            candidate = json.loads(match.group(0))
+            parsed = candidate.get("decision", candidate) if isinstance(candidate, dict) else None
+        except (TypeError, ValueError, json.JSONDecodeError):
+            parsed = None
+    allowed = {
+        "render": ("render", "立即执行渲染设计"),
+        "render-design": ("render", "立即执行渲染设计"),
+        "swap-material": ("swap", "立即替换材质"),
+        "local-edit": ("local-edit", "立即局部编辑"),
+        "populate": ("populate", "立即添加人物"),
+        "generate-style": ("style", "立即生成风格"),
+        "video": ("video", "立即生成视频"),
+    }
+    if isinstance(parsed, dict):
+        primary = parsed.get("primary_action") if isinstance(parsed.get("primary_action"), dict) else {}
+        action = str(primary.get("action") or "").strip().lower()
+        if action in allowed:
+            normalized, default_label = allowed[action]
+            primary = {"action": normalized, "label": primary.get("label") or default_label, "params": primary.get("params") or {}}
+        else:
+            primary = None
+        alternatives = [item for item in (parsed.get("alternative_actions") or []) if isinstance(item, dict)][:3]
+        return {
+            "summary": str(parsed.get("summary") or source[:220]).strip(),
+            "needs_input": bool(parsed.get("needs_input")),
+            "question": str(parsed.get("question") or "").strip(),
+            "primary_action": primary,
+            "alternative_actions": alternatives,
+        }
+    lowered = source.lower()
+    ranked = [key for key in ("render-design", "swap-material", "local-edit", "populate", "generate-style", "video") if key in lowered]
+    if not ranked:
+        return {"summary": source[:220], "needs_input": False, "question": "", "primary_action": None, "alternative_actions": []}
+    action, label = allowed[ranked[0]]
+    needs_input = action == "swap" and any(word in source for word in ("请补充", "请明确", "需要追问"))
+    return {"summary": source[:220], "needs_input": needs_input, "question": source[-160:] if needs_input else "", "primary_action": None if needs_input else {"action": action, "label": label, "params": {}}, "alternative_actions": []}
+
 @app.post("/api/canvas-llm")
 async def canvas_llm(payload: CanvasLLMRequest):
     chat_base, chat_hdrs, model = resolve_chat_provider(payload.provider, payload.model, payload.ms_model)
@@ -6462,11 +6592,13 @@ async def canvas_llm(payload: CanvasLLMRequest):
         for img in payload.images[:8]:
             if not img or not isinstance(img, str):
                 continue
-            # 本地 /output/* 或 /assets/* 路径转为 data URL；http(s) 或 data URL 直接用
-            if img.startswith("/output/") or img.startswith("/assets/"):
+            # 上游无法访问本站相对 URL；所有可解析的本地图片统一内联为 data URL。
+            if local_asset_path_from_url(img):
                 ref_url = reference_to_data_url({"url": img}, max_size=1024)
-            else:
+            elif img.startswith(("http://", "https://", "data:image/")):
                 ref_url = img
+            else:
+                continue
             if not ref_url:
                 continue
             content_parts.append({"type": "image_url", "image_url": {"url": ref_url}})
@@ -6505,7 +6637,7 @@ async def canvas_llm(payload: CanvasLLMRequest):
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"解析回复内容失败：{exc}") from exc
     raw_data = unwrap_apimart_response(raw) if isinstance(raw, dict) else {}
-    return {"text": text, "model": model, "raw_usage": raw_data.get("usage")}
+    return {"text": text, "decision": canvas_decision_from_text(text), "model": model, "raw_usage": raw_data.get("usage")}
 
 # --- 对话管理 ---
 
@@ -6624,6 +6756,7 @@ async def update_canvas(canvas_id: str, payload: CanvasSaveRequest):
     canvas["connections"] = payload.connections
     canvas["viewport"] = payload.viewport
     canvas["logs"] = payload.logs[-500:]
+    canvas["generationHistory"] = payload.generationHistory[-100:]
     canvas["settings"] = payload.settings or {}
     save_canvas(canvas)
     await manager.broadcast_canvas_updated(canvas_id, int(canvas.get("updated_at") or now_ms()), payload.client_id)
@@ -7817,6 +7950,9 @@ def library_scan_source(source_id: str):
             except Exception:
                 continue
             rel = os.path.relpath(full_path, folder).replace("\\", "/")
+            asset_id = re.sub(r"_(?:diff|diffuse)_1k$", "", os.path.splitext(fname)[0], flags=re.I)
+            builtin_meta = BUILTIN_MATERIAL_METADATA.get(asset_id) if os.path.abspath(folder) == os.path.abspath(BUILTIN_MATERIAL_DIR) else None
+            material_label, material_categories, material_tags = builtin_meta or ("", [], [])
             image_record = {
                 "id": f"img_{uuid.uuid4().hex[:12]}",
                 "source_id": source_id,
@@ -7827,14 +7963,14 @@ def library_scan_source(source_id: str):
                 "width": w,
                 "height": h,
                 "size_bytes": os.path.getsize(full_path),
-                "categories": [],
-                "tags": [],
+                "categories": material_categories,
+                "tags": material_tags,
                 "ai_tags": [],
                 "ai_tagged": False,
                 "ai_tag_model": "",
-                "manual_tags": [],
+                "manual_tags": material_tags,
                 "favorited": False,
-                "notes": "",
+                "notes": f"{material_label}；Poly Haven CC0；https://polyhaven.com/a/{asset_id}" if material_label else "",
                 "created_at": now_ms(),
                 "updated_at": now_ms(),
             }
@@ -7845,6 +7981,34 @@ def library_scan_source(source_id: str):
     src["last_scan_at"] = now_ms()
     save_library_sources(sources)
     return {"added": added}
+
+def ensure_builtin_material_library():
+    if not os.path.isdir(BUILTIN_MATERIAL_DIR):
+        return
+    sources = load_library_sources()
+    source = next((item for item in sources if item.get("id") == BUILTIN_MATERIAL_SOURCE_ID or os.path.abspath(str(item.get("path") or "")) == os.path.abspath(BUILTIN_MATERIAL_DIR)), None)
+    if source is None:
+        source = {
+            "id": BUILTIN_MATERIAL_SOURCE_ID,
+            "name": "常规建筑材质 · Poly Haven CC0",
+            "type": "local",
+            "path": BUILTIN_MATERIAL_DIR,
+            "url": "https://polyhaven.com/textures",
+            "api_key": "",
+            "enabled": True,
+            "created_at": now_ms(),
+            "updated_at": now_ms(),
+            "last_scan_at": None,
+        }
+        sources.append(source)
+    else:
+        source["path"] = BUILTIN_MATERIAL_DIR
+        source["enabled"] = True
+    save_library_sources(sources)
+    try:
+        library_scan_source(source["id"])
+    except Exception as exc:
+        print(f"[materials] built-in material scan skipped: {exc}")
 
 @app.post("/api/library/import")
 def library_import_images(req: LibraryImportRequest):

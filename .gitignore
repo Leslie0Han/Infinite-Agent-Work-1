@@ -19,3 +19,4 @@ data/agent_tasks/
 .claude/settings.local.json
 history.json
 data/conversations/
+.backups/
