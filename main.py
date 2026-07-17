@@ -17,6 +17,7 @@ import zipfile
 import requests
 import hashlib
 import tempfile
+import math
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
 from threading import Lock
@@ -3044,6 +3045,9 @@ class OnlineImageRequest(BaseModel):
     quality: str = "auto"
     n: int = Field(default=1, ge=1, le=4)
     reference_images: List[AIReference] = []
+    preserve_canvas: bool = False
+    source_width: int = Field(default=0, ge=0)
+    source_height: int = Field(default=0, ge=0)
 
 CANVAS_TASKS: Dict[str, Dict[str, Any]] = {}
 CANVAS_TASK_LOCK = Lock()
@@ -4592,6 +4596,41 @@ async def save_ai_image_to_output(image_data, prefix="online_", category="output
         print(f"保存上游图片失败: {e}")
         return value
 
+def normalize_generated_canvas(url, source_width, source_height):
+    """把生成结果校正回源图宽高比，不拉伸图像。
+    上游已按源比例请求；这里只是防止个别模型忽略尺寸参数。"""
+    width = max(0, int(source_width or 0))
+    height = max(0, int(source_height or 0))
+    path = local_asset_path_from_url(url)
+    if not path or not width or not height:
+        return url
+    try:
+        with Image.open(path) as source:
+            image = ImageOps.exif_transpose(source)
+            current_width, current_height = image.size
+            if not current_width or not current_height:
+                return url
+            target_ratio = width / height
+            current_ratio = current_width / current_height
+            if abs(current_ratio - target_ratio) / target_ratio <= 0.001:
+                return url
+            if current_ratio > target_ratio:
+                crop_width = max(1, round(current_height * target_ratio))
+                left = max(0, (current_width - crop_width) // 2)
+                image = image.crop((left, 0, left + crop_width, current_height))
+            else:
+                crop_height = max(1, round(current_width / target_ratio))
+                top = max(0, (current_height - crop_height) // 2)
+                image = image.crop((0, top, current_width, top + crop_height))
+            suffix = os.path.splitext(path)[1].lower()
+            if suffix in {".jpg", ".jpeg"} and image.mode not in {"RGB", "L"}:
+                image = image.convert("RGB")
+            image.save(path)
+        return url
+    except Exception as exc:
+        print(f"校正生成图画幅失败: {exc}")
+        return url
+
 async def save_remote_video_to_output(url, prefix="video_", category="output"):
     if not url:
         return ""
@@ -4659,7 +4698,7 @@ def normalize_gpt_image_2_size(size):
         height = int((height * grow + 15) // 16) * 16
     return f"{width}x{height}"
 
-def apimart_size_resolution(size):
+def apimart_size_resolution(size, preserve_canvas=False):
     width, height = parse_size_pair(size)
     if not width or not height:
         raw = str(size or "").strip().lower()
@@ -4676,6 +4715,9 @@ def apimart_size_resolution(size):
         resolution = "2k"
     else:
         resolution = "1k"
+    if preserve_canvas:
+        divisor = math.gcd(width, height)
+        return f"{width // divisor}:{height // divisor}", resolution
     common = [
         (1, 1, "1:1"), (3, 2, "3:2"), (2, 3, "2:3"), (4, 3, "4:3"), (3, 4, "3:4"),
         (5, 4, "5:4"), (4, 5, "4:5"), (16, 9, "16:9"), (9, 16, "9:16"),
@@ -4748,7 +4790,7 @@ async def generate_modelscope_provider_image(prompt, size, model, reference_imag
                 raise HTTPException(status_code=502, detail=f"ModelScope 任务失败：{detail}")
         raise HTTPException(status_code=504, detail=f"ModelScope 生图任务超时：{last_payload}")
 
-async def generate_ai_image(prompt, size, quality, model, reference_images=None, provider_id="comfly"):
+async def generate_ai_image(prompt, size, quality, model, reference_images=None, provider_id="comfly", preserve_canvas=False):
     provider = get_api_provider(provider_id)
     if provider["id"] == "modelscope":
         return await generate_modelscope_provider_image(prompt, size, model, reference_images, provider)
@@ -4768,7 +4810,7 @@ async def generate_ai_image(prompt, size, quality, model, reference_images=None,
     async with httpx.AsyncClient(timeout=request_timeout) as client:
         response = None
         if is_apimart:
-            apimart_size, resolution = apimart_size_resolution(size)
+            apimart_size, resolution = apimart_size_resolution(size, preserve_canvas=preserve_canvas)
             body = {
                 "model": model,
                 "prompt": prompt,
@@ -6200,12 +6242,25 @@ async def build_online_image_result(payload: OnlineImageRequest):
         generated = []
         for _ in range(payload.n):
             generated.append(
-                await generate_ai_image(payload.prompt, payload.size, payload.quality, model, refs, provider["id"])
+                await generate_ai_image(
+                    payload.prompt,
+                    payload.size,
+                    payload.quality,
+                    model,
+                    refs,
+                    provider["id"],
+                    preserve_canvas=payload.preserve_canvas,
+                )
             )
         local_urls = [
             await save_ai_image_to_output(image_data, prefix="online_")
             for image_data, _ in generated
         ]
+        if payload.preserve_canvas and payload.source_width and payload.source_height:
+            local_urls = [
+                normalize_generated_canvas(url, payload.source_width, payload.source_height)
+                for url in local_urls
+            ]
     except httpx.HTTPStatusError as exc:
         text = exc.response.text or ''
         # 把上游英文错误转成中文友好提示
@@ -6238,7 +6293,17 @@ async def build_online_image_result(payload: OnlineImageRequest):
         "provider_name": provider.get("name") or provider["id"],
         "task_id": extract_task_id(raw) if isinstance(raw, dict) else None,
         "request_id": raw.get("id") if isinstance(raw, dict) else None,
-        "params": {"provider_id": provider["id"], "model": model, "size": payload.size, "quality": payload.quality, "n": payload.n, "reference_images": refs},
+        "params": {
+            "provider_id": provider["id"],
+            "model": model,
+            "size": payload.size,
+            "quality": payload.quality,
+            "n": payload.n,
+            "reference_images": refs,
+            "preserve_canvas": payload.preserve_canvas,
+            "source_width": payload.source_width,
+            "source_height": payload.source_height,
+        },
         "raw_usage": raw.get("usage") if isinstance(raw, dict) else None,
     }
     save_to_history(result)

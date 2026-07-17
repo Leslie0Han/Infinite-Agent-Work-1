@@ -133,6 +133,8 @@
         .context-more > summary { list-style:none; cursor:pointer; }
         .context-more > summary::-webkit-details-marker { display:none; }
         .context-more-menu { position:absolute; right:0; top:38px; width:170px; padding:6px; display:grid; gap:3px; border-radius:13px; background:var(--panel); border:1px solid var(--line); box-shadow:0 18px 44px var(--shadow); }
+        .context-more-menu,.context-agent-session-menu { max-height:var(--context-submenu-max, 180px); overflow:auto; }
+        .context-toolbar.toolbar-above .context-agent-session-menu,.context-toolbar.toolbar-above .context-more-menu { top:auto; bottom:38px; }
         .context-more-menu .context-action-btn { width:100%; justify-content:flex-start; }
         .theme-dark .context-action-btn.material { color:#a7f3d0; background:rgba(6,78,59,.62); border-color:rgba(16,185,129,.3); }
         .object-context-card { position:absolute; z-index:20; width:min(420px, calc(100vw - 44px)); padding:8px; border-radius:14px; background:var(--panel); border:1px solid var(--line); box-shadow:0 16px 44px var(--shadow); backdrop-filter:blur(16px); transform:translateX(-50%); display:grid; gap:7px; pointer-events:auto; }
@@ -584,6 +586,7 @@
         .action-preflight-row { display:flex; align-items:center; gap:6px; min-width:0; color:var(--muted); font-size:10.5px; font-weight:800; }
         .action-preflight-row strong { flex:0 0 auto; color:var(--text); font-weight:900; }
         .action-preflight-row span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .action-preflight-error { padding:7px 8px; border-radius:9px; color:#fecaca; background:rgba(127,29,29,.42); border:1px solid rgba(248,113,113,.42); font-size:10.5px; font-weight:800; line-height:1.4; }
         .toast { position:absolute; top:24px; right:24px; z-index:140; max-width:360px; padding:10px 13px; border-radius:14px; background:var(--panel); border:1px solid var(--line); color:var(--text); box-shadow:0 16px 44px var(--shadow); font-size:12px; font-weight:800; opacity:0; transform:translateY(-8px); pointer-events:none; transition:.18s ease; }
         .toast.show { opacity:1; transform:translateY(0); }
         .selection-box { position:absolute; z-index:18; border:1px solid var(--strong); background:rgba(15,23,42,.08); border-radius:10px; pointer-events:none; display:none; }
@@ -655,9 +658,10 @@
         .crop-canvas { position:relative; display:inline-block; line-height:0; user-select:none; background:var(--soft); }
         .crop-canvas img { display:block; max-width:min(1300px, calc(100vw - 100px)); max-height:min(840px, calc(100vh - 200px)); border-radius:14px; background:var(--soft); }
         .edit-draw-canvas { position:absolute; inset:0; width:100%; height:100%; border-radius:14px; pointer-events:none; }
-        .crop-canvas.mask-mode,.crop-canvas.brush-mode { cursor:crosshair; }
-        .crop-canvas.mask-mode .edit-draw-canvas,.crop-canvas.brush-mode .edit-draw-canvas { pointer-events:auto; }
-        .crop-canvas.mask-mode .crop-box,.crop-canvas.brush-mode .crop-box,.crop-canvas.grid-mode .crop-box { display:none; }
+        .crop-canvas.mask-mode,.crop-canvas.brush-mode,.crop-canvas.polygon-mode { cursor:crosshair; }
+        .crop-canvas.mask-mode .edit-draw-canvas,.crop-canvas.brush-mode .edit-draw-canvas,.crop-canvas.polygon-mode .edit-draw-canvas { pointer-events:auto; }
+        .crop-canvas.mask-mode .crop-box,.crop-canvas.brush-mode .crop-box,.crop-canvas.grid-mode .crop-box,.crop-canvas.polygon-mode .crop-box { display:none; }
+        .polygon-status { min-width:150px; }
         .crop-canvas.grid-custom-h .edit-draw-canvas { pointer-events:auto; cursor:row-resize; }
         .crop-canvas.grid-custom-v .edit-draw-canvas { pointer-events:auto; cursor:col-resize; }
         .crop-box { position:absolute; left:10%; top:10%; width:80%; height:80%; border:2px solid #f8fafc; box-shadow:0 0 0 9999px rgba(15,23,42,.48), 0 12px 30px rgba(15,23,42,.2); border-radius:10px; cursor:move; }
@@ -714,12 +718,10 @@
         .material-picker-name { color:var(--text); font-size:10.5px; font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .material-picker-tags { display:flex; align-items:center; gap:4px; flex-wrap:wrap; min-height:18px; }
         .material-picker-tag { max-width:100%; border-radius:999px; background:var(--soft); color:var(--muted); padding:2px 8px; font-size:10px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .material-catalogue-modal .material-picker-tags { display:none; }
         .material-picker-actions { display:flex; align-items:center; gap:6px; }
         .material-catalogue-modal .material-picker-actions { position:absolute; top:6px; right:6px; gap:4px; }
         .material-picker-btn { height:28px; padding:0 9px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; gap:5px; background:var(--strong); color:var(--strong-text); font-size:10.5px; font-weight:850; flex:1; min-width:0; }
-        .material-catalogue-modal .material-picker-btn { width:24px; height:24px; padding:0; flex:0 0 24px; border-radius:8px; background:rgba(244,174,238,.96); color:#261139; border:1px solid rgba(244,174,238,.98); box-shadow:0 8px 18px rgba(15,23,42,.16); }
-        .material-catalogue-modal .material-picker-btn span { display:none; }
+        .material-catalogue-modal .material-picker-btn { min-width:0; height:25px; padding:0 7px; border-radius:8px; background:rgba(244,174,238,.96); color:#261139; border:1px solid rgba(244,174,238,.98); box-shadow:0 8px 18px rgba(15,23,42,.16); }
         .material-picker-btn.secondary { flex:0 0 auto; background:var(--soft); color:var(--muted); border:1px solid var(--line); }
         .material-catalogue-modal .material-picker-btn.secondary { background:rgba(255,255,255,.9); color:#334155; border-color:rgba(226,232,240,.96); }
         .material-picker-btn i,.material-picker-btn svg { width:12px !important; height:12px !important; stroke-width:2.4; }
@@ -768,6 +770,8 @@
         .version-history-thumb i,.version-history-thumb svg { width:18px !important; height:18px !important; stroke-width:2.4; }
         .version-history-op { position:absolute; right:3px; bottom:3px; width:18px; height:18px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; background:rgba(15,23,42,.76); color:#fff; }
         .version-history-op i,.version-history-op svg { width:11px !important; height:11px !important; stroke-width:2.6; }
+        .history-preview-action { position:absolute; left:3px; bottom:3px; width:18px; height:18px; padding:0; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; color:#fff; background:rgba(15,23,42,.76); border:0; }
+        .history-preview-action i,.history-preview-action svg { width:11px !important; height:11px !important; stroke-width:2.6; }
         .version-history-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:9.5px; font-weight:850; text-align:left; }
         .version-history-meta { color:var(--faint); font-size:8.5px; font-weight:750; }
         .version-history-empty { padding:8px 4px; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:10px; line-height:1.35; text-align:center; background:var(--soft); }
@@ -788,8 +792,35 @@
         .plan-badge { height:20px; padding:0 7px; border-radius:6px; display:inline-flex; align-items:center; color:#aab4c5; background:#252a35; border:1px solid #343b49; font-size:9px; font-weight:850; }
         .upgrade-link { height:26px; padding:0 9px; border-radius:8px; color:#f4b8d9; background:rgba(190,24,93,.14); border:1px solid rgba(244,114,182,.22); font-size:10px; font-weight:850; }
         .canvas-top-spacer { flex:1; }
-        .canvas-top-share { height:30px; padding:0 12px; border-radius:9px; display:flex; align-items:center; gap:6px; color:#e9ebf1; background:#252a35; border:1px solid #363d4b; font-size:10px; font-weight:800; }
-        .canvas-top-share i,.canvas-top-share svg { width:13px !important; height:13px !important; }
+        .canvas-top-share,.canvas-top-api-settings { height:30px; padding:0 12px; border-radius:9px; display:flex; align-items:center; gap:6px; color:#e9ebf1; background:#252a35; border:1px solid #363d4b; font-size:10px; font-weight:800; text-decoration:none; }
+        .canvas-top-api-settings { color:#f3efff; background:#31265a; border-color:#51448a; }
+        .canvas-top-share i,.canvas-top-share svg,.canvas-top-api-settings i,.canvas-top-api-settings svg { width:13px !important; height:13px !important; }
+        .canvas-api-settings-panel { position:absolute; top:50px; right:58px; z-index:91; width:320px; display:none; gap:10px; padding:12px; border-radius:14px; color:#e9edf5; background:rgba(25,28,36,.98); border:1px solid rgba(148,163,184,.28); box-shadow:0 20px 54px rgba(0,0,0,.44); }
+        .canvas-api-settings-panel.open { display:grid; }
+        .canvas-api-settings-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+        .canvas-api-settings-head strong { font-size:12px; font-weight:900; }
+        .canvas-api-settings-head span { display:block; margin-top:3px; color:#9ba6b8; font-size:10px; line-height:1.4; font-weight:650; }
+        .canvas-api-settings-actions { display:flex; align-items:center; gap:7px; }
+        .canvas-api-settings-panel a,.canvas-api-refresh { min-height:26px; padding:0 7px; border-radius:7px; display:inline-flex; align-items:center; gap:4px; color:#c4b5fd; background:transparent; border:1px solid transparent; font-size:10px; font-weight:850; text-decoration:none; }
+        .canvas-api-settings-panel a:hover,.canvas-api-refresh:hover { background:#29243c; border-color:#4d426f; }
+        .canvas-api-refresh i,.canvas-api-refresh svg { width:11px !important; height:11px !important; }
+        .canvas-api-field { display:grid; gap:5px; }
+        .canvas-api-choice-label { color:#b9c1cf; font-size:10px; font-weight:800; }
+        .canvas-api-dropdown { position:relative; }
+        .canvas-api-dropdown-trigger { width:100%; min-height:36px; padding:0 9px; border-radius:9px; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#eef1f7; background:#20242d; border:1px solid #3a4251; font-size:10.5px; font-weight:850; text-align:left; }
+        .canvas-api-dropdown-trigger:hover,.canvas-api-dropdown.open .canvas-api-dropdown-trigger { border-color:#7669b4; }
+        .canvas-api-dropdown-trigger i,.canvas-api-dropdown-trigger svg { width:13px !important; height:13px !important; flex:0 0 auto; transition:transform .14s ease; }
+        .canvas-api-dropdown.open .canvas-api-dropdown-trigger i,.canvas-api-dropdown.open .canvas-api-dropdown-trigger svg { transform:rotate(180deg); }
+        .canvas-api-dropdown-menu { position:absolute; left:0; right:0; top:calc(100% + 5px); z-index:5; max-height:210px; display:none; gap:3px; padding:5px; overflow:auto; border-radius:10px; background:#1c2028; border:1px solid #454d5d; box-shadow:0 14px 34px rgba(0,0,0,.38); }
+        .canvas-api-dropdown.open .canvas-api-dropdown-menu { display:grid; }
+        .canvas-api-option { width:100%; min-height:32px; padding:7px 8px; border-radius:7px; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#c8d0dc; background:transparent; border:1px solid transparent; font-size:10px; font-weight:800; text-align:left; }
+        .canvas-api-option:hover { color:#f7f8fc; background:#292e39; }
+        .canvas-api-option.active { color:#fff; background:#41356f; border-color:#6d5fb0; }
+        .canvas-api-option small { color:#fca5a5; font-size:9px; font-weight:800; }
+        .canvas-api-dropdown-empty { padding:8px; color:#8e99ab; font-size:10px; line-height:1.4; }
+        .canvas-api-settings-note { padding:8px; border-radius:9px; color:#aeb8c8; background:#20242d; font-size:10px; line-height:1.45; font-weight:650; }
+        .canvas-api-settings-status { min-height:15px; color:#8e99ab; font-size:9.5px; font-weight:700; }
+        .canvas-api-settings-status.error { color:#fca5a5; }
         .canvas-user-chip { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:#151821; background:#d8dce5; font-size:10px; font-weight:900; }
         .legacy-action-hooks { display:none !important; }
         .upload-status { top:68px; }
@@ -856,7 +887,7 @@
         .history-limit-card strong { display:block; margin-bottom:3px; color:#f0b6d5; font-size:10px; }
         .history-limit-card button { width:100%; height:30px; margin-top:8px; border-radius:8px; color:#fff; background:#7c3aed; font-size:9px; font-weight:850; }
 
-        @media (max-width:760px) { .composer { width:min(540px, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) 50px; } .context-toolbar { max-width:calc(100vw - 28px); flex-wrap:wrap; } .object-context-card { width:calc(100vw - 28px); } .canvas-project-sub,.upgrade-link,.canvas-top-share span { display:none; } .canvas-project-copy .smart-title { max-width:150px; } .smart-agent-panel,.action-template-panel { left:10px; right:10px; width:auto; } .material-catalogue-modal { padding:70px 10px; } .material-catalogue-panel { width:100%; } .version-history-rail { left:10px; width:calc(100vw - 20px); } .quick-action-dock { left:10px; right:10px; transform:none; overflow-x:auto; justify-content:flex-start; } .quick-action-btn span { display:none; } .onboarding-overlay { grid-template-columns:1fr; overflow:auto; } .onboarding-form { min-height:100vh; padding:28px 22px; } .onboarding-preview { display:none; } }
+        @media (max-width:760px) { .composer { width:min(540px, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) 50px; } .context-toolbar { max-width:calc(100vw - 28px); flex-wrap:wrap; } .object-context-card { width:calc(100vw - 28px); } .canvas-project-sub,.upgrade-link,.canvas-top-share span,.canvas-top-api-settings span { display:none; } .canvas-project-copy .smart-title { max-width:150px; } .smart-agent-panel,.action-template-panel { left:10px; right:10px; width:auto; } .material-catalogue-modal { padding:70px 10px; } .material-catalogue-panel { width:100%; } .version-history-rail { left:10px; width:calc(100vw - 20px); } .quick-action-dock { left:10px; right:10px; transform:none; overflow-x:auto; justify-content:flex-start; } .quick-action-btn span { display:none; } .onboarding-overlay { grid-template-columns:1fr; overflow:auto; } .onboarding-form { min-height:100vh; padding:28px 22px; } .onboarding-preview { display:none; } }
     </style>
 </head>
 <body>
@@ -934,9 +965,11 @@
             <div class="canvas-project-copy"><div id="smartTitle" class="smart-title" data-i18n="smart.title">我的第一个项目</div><div class="canvas-project-sub">无限智能画布</div></div>
           </div>
           <div class="canvas-top-spacer"></div>
+          <button id="canvasApiSettingsBtn" class="canvas-top-api-settings" type="button" aria-expanded="false" title="选择本画布的生图 API 与模型"><i data-lucide="settings"></i><span>本画布 API</span></button>
           <button class="canvas-top-share" type="button" title="分享当前项目"><i data-lucide="share-2"></i><span>分享</span></button>
           <div class="canvas-user-chip" aria-label="当前用户">LH</div>
         </header>
+        <aside id="canvasApiSettingsPanel" class="canvas-api-settings-panel" aria-label="本画布 API" aria-hidden="true"></aside>
         <div class="legacy-action-hooks" aria-hidden="true">
           <div class="smart-top-actions">
           <div class="smart-action-group" data-label="添加">
@@ -1110,6 +1143,13 @@
                     <button class="image-edit-btn secondary" type="button" onclick="clearEditDrawing()"><i data-lucide="eraser" class="w-4 h-4"></i><span data-i18n="canvas.clear">清空</span></button>
                     <span class="image-edit-sub" data-i18n="canvas.maskHint">白色区域为要编辑的遮罩</span>
                 </div>
+                <div id="imagePolygonTools" class="image-edit-tools">
+                    <span id="polygonSelectionStatus" class="image-edit-sub polygon-status">点击图片添加顶点，至少需要 3 个点</span>
+                    <button id="polygonUndoBtn" class="image-edit-btn secondary" type="button" onclick="undoPolygonSelectionPoint()" disabled><i data-lucide="undo-2" class="w-4 h-4"></i><span>撤销顶点</span></button>
+                    <button id="polygonClearBtn" class="image-edit-btn secondary" type="button" onclick="clearPolygonSelection()" disabled><i data-lucide="eraser" class="w-4 h-4"></i><span>清空</span></button>
+                    <button id="polygonCloseBtn" class="image-edit-btn primary" type="button" onclick="closePolygonSelection()" disabled><i data-lucide="check" class="w-4 h-4"></i><span>闭合选区</span></button>
+                    <span class="image-edit-sub">也可点击第一个顶点闭合</span>
+                </div>
                 <div id="imageBrushTools" class="image-edit-tools">
                     <button class="image-edit-btn primary" type="button" data-brush-tool="free" onclick="setBrushTool('free')" title="自由画笔"><i data-lucide="paintbrush" class="w-4 h-4"></i></button>
                     <button class="image-edit-btn secondary" type="button" data-brush-tool="rect" onclick="setBrushTool('rect')" title="矩形"><i data-lucide="square" class="w-4 h-4"></i></button>
@@ -1206,6 +1246,8 @@
         const customCutoutBtn = document.getElementById('customCutoutBtn');
         const addStickyNoteBtn = document.getElementById('addStickyNoteBtn');
         const onboardingSettingsBtn = document.getElementById('onboardingSettingsBtn');
+        const canvasApiSettingsBtn = document.getElementById('canvasApiSettingsBtn');
+        const canvasApiSettingsPanel = document.getElementById('canvasApiSettingsPanel');
         const saveNodeToLibraryBtn = document.getElementById('saveNodeToLibraryBtn');
         const agentSaveToLibraryBtn = document.getElementById('agentSaveToLibraryBtn');
         const smartAgentToggleBtn = document.getElementById('smartAgentToggleBtn');
@@ -1303,6 +1345,8 @@
         let smartAgentLayoutDrag = null;
         let materialCatalogueLayoutDrag = null;
         let actionTemplateState = {open:false, action:'', targetId:''};
+        let imageEditorSelectionContext = null;
+        let imageEditorSelectionMode = false;
         let projectHistoryOpen = false;
         let agentCanvasSelectionMode = false;
         let agentCanvasSelectionBefore = {selectedId:'', selectedIds:[]};
@@ -1327,9 +1371,9 @@
         ];
         const SMART_AGENT_LOG_TYPE = 'smart-agent';
         const POPULATE_TEMPLATES = {
-            balanced:{label:'Scene Population', meta:'Density: balanced · Position: foreground and midground', prompt:'补充 4-8 位自然人物，分布在前景和中景，服装关键词为现代休闲、低饱和色。保持建筑/室内主体、构图、透视和材质不变。'},
-            sparse:{label:'Sparse visitors', meta:'Density: low · Position: edges and circulation', prompt:'补充 1-3 位人物，放在动线边缘和空间入口附近，服装关键词为简洁商务、自然站姿。保持主体设计不变。'},
-            lively:{label:'Lively public space', meta:'Density: high · Position: plaza, lounge, terrace', prompt:'补充 8-14 位人物，形成公共空间活力，加入少量家具、植物和灯光细节。人物数量/位置/服装关键词要服务尺度感，不改变主要设计。'}
+            balanced:{label:'Scene Population', meta:'Density: balanced · Position: foreground and midground', prompt:'仅补充 4-8 位自然人物，分布在前景和中景，服装关键词为现代休闲、低饱和色。'},
+            sparse:{label:'Sparse visitors', meta:'Density: low · Position: edges and circulation', prompt:'仅补充 1-3 位人物，放在动线边缘和空间入口附近，服装关键词为简洁商务、自然站姿。'},
+            lively:{label:'Lively public space', meta:'Density: high · Position: plaza, lounge, terrace', prompt:'仅补充 8-14 位人物，通过人物数量、位置和服装表现公共空间活力，不得增加家具、植物、灯具或其他场景元素。'}
         };
         const POPULATE_PRESET_PARAMS = {
             balanced:{preset:'balanced', density:'medium', placement:'foreground-midground', ageGroups:['young-adults','adults'], identity:'mixed', ethnicity:'diverse', outfit:'现代休闲、低饱和色', extra:''},
@@ -1559,6 +1603,9 @@
         const EDIT_DRAW_HISTORY_MAX = 40;
         let brushTool = 'free';
         let brushLabelCounter = 1;
+        let polygonSelectionPoints = [];
+        let polygonSelectionClosed = false;
+        let polygonSelectionHover = null;
         let gridCustomMode = false;
         let gridCustomLines = [];
         let gridCustomOrientation = 'h';
@@ -2076,6 +2123,27 @@
             toast('历史结果已加入画布');
             return node;
         }
+        function previewHistoryEntry(entry){
+            const session = nodes.find(node => node.id === entry?.nodeId);
+            const owner = nodes.find(node => node.id === entry?.ownerId) || nodes.find(node => node.id === session?.sessionOwnerId);
+            if(session && owner && isCandidateSession(session) && session.images?.[0]?.url){
+                owner.activeCandidateSessionId = session.id;
+                owner.candidatePreview = {sessionId:session.id, index:0};
+                selectedId = owner.id;
+                selectedIds = [];
+                selectedImage = {nodeId:'', index:-1};
+                focusCanvasNode(owner.id, {center:true});
+                render();
+                scheduleSave();
+                toast('正在预览历史结果；确认后可加入画布');
+                return;
+            }
+            if(session && focusCanvasNode(session.id, {center:true})){
+                toast('已定位历史结果');
+                return;
+            }
+            toast('这条历史结果尚未在画布中；可点击“加入画布”恢复。');
+        }
         function historyDateLabel(timestamp){
             const date = new Date(Number(timestamp) || Date.now());
             const today = new Date();
@@ -2094,7 +2162,7 @@
                 <button class="version-history-add" type="button" data-history-close title="关闭"><i data-lucide="x"></i></button>
             </div>
             <div class="version-history-list">
-                ${items.length ? Object.entries(items.reduce((groups, item) => { const key = historyDateLabel(item.createdAt); (groups[key] ||= []).push(item); return groups; }, {})).map(([date, group]) => `<div class="history-date-group"><div class="history-date-title">${escapeHtml(date)}</div>${group.map(entry => { const image = entry.images?.find(item => item?.url); const media = image ? thumbMediaHtml(image) : `<i data-lucide="${entry.status === 'error' ? 'circle-alert' : 'image'}"></i>`; return `<div class="version-history-item ${entry.status === 'error' ? 'error' : ''}" data-history-entry="${escapeHtml(entry.id)}"><span class="version-history-thumb">${media}<span class="version-history-op"><i data-lucide="${escapeHtml(actionIcon(entry.operation || 'render'))}"></i></span><button class="candidate-add" type="button" data-history-add="${escapeHtml(entry.id)}" title="加入画布"><i data-lucide="plus"></i></button></span><span class="version-history-label">${escapeHtml(smartAgentDisplayLabel({label:entry.label || '生成结果', action:entry.operation || ''}))}</span><span class="version-history-meta">${entry.status === 'error' ? '生成失败 · 点击重试' : '点击 + 加入画布'}</span></div>`; }).join('')}</div>`).join('') : '<div class="version-history-empty">生成完成后，结果会保存在这里。</div>'}
+                ${items.length ? Object.entries(items.reduce((groups, item) => { const key = historyDateLabel(item.createdAt); (groups[key] ||= []).push(item); return groups; }, {})).map(([date, group]) => `<div class="history-date-group"><div class="history-date-title">${escapeHtml(date)}</div>${group.map(entry => { const image = entry.images?.find(item => item?.url); const media = image ? thumbMediaHtml(image) : `<i data-lucide="${entry.status === 'error' ? 'circle-alert' : 'image'}"></i>`; return `<div class="version-history-item ${entry.status === 'error' ? 'error' : ''}" data-history-entry="${escapeHtml(entry.id)}"><span class="version-history-thumb">${media}<span class="version-history-op"><i data-lucide="${escapeHtml(actionIcon(entry.operation || 'render'))}"></i></span>${entry.status === 'error' ? '' : `<button class="history-preview-action" type="button" data-history-preview="${escapeHtml(entry.id)}" title="预览历史结果"><i data-lucide="eye"></i></button>`}<button class="candidate-add" type="button" data-history-add="${escapeHtml(entry.id)}" title="加入画布"><i data-lucide="plus"></i></button></span><span class="version-history-label">${escapeHtml(smartAgentDisplayLabel({label:entry.label || '生成结果', action:entry.operation || ''}))}</span><span class="version-history-meta">${entry.status === 'error' ? '生成失败 · 点击重试' : '预览或加入画布'}</span></div>`; }).join('')}</div>`).join('') : '<div class="version-history-empty">生成完成后，结果会保存在这里。</div>'}
             </div>`;
             versionHistoryRail.querySelector('[data-history-close]')?.addEventListener('click', event => {
                 event.preventDefault();
@@ -2110,8 +2178,14 @@
                     if(entry) addHistoryEntryToCanvas(entry);
                 });
             });
+            versionHistoryRail.querySelectorAll('[data-history-preview]').forEach(btn => btn.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const entry = allItems.find(item => item.id === btn.dataset.historyPreview);
+                if(entry) previewHistoryEntry(entry);
+            }));
             versionHistoryRail.querySelectorAll('[data-history-entry]').forEach(card => card.addEventListener('click', event => {
-                if(event.target.closest('[data-history-add]')) return;
+                if(event.target.closest('[data-history-add],[data-history-preview]')) return;
                 const entry = allItems.find(item => item.id === card.dataset.historyEntry);
                 if(!entry) return;
                 const nodeId = entry.ownerId || entry.nodeId;
@@ -2727,7 +2801,7 @@
                 pushSmartAgentLog('assistant', answer, {attachments, decision, suggestions:decisionSuggestions.length ? decisionSuggestions : suggestionsFromAgentText(answer)});
             } catch(e) {
                 const reason = smartAgentErrorMessage(e);
-                const fallback = `画布 LLM 调用失败：${reason}\n\n我可以先给出本地建议：若要换材质，请先选择目标面或创建局部选区；若要深化，可以直接 Render / Populate / Style / Video。`;
+                const fallback = `画布 LLM 调用失败：${reason}\n\n我可以先给出本地建议：若要换材质，请先选择目标面或创建局部选区；若要深化，可以直接使用渲染设计、添加人物、生成风格或生成视频。`;
                 pushSmartAgentLog('assistant', fallback, {attachments, suggestions:fallbackSmartAgentSuggestions()});
                 toast('画布助手调用失败，已给出本地建议');
             } finally {
@@ -3308,7 +3382,107 @@
             if(settings.comfyParams[field.id] !== undefined) return settings.comfyParams[field.id];
             return field.default ?? (field.type === 'boolean' ? false : (field.type === 'number' || field.type === 'slider' ? 0 : ''));
         }
-        function updateProviderModels(){ renderDynamicParams(); }
+        let canvasApiRefreshPromise = null;
+        function canvasApiDropdownHtml(kind, label, selectedLabel, optionsHtml, emptyText){
+            return `<div class="canvas-api-field"><div class="canvas-api-choice-label">${escapeHtml(label)}</div><div class="canvas-api-dropdown" data-canvas-api-dropdown-root="${escapeHtml(kind)}"><button class="canvas-api-dropdown-trigger" type="button" data-canvas-api-dropdown-toggle="${escapeHtml(kind)}" aria-expanded="false"><span>${escapeHtml(selectedLabel || `请选择${label}`)}</span><i data-lucide="chevron-down"></i></button><div class="canvas-api-dropdown-menu" role="listbox" aria-label="${escapeHtml(label)}">${optionsHtml || `<div class="canvas-api-dropdown-empty">${escapeHtml(emptyText)}</div>`}</div></div></div>`;
+        }
+        function renderCanvasApiSettings(options={}){
+            if(!canvasApiSettingsPanel) return;
+            const providers = imageProviders();
+            if(!settings.provider_id || !providers.some(provider => provider.id === settings.provider_id)) settings.provider_id = providers.find(provider => provider.has_key)?.id || providers[0]?.id || '';
+            const selectedProvider = providers.find(provider => provider.id === settings.provider_id) || null;
+            const models = providerImageModels(settings.provider_id);
+            if(!settings.model || !models.includes(settings.model)) settings.model = models[0] || '';
+            const providerOptions = providers.map(provider => `<button class="canvas-api-option ${provider.id === settings.provider_id ? 'active' : ''}" type="button" role="option" aria-selected="${provider.id === settings.provider_id}" data-canvas-api-provider="${escapeHtml(provider.id)}"><span>${escapeHtml(provider.name || provider.id)}</span>${provider.has_key ? '' : '<small>未配置 Key</small>'}</button>`).join('');
+            const modelOptions = models.map(model => `<button class="canvas-api-option ${model === settings.model ? 'active' : ''}" type="button" role="option" aria-selected="${model === settings.model}" data-canvas-api-model="${escapeHtml(model)}"><span>${escapeHtml(model)}</span></button>`).join('');
+            const statusClass = options.error ? ' error' : '';
+            const statusText = options.error || options.status || (options.loading ? '正在同步最新平台和模型…' : '配置已与 API 设置同步');
+            canvasApiSettingsPanel.innerHTML = `<div class="canvas-api-settings-head"><div><strong>本画布 API</strong><span>所有图片生成统一使用这里的设置，可随时切换。</span></div><div class="canvas-api-settings-actions"><button class="canvas-api-refresh" type="button" data-canvas-api-refresh title="重新同步平台和模型"><i data-lucide="refresh-cw"></i><span>刷新</span></button><a href="/static/api-settings.html" target="_blank" rel="noopener">管理 Key</a></div></div>${providers.length ? `${canvasApiDropdownHtml('provider', '图片 API 平台', selectedProvider?.name || selectedProvider?.id || '', providerOptions, '暂无可用图片 API 平台')}${canvasApiDropdownHtml('model', '图片模型', settings.model || '', modelOptions, '当前平台暂无图片模型')}<div class="canvas-api-settings-note">渲染设计、编辑、材质替换、添加人物、生成风格和人物素材都会使用当前选择。新增模型需先在 API 设置页保存，保存后这里会自动同步。</div>` : `<div class="canvas-api-settings-note">暂无可用的图片 API。请先到 <a href="/static/api-settings.html" target="_blank" rel="noopener">API 设置</a> 添加并保存平台与图片模型。</div>`}<div class="canvas-api-settings-status${statusClass}" role="status">${escapeHtml(statusText)}</div>`;
+            canvasApiSettingsPanel.querySelectorAll('[data-canvas-api-dropdown-toggle]').forEach(button => button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const root = event.currentTarget.closest('[data-canvas-api-dropdown-root]');
+                const open = !root?.classList.contains('open');
+                canvasApiSettingsPanel.querySelectorAll('[data-canvas-api-dropdown-root]').forEach(item => {
+                    item.classList.toggle('open', item === root && open);
+                    item.querySelector('[data-canvas-api-dropdown-toggle]')?.setAttribute('aria-expanded', String(item === root && open));
+                });
+            }));
+            canvasApiSettingsPanel.querySelectorAll('[data-canvas-api-provider]').forEach(button => button.addEventListener('click', event => {
+                settings.engine = 'api';
+                settings.provider_id = event.currentTarget.dataset.canvasApiProvider || '';
+                settings.model = providerImageModels(settings.provider_id)[0] || '';
+                renderCanvasApiSettings({status:'已切换图片 API 平台'});
+                renderDynamicParams();
+                refreshOpenImageActionPreflight();
+                scheduleSave();
+            }));
+            canvasApiSettingsPanel.querySelectorAll('[data-canvas-api-model]').forEach(button => button.addEventListener('click', event => {
+                settings.engine = 'api';
+                settings.model = event.currentTarget.dataset.canvasApiModel || '';
+                renderCanvasApiSettings({status:'已切换图片模型'});
+                renderDynamicParams();
+                refreshOpenImageActionPreflight();
+                scheduleSave();
+            }));
+            canvasApiSettingsPanel.querySelector('[data-canvas-api-refresh]')?.addEventListener('click', () => refreshCanvasApiProviders({announce:true}));
+            refreshIcons();
+        }
+        async function refreshCanvasApiProviders(options={}){
+            if(canvasApiRefreshPromise) return canvasApiRefreshPromise;
+            if(options.announce) renderCanvasApiSettings({loading:true});
+            canvasApiRefreshPromise = (async () => {
+                try {
+                    const response = await fetch(`/api/providers?ts=${Date.now()}`, {cache:'no-store'});
+                    if(!response.ok) throw new Error('平台配置读取失败');
+                    const data = await response.json();
+                    apiProviders = Array.isArray(data.providers) ? data.providers : [];
+                    renderDynamicParams();
+                    renderCanvasApiSettings({status:'已同步最新平台和模型'});
+                    refreshOpenImageActionPreflight();
+                    return true;
+                } catch(error) {
+                    renderCanvasApiSettings({error:error?.message || '同步失败，请重试'});
+                    return false;
+                } finally {
+                    canvasApiRefreshPromise = null;
+                }
+            })();
+            return canvasApiRefreshPromise;
+        }
+        async function toggleCanvasApiSettings(force){
+            if(!canvasApiSettingsPanel || !canvasApiSettingsBtn) return;
+            const open = force === undefined ? !canvasApiSettingsPanel.classList.contains('open') : Boolean(force);
+            canvasApiSettingsPanel.classList.toggle('open', open);
+            canvasApiSettingsPanel.setAttribute('aria-hidden', String(!open));
+            canvasApiSettingsBtn.setAttribute('aria-expanded', String(open));
+            if(open){
+                renderCanvasApiSettings({loading:true});
+                await refreshCanvasApiProviders();
+            }
+        }
+        function refreshOpenImageActionPreflight(){
+            const action = actionTemplateState.action;
+            if(!actionTemplateState.open || !['render','populate','style','enhance'].includes(action)) return;
+            const target = nodes.find(node => node.id === actionTemplateState.targetId) || selectedNode();
+            const targetImage = selectedActionImage(target);
+            const config = actionTemplatePanel?.querySelector('[data-action-preflight-config]');
+            if(config) config.textContent = actionPreflightConfigLabel(action, ['render','style'].includes(action) ? 2 : 1);
+            const reason = generationReadinessError('image', targetImage);
+            let error = actionTemplatePanel?.querySelector('[data-action-preflight-error]');
+            if(reason && !error){
+                error = document.createElement('div');
+                error.className = 'action-preflight-error';
+                error.dataset.actionPreflightError = '1';
+                actionTemplatePanel?.querySelector('.action-preflight')?.appendChild(error);
+            }
+            if(error){
+                error.textContent = reason;
+                error.hidden = !reason;
+            }
+            actionTemplatePanel?.querySelectorAll('[data-action-prompt-run],[data-enhance-run],[data-populate-run],[data-style-run]').forEach(button => { button.disabled = Boolean(reason); });
+        }
+        function updateProviderModels(){ renderDynamicParams(); renderCanvasApiSettings(); }
         function renderDynamicParams(){
             if(!dynamicParams) return;
             settings.engine = ['api','modelscope','comfy'].includes(settings.engine) ? settings.engine : 'api';
@@ -3810,7 +3984,7 @@
         }
         async function loadConfig(){
             try {
-                const cfg = await fetch('/api/config').then(r => r.json());
+                const cfg = await fetch('/api/config', {cache:'no-store'}).then(r => r.json());
                 apiProviders = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
                 const wf = await fetch('/api/workflows').then(r => r.json()).catch(() => ({workflows:[]}));
                 comfyWorkflows = Array.isArray(wf.workflows) ? wf.workflows : [];
@@ -4353,7 +4527,13 @@
             const img = selectedActionImage(node);
             if(!node || !img || node.pending) return '';
             const r = nodeRect(node);
-            const top = Math.max(6, r.y - 46);
+            const toolbarHeight = 44;
+            const gap = 16;
+            const scale = safeScale(viewport.scale);
+            const submenuReserve = Math.max(80, Math.round(160 / scale));
+            const visibleTop = (70 - viewport.y) / scale;
+            const placeBelow = r.y - toolbarHeight - gap - submenuReserve < visibleTop;
+            const top = placeBelow ? r.y + r.height + gap : r.y - toolbarHeight - gap;
             const left = r.x + r.width / 2;
             const normalImage = !isMaterialNode(node) && !isCutoutNode(node) && !isSelectionNode(node);
             const orderedIds = normalImage ? ['render','swap','edit','populate','style','video','enhance','download','front','forward','backward','back','mark-material','delete'] : canvasActionIdsForNode(node);
@@ -4366,7 +4546,7 @@
             const visibleActions = normalImage ? actions.slice(0, 8) : actions.slice(0, 6);
             const moreActions = normalImage ? actions.slice(8) : actions.slice(6);
             const actionButton = ([action, icon, label, cls, iconOnly]) => `<button type="button" class="context-action-btn ${cls}" data-context-action="${action}" title="${escapeHtml(label)}"><i data-lucide="${icon}"></i>${iconOnly ? '' : `<span>${escapeHtml(label)}</span>`}${action === 'video' ? '<em class="new-badge">新</em>' : ''}</button>`;
-            return `<div class="context-toolbar" data-node-id="${escapeHtml(node.id)}" style="left:${left}px;top:${top}px;transform:translateX(-50%)" aria-label="当前对象操作">
+            return `<div class="context-toolbar ${placeBelow ? 'toolbar-below' : 'toolbar-above'}" data-node-id="${escapeHtml(node.id)}" style="left:${left}px;top:${top}px;--context-submenu-max:${submenuReserve}px;transform:translateX(-50%)" aria-label="当前对象操作">
                 <details class="context-agent-session">
                     <summary class="context-action-btn icon-only" title="智能助手"><i data-lucide="bot"></i></summary>
                     <div class="context-agent-session-menu">
@@ -4719,7 +4899,6 @@
                     <div class="material-detail-actions">
                         <button class="primary" type="button" data-material-action="swap" data-material-id="${escapeHtml(detail.id)}"><i data-lucide="replace"></i><span>用作材质参考</span></button>
                         <button type="button" data-material-action="insert" data-material-id="${escapeHtml(detail.id)}"><i data-lucide="plus"></i><span>加入画布</span></button>
-                        <button type="button" data-material-sample><i data-lucide="package"></i><span>申请免费样品</span></button>
                     </div>
                 </div>`;
                 materialCatalogueBody.querySelector('[data-material-detail-back]')?.addEventListener('click', () => { materialCatalogueState.detailId = ''; renderMaterialCatalogue(); });
@@ -4727,7 +4906,6 @@
                     e.preventDefault();
                     insertMaterialFromLibrary(btn.dataset.materialId, {swap:btn.dataset.materialAction === 'swap'});
                 }));
-                materialCatalogueBody.querySelector('[data-material-sample]')?.addEventListener('click', () => toast('已记录样品申请；请在账户页补全寄送地址'));
                 refreshIcons();
                 return;
             }
@@ -4749,8 +4927,8 @@
                         <div class="material-picker-name">${escapeHtml(name)}</div>
                         <div class="material-picker-tags">${tags.map(tag => `<span class="material-picker-tag">${escapeHtml(tag)}</span>`).join('')}</div>
                         <div class="material-picker-actions">
-                            <button class="material-picker-btn" type="button" data-material-action="insert" data-material-id="${escapeHtml(img.id)}"><i data-lucide="plus"></i><span>加入画布</span></button>
-                            <button class="material-picker-btn secondary" type="button" data-material-action="swap" data-material-id="${escapeHtml(img.id)}" title="连接到当前选中目标并替换：${escapeHtml(target.label)}"><i data-lucide="replace"></i></button>
+                            <button class="material-picker-btn" type="button" data-material-action="insert" data-material-id="${escapeHtml(img.id)}" aria-label="加入画布：${escapeHtml(name)}"><i data-lucide="plus"></i><span>加入画布</span></button>
+                            <button class="material-picker-btn secondary" type="button" data-material-action="swap" data-material-id="${escapeHtml(img.id)}" aria-label="用作材质参考：${escapeHtml(name)}" title="连接到当前选中目标并替换：${escapeHtml(target.label)}"><i data-lucide="replace"></i><span>用作参考</span></button>
                         </div>
                     </div>
                 </div>`;
@@ -4940,22 +5118,8 @@
             return {x:event.clientX - rect.left, y:event.clientY - rect.top};
         }
         function renderConnections(){
-            const conns = (canvas?.connections || []).map((conn, index) => ({...conn, index})).filter(c => nodes.some(n => n.id === c.from) && nodes.some(n => n.id === c.to));
-            const paths = conns.map(conn => {
-                const fromNode = nodes.find(n => n.id === conn.from);
-                const toNode = nodes.find(n => n.id === conn.to);
-                const fr = nodeRect(fromNode), tr = nodeRect(toNode);
-                const fx = fr.x + fr.width, fy = fr.y + fr.height/2;
-                const tx = tr.x, ty = tr.y + tr.height/2;
-                const dx = Math.max(50, Math.abs(tx - fx) * 0.45);
-                const mx = (fx + tx) / 2, my = (fy + ty) / 2;
-                const kind = conn.kind || 'flow';
-                const cls = toNode.pending ? 'conn-pending' : '';
-                const color = kind === 'input' ? 'rgba(100,116,139,0.62)' : 'rgba(148,163,184,0.62)';
-                const opacity = toNode.pending ? '.82' : '1';
-                return `<path class="${cls}" d="M${fx} ${fy} C ${fx+dx} ${fy}, ${tx-dx} ${ty}, ${tx} ${ty}" stroke="${color}" stroke-width="${kind === 'input' ? '1.9' : '1.6'}" fill="none" opacity="${opacity}"></path><path class="conn-hit" data-conn-index="${conn.index}" d="M${fx} ${fy} C ${fx+dx} ${fy}, ${tx-dx} ${ty}, ${tx} ${ty}" stroke="transparent" stroke-width="14" fill="none"></path><circle cx="${tx}" cy="${ty}" r="3.5" fill="${color}" opacity=".66"></circle><g class="conn-cut" data-conn-index="${conn.index}" transform="translate(${mx} ${my})"><circle r="8" fill="var(--card)" stroke="${color}" stroke-width="1.4"></circle><path d="M-3 -3 L3 3 M3 -3 L-3 3" stroke="${color}" stroke-width="1.5" stroke-linecap="round"></path></g>`;
-            }).join('');
-            return `<svg class="connection-layer" width="6000" height="4000" viewBox="0 0 6000 4000" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+            // 版本和输入关系仍保存在 canvas.connections，画布不再显示连线。
+            return '';
         }
         function isVideoMediaItem(img){
             if(!img) return false;
@@ -5410,11 +5574,12 @@
             canvasEl.style.width = `${img.clientWidth || 1}px`;
             canvasEl.style.height = `${img.clientHeight || 1}px`;
             if(imageEditMode === 'grid') refreshGridSplitPreview();
+            else if(imageEditMode === 'polygon') renderPolygonSelection();
         }
         function setImageEditMode(mode, userTouched=false){
             if(userTouched) imageEditModeTouched = true;
             const prev = imageEditMode;
-            imageEditMode = ['preview','crop','mask','brush','grid'].includes(mode) ? mode : 'preview';
+            imageEditMode = ['preview','crop','mask','brush','grid','polygon'].includes(mode) ? mode : 'preview';
             const cropCanvasEl = document.getElementById('cropCanvas');
             const previewStageEl = document.getElementById('previewStage');
             const editStageEl = document.getElementById('imageEditStage');
@@ -5425,10 +5590,12 @@
             cropCanvasEl.classList.toggle('mask-mode', imageEditMode === 'mask');
             cropCanvasEl.classList.toggle('brush-mode', imageEditMode === 'brush');
             cropCanvasEl.classList.toggle('grid-mode', imageEditMode === 'grid');
+            cropCanvasEl.classList.toggle('polygon-mode', imageEditMode === 'polygon');
             syncGridCustomCursor();
             document.querySelectorAll('[data-image-edit-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.imageEditMode === imageEditMode));
             document.getElementById('imagePreviewTools').classList.toggle('active', isPreview);
             document.getElementById('imageMaskTools').classList.toggle('active', imageEditMode === 'mask');
+            document.getElementById('imagePolygonTools').classList.toggle('active', imageEditMode === 'polygon');
             document.getElementById('imageBrushTools').classList.toggle('active', imageEditMode === 'brush');
             document.getElementById('imageGridTools').classList.toggle('active', imageEditMode === 'grid');
             syncGridGapValue();
@@ -5445,7 +5612,7 @@
                 refreshComparePanel();
             } else {
                 applyBtn.style.display = '';
-                const icon = imageEditMode === 'crop' ? 'crop' : imageEditMode === 'mask' ? 'brush' : imageEditMode === 'brush' ? 'paintbrush' : 'grid-3x3';
+                const icon = imageEditMode === 'crop' ? 'crop' : imageEditMode === 'mask' ? 'brush' : imageEditMode === 'brush' ? 'paintbrush' : imageEditMode === 'polygon' ? 'pentagon' : 'grid-3x3';
                 const labelKey = imageEditMode === 'crop' ? 'canvas.applyCrop' : imageEditMode === 'mask' ? 'canvas.applyMask' : imageEditMode === 'brush' ? 'canvas.applyBrush' : 'canvas.applyGrid';
                 const titleKey = imageEditMode === 'crop' ? 'canvas.cropImage' : imageEditMode === 'mask' ? 'canvas.maskEdit' : imageEditMode === 'brush' ? 'canvas.brushEdit' : 'canvas.modeGrid';
                 const subKey = imageEditMode === 'crop' ? 'canvas.cropHint' : imageEditMode === 'mask' ? 'canvas.maskHint2' : imageEditMode === 'brush' ? 'canvas.brushHint' : 'canvas.gridHint';
@@ -5461,6 +5628,7 @@
             }
             resizeEditDrawCanvas();
             if(imageEditMode === 'grid') refreshGridSplitPreview();
+            else if(imageEditMode === 'polygon') renderPolygonSelection();
             else if(imageEditMode === 'crop' || prev === 'grid') clearEditDrawing(true);
             syncEditDrawingHistoryButtons();
             syncBrushToolButtons();
@@ -5736,8 +5904,86 @@
             ctx.save(); ctx.font = `900 ${size}px Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = Math.max(3, size / 8);
             ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.strokeText(text, point.x, point.y); ctx.fillStyle = brushColor(); ctx.fillText(text, point.x, point.y); ctx.restore();
         }
+        function syncPolygonSelectionControls(){
+            const count = polygonSelectionPoints.length;
+            const status = document.getElementById('polygonSelectionStatus');
+            if(status) status.textContent = polygonSelectionClosed ? `已闭合·${count} 个顶点` : count ? `已添加 ${count} 个顶点，${count < 3 ? `还需 ${3 - count} 个` : '可以闭合选区'}` : '点击图片添加顶点，至少需要 3 个点';
+            const undoBtn = document.getElementById('polygonUndoBtn');
+            const clearBtn = document.getElementById('polygonClearBtn');
+            const closeBtn = document.getElementById('polygonCloseBtn');
+            if(undoBtn) undoBtn.disabled = count === 0;
+            if(clearBtn) clearBtn.disabled = count === 0;
+            if(closeBtn) closeBtn.disabled = count < 3 || polygonSelectionClosed;
+            const selectionBtn = document.getElementById('imageEditSelectionBtn');
+            if(selectionBtn && imageEditorSelectionMode) selectionBtn.disabled = !polygonSelectionClosed;
+        }
+        function renderPolygonSelection(){
+            const canvasEl = editDrawCanvas();
+            if(!canvasEl || imageEditMode !== 'polygon') return;
+            const ctx = canvasEl.getContext('2d');
+            ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+            const points = polygonSelectionPoints;
+            if(points.length){
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                points.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+                if(polygonSelectionClosed) ctx.closePath();
+                else if(polygonSelectionHover) ctx.lineTo(polygonSelectionHover.x, polygonSelectionHover.y);
+                ctx.lineWidth = Math.max(2, canvasEl.width / 500);
+                ctx.strokeStyle = '#2563eb';
+                ctx.setLineDash(polygonSelectionClosed ? [] : [Math.max(6, canvasEl.width / 120), Math.max(4, canvasEl.width / 180)]);
+                ctx.stroke();
+                if(polygonSelectionClosed){ ctx.fillStyle = 'rgba(37,99,235,.24)'; ctx.fill(); }
+                ctx.setLineDash([]);
+                const radius = Math.max(5, canvasEl.width / 180);
+                points.forEach((point, index) => {
+                    ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = index === 0 ? '#f8fafc' : '#2563eb'; ctx.fill();
+                    ctx.lineWidth = Math.max(2, radius * .35); ctx.strokeStyle = '#1d4ed8'; ctx.stroke();
+                });
+                ctx.restore();
+            }
+            syncPolygonSelectionControls();
+        }
+        function clearPolygonSelection(){
+            polygonSelectionPoints = [];
+            polygonSelectionClosed = false;
+            polygonSelectionHover = null;
+            renderPolygonSelection();
+        }
+        function undoPolygonSelectionPoint(){
+            if(!polygonSelectionPoints.length) return;
+            if(polygonSelectionClosed) polygonSelectionClosed = false;
+            polygonSelectionPoints.pop();
+            polygonSelectionHover = null;
+            renderPolygonSelection();
+        }
+        function closePolygonSelection(){
+            if(polygonSelectionPoints.length < 3){ toast('至少需要 3 个顶点才能闭合选区'); return false; }
+            polygonSelectionClosed = true;
+            polygonSelectionHover = null;
+            renderPolygonSelection();
+            return true;
+        }
+        function addPolygonSelectionPoint(event){
+            event.preventDefault(); event.stopPropagation();
+            if(polygonSelectionClosed){ toast('选区已闭合；可撤销顶点或清空后重新绘制'); return; }
+            const point = editDrawPoint(event);
+            const canvasEl = editDrawCanvas();
+            const first = polygonSelectionPoints[0];
+            const closeDistance = 14 * Math.max(1, canvasEl.width / Math.max(1, canvasEl.clientWidth));
+            if(first && polygonSelectionPoints.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) <= closeDistance){
+                closePolygonSelection();
+                return;
+            }
+            polygonSelectionPoints.push(point);
+            polygonSelectionHover = point;
+            renderPolygonSelection();
+        }
         function beginEditDraw(event){
             if(imageEditMode === 'crop') return;
+            if(imageEditMode === 'polygon'){ addPolygonSelectionPoint(event); return; }
             event.preventDefault(); event.stopPropagation();
             const canvasEl = editDrawCanvas();
             canvasEl.setPointerCapture?.(event.pointerId);
@@ -5759,6 +6005,11 @@
             if(imageEditMode === 'mask' || brushTool === 'free') ctx.stroke();
         }
         function moveEditDraw(event){
+            if(imageEditMode === 'polygon' && !polygonSelectionClosed){
+                polygonSelectionHover = editDrawPoint(event);
+                renderPolygonSelection();
+                return;
+            }
             if(imageEditMode === 'grid' && gridCustomMode && gridCustomDrag){ event.preventDefault(); event.stopPropagation(); setGridCustomLinePos(gridCustomDrag.index, editDrawPoint(event)); refreshGridSplitPreview(); return; }
             if(!editDrawState || imageEditMode === 'crop' || imageEditMode === 'grid') return;
             event.preventDefault(); event.stopPropagation();
@@ -5775,7 +6026,9 @@
         function endEditDraw(event){
             if(editDrawState && event?.pointerId != null) editDrawCanvas().releasePointerCapture?.(event.pointerId);
             if(gridCustomDrag && event?.pointerId != null) editDrawCanvas().releasePointerCapture?.(event.pointerId);
-            editDrawState = null; gridCustomDrag = null; syncEditDrawingHistoryButtons();
+            editDrawState = null; gridCustomDrag = null;
+            if(imageEditMode === 'polygon' && event?.type === 'pointerleave'){ polygonSelectionHover = null; renderPolygonSelection(); }
+            syncEditDrawingHistoryButtons();
         }
         function syncGridGapValue(){
             const input = document.getElementById('gridGapSize');
@@ -5973,16 +6226,78 @@
             setImageEditMode('preview');
             refreshIcons();
         }
+        function openSelectionReferenceEditor(targetNode=null, context=null){
+            const target = targetNode || selectedNode();
+            const targetImage = selectedActionImage(target);
+            if(!target || !targetImage?.url || isMaterialNode(target)){
+                toast('先选中要局部编辑的建筑/室内目标图');
+                return null;
+            }
+            imageEditorSelectionContext = context ? {...context, targetId:target.id} : null;
+            imageEditorSelectionMode = true;
+            const imageIndex = Number.isFinite(Number(targetImage.imageIndex)) ? Number(targetImage.imageIndex) : 0;
+            openImageEditor(target.id, imageIndex);
+            polygonSelectionPoints = [];
+            polygonSelectionClosed = false;
+            polygonSelectionHover = null;
+            setImageEditMode('polygon', true);
+            const title = document.getElementById('imageEditTitle');
+            const sub = document.getElementById('imageEditSub');
+            const modes = document.querySelector('.image-edit-mode');
+            const selectionBtn = document.getElementById('imageEditSelectionBtn');
+            const applyBtn = document.getElementById('imageEditApplyBtn');
+            const resetBtn = document.getElementById('resetCropBtn');
+            if(title) title.textContent = '选择局部区域';
+            if(sub) sub.textContent = '依次点击勾勒替换区域，至少 3 个顶点；闭合后才能创建选区。';
+            if(modes) modes.style.display = 'none';
+            if(selectionBtn){ selectionBtn.classList.remove('secondary'); selectionBtn.classList.add('primary'); selectionBtn.querySelector('span').textContent = '完成并创建选区'; }
+            if(applyBtn) applyBtn.style.display = 'none';
+            if(resetBtn) resetBtn.style.display = 'none';
+            syncPolygonSelectionControls();
+            toast('请逐点勾勒替换区域，然后闭合多边形');
+            return target;
+        }
+        function restoreSelectionEditorContext(context){
+            if(!context) return;
+            const target = nodes.find(node => node.id === context.targetId);
+            if(!target) return;
+            if(context.action === 'swap'){
+                openSwapMaterialPanel(target);
+                toast('已返回替换材质；原有描述已保留。');
+            }
+            else if(context.action === 'edit'){
+                openEditActionPanel(target);
+                toast('已返回编辑；原有描述和参考强度已保留。');
+            }
+            else if(context.action === 'material-target'){
+                const material = nodes.find(node => node.id === context.materialId);
+                if(material){
+                    openMaterialTargetPromptPanel(target, material);
+                    toast('已返回材质目标面选择。');
+                }
+            }
+        }
         function closeImageEditor(){
+            const selectionContext = imageEditorSelectionContext;
+            const wasSelectionMode = imageEditorSelectionMode;
+            imageEditorSelectionContext = null;
+            imageEditorSelectionMode = false;
             imageEditModal.classList.remove('open');
             const img = document.getElementById('cropImage');
             img.onload = null; img.removeAttribute('src'); img.style.width = ''; img.style.height = ''; img.style.maxWidth = ''; img.style.maxHeight = '';
             clearEditDrawing(true);
             cropState = null; cropDrag = null; editDrawState = null; resetEditDrawingHistory(); gridCustomDrag = null;
+            polygonSelectionPoints = []; polygonSelectionClosed = false; polygonSelectionHover = null;
             imageEditZoom = 1.0; imageEditBaseW = 0; imageEditBaseH = 0; imageEditModeTouched = false;
             previewPanDrag = null; previewCompareDrag = false; resetPreviewTransform();
             document.getElementById('imageEditStage')?.classList.remove('overflow-x', 'overflow-y', 'preview-mode');
-            document.getElementById('cropCanvas')?.classList.remove('grid-custom-h', 'grid-custom-v');
+            document.getElementById('cropCanvas')?.classList.remove('grid-custom-h', 'grid-custom-v', 'polygon-mode');
+            document.querySelector('.image-edit-mode')?.style.removeProperty('display');
+            const selectionBtn = document.getElementById('imageEditSelectionBtn');
+            const applyBtn = document.getElementById('imageEditApplyBtn');
+            if(selectionBtn){ selectionBtn.disabled = false; selectionBtn.classList.remove('primary'); selectionBtn.classList.add('secondary'); selectionBtn.querySelector('span').textContent = '创建选区引用'; }
+            if(applyBtn) applyBtn.style.removeProperty('display');
+            if(wasSelectionMode && selectionContext) requestAnimationFrame(() => restoreSelectionEditorContext(selectionContext));
         }
         function clampCrop(){
             if(!cropState) return;
@@ -6014,6 +6329,16 @@
                 unit:'normalized'
             };
         }
+        function normalizedPolygonSelection(){
+            const canvasEl = editDrawCanvas();
+            if(!polygonSelectionClosed || polygonSelectionPoints.length < 3 || !canvasEl?.width || !canvasEl?.height) return null;
+            const round = value => Math.round(value * 10000) / 10000;
+            return {
+                kind:'polygon',
+                points:polygonSelectionPoints.map(point => ({x:round(point.x / canvasEl.width), y:round(point.y / canvasEl.height)})),
+                unit:'normalized'
+            };
+        }
         async function createSelectionReferenceFromEditor(){
             if(!cropState) return;
             const {node, image} = currentEditImage();
@@ -6022,22 +6347,41 @@
                 toast('先打开一张可创建选区的图片');
                 return;
             }
-            clampCrop();
-            const selection = normalizedCropSelection();
+            const isPolygon = imageEditMode === 'polygon';
+            if(isPolygon && !polygonSelectionClosed){ toast('请先闭合多边形选区'); return; }
+            if(!isPolygon) clampCrop();
+            const selection = isPolygon ? normalizedPolygonSelection() : normalizedCropSelection();
             if(!selection){
                 toast('没有可用选区');
                 return;
             }
-            const scaleX = img.naturalWidth / (img.clientWidth || 1);
-            const scaleY = img.naturalHeight / (img.clientHeight || 1);
-            const sx = Math.max(0, Math.round(cropState.x * scaleX));
-            const sy = Math.max(0, Math.round(cropState.y * scaleY));
-            const sw = Math.max(1, Math.round(cropState.w * scaleX));
-            const sh = Math.max(1, Math.round(cropState.h * scaleY));
+            let sx, sy, sw, sh;
+            if(isPolygon){
+                const xs = polygonSelectionPoints.map(point => point.x), ys = polygonSelectionPoints.map(point => point.y);
+                sx = Math.max(0, Math.floor(Math.min(...xs)));
+                sy = Math.max(0, Math.floor(Math.min(...ys)));
+                sw = Math.max(1, Math.min(img.naturalWidth, Math.ceil(Math.max(...xs))) - sx);
+                sh = Math.max(1, Math.min(img.naturalHeight, Math.ceil(Math.max(...ys))) - sy);
+            } else {
+                const scaleX = img.naturalWidth / (img.clientWidth || 1);
+                const scaleY = img.naturalHeight / (img.clientHeight || 1);
+                sx = Math.max(0, Math.round(cropState.x * scaleX));
+                sy = Math.max(0, Math.round(cropState.y * scaleY));
+                sw = Math.max(1, Math.round(cropState.w * scaleX));
+                sh = Math.max(1, Math.round(cropState.h * scaleY));
+            }
             const canvasEl = document.createElement('canvas');
             canvasEl.width = sw;
             canvasEl.height = sh;
-            canvasEl.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            const selectionCtx = canvasEl.getContext('2d');
+            if(isPolygon){
+                selectionCtx.beginPath();
+                selectionCtx.moveTo(polygonSelectionPoints[0].x - sx, polygonSelectionPoints[0].y - sy);
+                polygonSelectionPoints.slice(1).forEach(point => selectionCtx.lineTo(point.x - sx, point.y - sy));
+                selectionCtx.closePath();
+                selectionCtx.clip();
+            }
+            selectionCtx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
             const blob = await new Promise(resolve => canvasEl.toBlob(resolve, 'image/png'));
             const base = (image.name || node.title || 'selection').replace(/\.[^.]+$/, '');
             const file = blob ? await uploadCroppedBlob(blob, `${base}_selection.png`) : null;
@@ -6068,7 +6412,7 @@
             selectionNode.sourceNodeId = node.id;
             addConnection(node.id, selectionNode.id, 'selection-source');
             connectInputNode(selectionNode.id, node.id);
-            pushSmartAgentLog('assistant', '已根据当前裁剪框创建局部 selection 引用。下一步可直接执行局部编辑、替换材质或让 Agent 继续判断。', {
+            pushSmartAgentLog('assistant', `已根据当前${isPolygon ? '多边形' : '矩形'}区域创建局部 selection 引用。下一步可直接执行局部编辑、替换材质或让 Agent 继续判断。`, {
                 action:'local-edit',
                 attachments:[smartAgentAttachmentFromImage(selectionNode, selectionImage, 0, 'selection')].filter(Boolean),
                 suggestions:[
@@ -6801,8 +7145,8 @@
             pendingNode.pending = 0;
             pendingNode.outputKind = kind;
             if(!isCandidateSession(pendingNode)){
-                if(imgs.length > 1) pendingNode.title = kind === 'video' ? 'Videos' : 'Group';
-                else pendingNode.title = kind === 'video' ? 'Video' : 'Image';
+                if(imgs.length > 1) pendingNode.title = kind === 'video' ? '视频结果' : '图片组';
+                else pendingNode.title = kind === 'video' ? '视频结果' : '图片结果';
             }
             delete pendingNode.w;
             delete pendingNode.h;
@@ -6830,19 +7174,19 @@
                 node.inputNodeIds = node.inputNodeIds.filter(id => id !== extracted.id);
             }
         }
-        async function runImageReferenceGeneration(prompt, refs, expectedCount=1){
+        async function runImageReferenceGeneration(prompt, refs, expectedCount=1, options={}){
             const prevEngine = settings.engine;
             const prevApiKind = settings.apiKind;
             const prevCount = settings.count;
             settings.count = Math.max(1, Math.min(4, Number(expectedCount) || 1));
             try {
                 if(prevEngine === 'modelscope'){
-                    return await runModelscopeGeneration(prompt, refs);
+                    return await runModelscopeGeneration(prompt, refs, options.sizeOverride || '');
                 }
                 settings.engine = 'api';
                 settings.apiKind = 'image';
                 renderDynamicParams();
-                return await runApiGeneration(prompt, refs);
+                return await runApiGeneration(prompt, refs, options);
             } finally {
                 settings.engine = prevEngine;
                 settings.apiKind = prevApiKind;
@@ -6851,17 +7195,7 @@
             }
         }
         function createSelectionReferenceNode(targetNode=null){
-            const target = targetNode || selectedNode();
-            const targetImg = selectedActionImage(target);
-            if(!target || !targetImg?.url || isMaterialNode(target)){
-                toast('先选中要局部编辑的建筑/室内目标图');
-                return null;
-            }
-            const imageIndex = Number.isFinite(Number(targetImg.imageIndex)) ? Number(targetImg.imageIndex) : 0;
-            openImageEditor(target.id, imageIndex);
-            setImageEditMode('crop', true);
-            toast('请框选要编辑的区域，再点击“创建选区引用”');
-            return null;
+            return openSelectionReferenceEditor(targetNode);
         }
         function closeActionTemplatePanel(event=null){
             event?.preventDefault?.();
@@ -6913,8 +7247,22 @@
                 `人群特征：${ethnicity}。`,
                 outfit ? `服装与姿态：${outfit}。` : '',
                 extra ? `附加约束：${extra}。` : '',
-                '所有人物必须符合场景尺度、透视、光照和遮挡关系，不得改变建筑、室内主体或主要材质。'
+                '所有人物必须符合场景尺度、透视、光照和遮挡关系；只能增加人物，不得增加家具、植物、灯具或其他场景元素。'
             ].filter(Boolean).join(' ');
+        }
+        function sourceCanvasLock(target, image){
+            const layout = target ? nodeRect(target) : {width:1024, height:1024};
+            const sourceWidth = Math.max(1, Math.round(Number(image?.natural_w || image?.width || layout.width || 1024)));
+            const sourceHeight = Math.max(1, Math.round(Number(image?.natural_h || image?.height || layout.height || 1024)));
+            const resolution = settings.engine === 'modelscope'
+                ? (settings.msResolution === 'custom' ? '1k' : settings.msResolution || '1k')
+                : (settings.resolution === 'custom' ? '1k' : settings.resolution || '1k');
+            const size = apiImageSize('source', resolution, `${sourceWidth}:${sourceHeight}`) || `${sourceWidth}x${sourceHeight}`;
+            return {sourceWidth, sourceHeight, ratio:sourceWidth / sourceHeight, size};
+        }
+        function populateCanvasLockPrompt(lock){
+            const ratio = Math.round(Number(lock?.ratio || 1) * 10000) / 10000;
+            return `硬性约束：把图1作为完全锁定的背景底片，源画布 ${lock.sourceWidth}×${lock.sourceHeight}，宽高比 ${ratio}。输出必须保持同一画幅和像素坐标系；不得裁剪、扩图、拉伸、缩放、平移或旋转原图；不得改变相机位置、镜头焦段、拍摄角度、透视消失点、构图、建筑轮廓、门窗、材质、光照和现有物体。只允许在原有像素位置上原位叠加人物及必要的接触阴影。如其他描述与本约束冲突，以本约束为准。`;
         }
         function actionPreflightConfigLabel(action, countOverride=0){
             if(action === 'video'){
@@ -6933,6 +7281,40 @@
                 `${Math.max(1, Math.min(4, Number(countOverride) || Number(settings.count) || 1))} 张`
             ].filter(Boolean).join(' / ');
         }
+        function generationReadinessError(kind='image', targetImage=null){
+            const isVideo = kind === 'video';
+            const providers = isVideo ? videoApiProviders() : imageProviders();
+            const providerId = isVideo ? settings.videoProvider : settings.provider_id;
+            const provider = providers.find(item => item.id === providerId) || null;
+            const model = isVideo ? settings.videoModel : settings.model;
+            if(!provider) return isVideo ? '未选择可用的视频平台，请先在 API 设置中配置视频服务。' : '未选择可用的图片平台，请先在 API 设置中配置图片服务。';
+            if(provider.has_key !== true) return `${provider.name || provider.id} 未配置 API Key，请先在 API 设置中完成配置。`;
+            if(!model) return isVideo ? '请选择视频模型后再生成。' : '请选择图片模型后再生成。';
+            if(isVideo && /^\/static\/style-previews\//.test(String(targetImage?.url || ''))){
+                return '当前是风格示意预览，不能作为视频首帧；请选中画布中的真实图片或已生成结果。';
+            }
+            return '';
+        }
+        function preventUnavailableGeneration(kind, targetImage, label){
+            const reason = generationReadinessError(kind, targetImage);
+            if(!reason) return false;
+            setCanvasTaskState('preflight', kind === 'video' ? 'video' : 'image', reason);
+            toast(`${label || '生成'}暂不可用：${reason}`);
+            return true;
+        }
+        function userFacingGenerationError(error){
+            const raw = String(error?.message || error || tr('smart.errRunFailed'));
+            let message = raw;
+            try {
+                const parsed = JSON.parse(raw);
+                if(parsed?.detail) message = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+            } catch(_) {}
+            return message
+                .replace(/\/static\/[\w./-]+/g, '当前图片')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 220);
+        }
         function actionPreflightSummaryHtml(action, target, countOverride=0){
             const inputs = contextInputNodesFor(target);
             const pinned = smartAgentPinnedAttachments();
@@ -6944,12 +7326,15 @@
                 ? pinned.slice(0, 3).map(att => att.name || att.role || 'attachment').join('、') + (pinned.length > 3 ? ` 等 ${pinned.length} 个` : '')
                 : '未固定附件';
             const configText = actionPreflightConfigLabel(action, countOverride);
+            const targetImage = selectedActionImage(target);
+            const readinessError = generationReadinessError(action === 'video' ? 'video' : 'image', targetImage);
             return `<div class="action-preflight">
                 <div class="action-preflight-title"><i data-lucide="clipboard-check"></i><span>动作预检</span></div>
                 <div class="action-preflight-row"><strong>目标对象</strong><span>${escapeHtml(targetLabel)}</span></div>
                 <div class="action-preflight-row"><strong>输入引用</strong><span>${escapeHtml(inputText)}</span></div>
                 <div class="action-preflight-row"><strong>固定附件</strong><span>${escapeHtml(pinnedText)}</span></div>
-                <div class="action-preflight-row"><strong>调用配置</strong><span>${escapeHtml(configText)}</span></div>
+                <div class="action-preflight-row"><strong>调用配置</strong><span data-action-preflight-config>${escapeHtml(configText)}</span></div>
+                ${readinessError ? `<div class="action-preflight-error" data-action-preflight-error>${escapeHtml(readinessError)}</div>` : ''}
             </div>`;
         }
         function actionPreflightSnapshot(action, target){
@@ -7011,8 +7396,8 @@
             });
             actionTemplatePanel.querySelector('[data-material-target-selection]')?.addEventListener('click', () => {
                 const targetNode = nodes.find(n => n.id === actionTemplateState.targetId) || target;
+                openSelectionReferenceEditor(targetNode, {action:'material-target', materialId:actionTemplateState.materialId});
                 closeActionTemplatePanel();
-                createSelectionReferenceNode(targetNode);
             });
             refreshIcons();
         }
@@ -7211,8 +7596,8 @@
             actionTemplatePanel.querySelector('[data-template-close]')?.addEventListener('click', closeActionTemplatePanel);
             actionTemplatePanel.querySelector('[data-swap-select-area]')?.addEventListener('click', () => {
                 target.pendingSwapDescription = actionTemplatePanel.querySelector('[data-swap-description]')?.value || '';
+                openSelectionReferenceEditor(target, {action:'swap'});
                 closeActionTemplatePanel();
-                createSelectionReferenceNode(target);
             });
             actionTemplatePanel.querySelector('[data-swap-material]')?.addEventListener('click', () => {
                 target.pendingSwapDescription = actionTemplatePanel.querySelector('[data-swap-description]')?.value || '';
@@ -7255,7 +7640,7 @@
             };
             actionTemplatePanel.querySelector('[data-edit-description]')?.addEventListener('input', persist);
             actionTemplatePanel.querySelector('[data-edit-strength]')?.addEventListener('input', event => { const label = actionTemplatePanel.querySelector('[data-edit-strength-label]'); if(label) label.textContent = `${Math.round(Number(event.target.value) * 100)}%`; persist(); });
-            actionTemplatePanel.querySelector('[data-edit-area]')?.addEventListener('click', () => { persist(); closeActionTemplatePanel(); createSelectionReferenceNode(target); });
+            actionTemplatePanel.querySelector('[data-edit-area]')?.addEventListener('click', () => { persist(); openSelectionReferenceEditor(target, {action:'edit'}); closeActionTemplatePanel(); });
             actionTemplatePanel.querySelector('[data-edit-reference]')?.addEventListener('click', () => { persist(); startAgentCanvasSelection(); toast('选择参考图片后点击完成'); });
             actionTemplatePanel.querySelector('[data-edit-run]')?.addEventListener('click', () => {
                 persist();
@@ -7281,6 +7666,8 @@
             }
             activateTaskSurface('action');
             const defaultStyleKey = entries.find(([key]) => key === 'looseSketch')?.[0] || entries[0]?.[0] || '';
+            const imageActionBlocked = Boolean(generationReadinessError('image', targetImage));
+            const videoActionBlocked = Boolean(generationReadinessError('video', targetImage));
             actionTemplateState = {open:true, action, targetId:target.id, templateKey:defaultStyleKey};
             const titleMap = {render:'渲染设计', populate:'添加人物', style:'生成风格', enhance:'增强图片', video:'生成视频'};
             const subMap = {
@@ -7291,19 +7678,21 @@
                 video:'视频：选择静止、前进、环绕、左右平移或延时摄影等运镜方式。'
             };
             const populateParams = normalizedPopulateParams(settings.populateParams || {});
+            const populateLock = action === 'populate' ? sourceCanvasLock(target, targetImage) : null;
             const option = (value, current, label) => `<option value="${escapeHtml(value)}"${value === current ? ' selected' : ''}>${escapeHtml(label)}</option>`;
             const promptForm = action === 'render' ? `<div class="action-prompt-form">
                 <div class="action-focus-preview"><img src="${escapeHtml(targetImage.url)}" alt=""><div><strong>图像参考</strong><span>${escapeHtml(targetImage.name || target.title || '当前选中图片')}</span></div></div>
                 <div class="action-formula">推荐公式：<b>主体 · 关键空间与特征 · 氛围与光照 · 风格 · 额外约束</b></div>
                 <textarea data-action-prompt maxlength="1800" placeholder="描述想要的设计效果、材质、氛围和必须保持不变的内容…"></textarea>
-                <div class="action-form-tools"><button type="button" data-action-enhance-prompt><i data-lucide="sparkles"></i><span>补全提示</span></button><button class="action-param-run" type="button" data-action-prompt-run><i data-lucide="wand-sparkles"></i><span>生成 2 个候选</span></button></div>
+                <div class="action-form-tools"><button type="button" data-action-enhance-prompt><i data-lucide="sparkles"></i><span>补全提示</span></button><button class="action-param-run" type="button" data-action-prompt-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="wand-sparkles"></i><span>生成 2 个候选</span></button></div>
             </div>` : '';
             const enhanceForm = action === 'enhance' ? `<div class="action-param-form">
                 <div class="action-focus-preview"><img src="${escapeHtml(targetImage.url)}" alt=""><div><strong>当前图片</strong><span>保持几何、构图和镜头视角不变。</span></div></div>
                 <div class="action-design-note"><i data-lucide="sparkles"></i><span><strong>一键增强</strong> 在不改变设计的前提下，提升光照、材质细节和清晰度。</span></div>
-                <div class="action-param-actions"><button class="action-param-run" type="button" data-enhance-run><i data-lucide="image-up"></i><span>增强图片</span></button></div>
+                <div class="action-param-actions"><button class="action-param-run" type="button" data-enhance-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="image-up"></i><span>增强图片</span></button></div>
             </div>` : '';
             const populateForm = action === 'populate' ? `<div class="action-param-form">
+                <div class="action-design-note"><i data-lucide="lock-keyhole"></i><span><strong>画幅与镜头已锁定</strong> 保持源图 ${populateLock.sourceWidth}×${populateLock.sourceHeight} 的宽高比、构图、透视和相机角度，只原位叠加人物。</span></div>
                 <div class="action-template-grid">
                     ${entries.map(([key, item]) => `<button class="action-template-card" type="button" data-populate-preset="${escapeHtml(key)}">
                         <strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.meta || '')}</span>
@@ -7318,11 +7707,16 @@
                     <label class="action-param-field wide"><span>服装与姿态关键词</span><input data-populate-param="outfit" maxlength="300" value="${escapeHtml(populateParams.outfit || '')}" placeholder="例如：现代休闲、低饱和色、自然站姿"></label>
                     <label class="action-param-field wide"><span>附加约束</span><textarea data-populate-param="extra" maxlength="500" placeholder="例如：不要遮挡入口，不增加家具">${escapeHtml(populateParams.extra || '')}</textarea></label>
                 </div>
-                <div class="action-param-actions"><button class="action-param-run" type="button" data-populate-run="1"><i data-lucide="users"></i><span>生成新版本</span></button></div>
+                <div class="action-param-actions"><button class="action-param-run" type="button" data-populate-run="1"${imageActionBlocked ? ' disabled' : ''}><i data-lucide="users"></i><span>生成新版本</span></button></div>
             </div>` : '';
             const styleForm = action === 'style' ? `<div class="action-param-form">
                 <div class="action-template-grid style-template-grid">${entries.map(([key,item]) => `<button class="action-template-card style-template-card ${key === defaultStyleKey ? 'active' : ''}" type="button" data-style-select="${escapeHtml(key)}" data-style-look="${escapeHtml(item.look || 'flat')}"><span class="style-preview"><img src="${escapeHtml(item.preview || targetImage.url)}" alt="${escapeHtml(item.label)}"></span><strong>${escapeHtml(item.label)}</strong></button>`).join('')}</div>
-                <div class="action-param-actions"><button class="action-param-run" type="button" data-style-run><i data-lucide="sparkles"></i><span>生成 2 个候选</span></button></div>
+                <div class="action-param-actions"><button class="action-param-run" type="button" data-style-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="sparkles"></i><span>生成 2 个候选</span></button></div>
+            </div>` : '';
+            const videoForm = action === 'video' ? `<div class="action-param-form">
+                <div class="action-template-grid">${entries.map(([key, item]) => `<button class="action-template-card ${key === defaultStyleKey ? 'active' : ''}" type="button" data-video-select="${escapeHtml(key)}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.meta || item.prompt || '')}</span></button>`).join('')}</div>
+                <div class="action-design-note"><i data-lucide="film"></i><span>已选运镜：<strong data-video-selection>${escapeHtml((VIDEO_TEMPLATES[defaultStyleKey] || {}).label || 'Still')}</strong>。确认后才会创建候选任务。</span></div>
+                <div class="action-param-actions"><button class="action-param-run" type="button" data-video-run${videoActionBlocked ? ' disabled' : ''}><i data-lucide="wand-sparkles"></i><span>生成视频候选</span></button></div>
             </div>` : '';
             actionTemplatePanel.classList.toggle('populate-panel', action === 'populate' || action === 'style');
             actionTemplatePanel.innerHTML = `<div class="action-template-head">
@@ -7333,7 +7727,7 @@
                 <button class="smart-agent-icon-btn" type="button" data-template-close="1" title="关闭"><i data-lucide="x"></i></button>
             </div>
             ${actionPreflightSummaryHtml(action, target, ['render','style'].includes(action) ? 2 : 1)}
-            ${promptForm || enhanceForm || populateForm || styleForm || `<div class="action-template-grid">
+            ${promptForm || enhanceForm || populateForm || styleForm || videoForm || `<div class="action-template-grid">
                 ${entries.map(([key, item]) => `<button class="action-template-card" type="button" data-template-run="${escapeHtml(key)}">
                     <strong>${escapeHtml(item.label)}</strong>
                     <span>${escapeHtml(item.meta || item.prompt || '')}</span>
@@ -7412,6 +7806,20 @@
                 closeActionTemplatePanel();
                 runImageNodeAction('style', node, {templateKey:key, candidateCount:2});
             });
+            actionTemplatePanel.querySelectorAll('[data-video-select]').forEach(btn => btn.addEventListener('click', () => {
+                actionTemplatePanel.querySelectorAll('[data-video-select]').forEach(item => item.classList.toggle('active', item === btn));
+                actionTemplateState.templateKey = btn.dataset.videoSelect || defaultStyleKey;
+                const label = (VIDEO_TEMPLATES[actionTemplateState.templateKey] || {}).label || 'Still';
+                const selected = actionTemplatePanel.querySelector('[data-video-selection]');
+                if(selected) selected.textContent = label;
+            }));
+            actionTemplatePanel.querySelector('[data-video-run]')?.addEventListener('click', () => {
+                const key = actionTemplateState.templateKey || defaultStyleKey;
+                const node = nodes.find(n => n.id === actionTemplateState.targetId) || selectedNode();
+                if(preventUnavailableGeneration('video', selectedActionImage(node), '视频生成')) return;
+                closeActionTemplatePanel();
+                runVideoNodeAction(node, {templateKey:key});
+            });
             actionTemplatePanel.querySelectorAll('[data-template-run]').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const key = btn.dataset.templateRun || '';
@@ -7435,7 +7843,7 @@
                 populate:{
                     label:`添加人物：${populate.label}`,
                     operation:'populate',
-                    prompt:`在图1中补充自然的人物、家具、植物、灯光和环境细节。保持原构图、主体设计和主要材质不变，只增强生活化、尺度感和场景完整度。${populate.prompt}`
+                    prompt:`在图1中仅补充自然人物及必要的接触阴影，不重绘背景，不新增其他物体。${populate.prompt}`
                 },
                 style:{
                     label:`生成风格：${style.label}`,
@@ -7601,6 +8009,7 @@
                 inputNodeIds:inputIds,
                 created_at:Date.now()
             };
+            const retryCanvasLock = operation === 'populate' ? runSettings.actionPreflight.canvasLock : null;
             const meta = snapshotRunMeta(prompt, target.id);
             meta.settings = runSettings;
             meta.operation = operation;
@@ -7627,7 +8036,12 @@
                         renderDynamicParams();
                         return await runApiVideoGeneration(prompt, refs);
                     })
-                    : await withTemporaryRunSettings(runSettings, async () => await runImageReferenceGeneration(prompt, refs));
+                    : await withTemporaryRunSettings(runSettings, async () => await runImageReferenceGeneration(prompt, refs, 1, retryCanvasLock ? {
+                        sizeOverride:retryCanvasLock.size,
+                        preserveCanvas:true,
+                        sourceWidth:retryCanvasLock.sourceWidth,
+                        sourceHeight:retryCanvasLock.sourceHeight
+                    } : {}));
                 if(!out.length) throw new Error(operation === 'video' ? tr('smart.errNoOutVideos') : tr('smart.errNoOutImages'));
                 finalizePendingNode(pendingNode, out, meta, operation === 'video' ? 'video' : 'image');
                 pendingNode.operation = operation;
@@ -7640,7 +8054,7 @@
                 scheduleSave();
                 toast('已重试生成新版本');
             } catch(e) {
-                const reason = e.message || tr('smart.errRunFailed');
+                const reason = userFacingGenerationError(e);
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
@@ -7680,15 +8094,19 @@
                 });
                 return;
             }
+            if(preventUnavailableGeneration('image', targetImg, spec.label)) return;
             const refs = [{url:targetImg.url, name:targetImg.name || '目标图', role:'target_image'}];
             for(const img of referenceImagesFor(target)){
                 if(!img?.url || img.url === targetImg.url || refs.some(ref => ref.url === img.url)) continue;
                 refs.push({url:img.url, name:img.name || `参考图${refs.length + 1}`, role:`reference_${refs.length + 1}`});
             }
             const inputIds = Array.from(new Set([target.id, ...inputNodesFor(target).map(node => node.id)]));
-            const meta = snapshotRunMeta(spec.prompt, target.id);
+            const canvasLock = action === 'populate' ? sourceCanvasLock(target, targetImg) : null;
+            const generationPrompt = canvasLock ? `${spec.prompt} ${populateCanvasLockPrompt(canvasLock)}` : spec.prompt;
+            const meta = snapshotRunMeta(generationPrompt, target.id);
             const actionPreflight = actionPreflightSnapshot(action, target);
             if(options.actionParams) actionPreflight.actionParams = cloneSmartCanvasMeta(options.actionParams);
+            if(canvasLock) actionPreflight.canvasLock = cloneSmartCanvasMeta(canvasLock);
             const candidateCount = Math.max(1, Math.min(4, Number(options.candidateCount) || 1));
             meta.settings = {
                 ...(meta.settings || {}),
@@ -7704,7 +8122,12 @@
             runBtn.disabled = true;
             render();
             try {
-                const outImages = await runImageReferenceGeneration(spec.prompt, refs, candidateCount);
+                const outImages = await runImageReferenceGeneration(generationPrompt, refs, candidateCount, canvasLock ? {
+                    sizeOverride:canvasLock.size,
+                    preserveCanvas:true,
+                    sourceWidth:canvasLock.sourceWidth,
+                    sourceHeight:canvasLock.sourceHeight
+                } : {});
                 if(!outImages.length) throw new Error(tr('smart.errNoOutImages'));
                 finalizePendingNode(pendingNode, outImages, meta);
                 pendingNode.operation = spec.operation;
@@ -7718,7 +8141,7 @@
                 scheduleSave();
                 toast(`${spec.label} 已完成`);
             } catch(e) {
-                const reason = e.message || tr('smart.errRunFailed');
+                const reason = userFacingGenerationError(e);
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
@@ -7743,7 +8166,7 @@
             const targetImg = selectedActionImage(target);
             if(!target || !targetImg?.url){
                 toast('先选中一张可生成视频的目标图');
-                pushSmartActionFailureLog('Video', '缺少可生成视频的目标图。请先选中一个图片节点作为首帧。', {
+                pushSmartActionFailureLog('生成视频', '缺少可生成视频的目标图。请先选中一个图片节点作为首帧。', {
                     operation:'video',
                     suggestions:[
                         {label:'渲染设计', action:'render', icon:'wand-sparkles'},
@@ -7752,6 +8175,7 @@
                 });
                 return;
             }
+            if(preventUnavailableGeneration('video', targetImg, '视频生成')) return;
             const template = VIDEO_TEMPLATES[options.templateKey] || VIDEO_TEMPLATES.still;
             settings.engine = 'api';
             settings.apiKind = 'video';
@@ -7759,7 +8183,7 @@
             renderDynamicParams();
             const prompt = `基于图1生成一段短视频。保持主体、构图、材质质感和场景氛围，加入自然镜头运动、真实光影变化和轻微环境动态。不要改变主要设计。${template.prompt}`;
             const refs = [{url:targetImg.url, name:targetImg.name || '首帧图', role:'first_frame'}];
-            const label = `Video: ${template.label}`;
+            const label = `生成视频：${template.label}`;
             const meta = snapshotRunMeta(prompt, target.id);
             meta.settings = {...(meta.settings || {}), engine:'api', apiKind:'video', videoTemplate:options.templateKey || 'still', actionPreflight:actionPreflightSnapshot('video', target)};
             meta.operation = 'video';
@@ -7779,9 +8203,9 @@
                 addConnection(target.id, pendingNode.id, 'input');
                 pushSmartActionResultLog(pendingNode, label, 'video');
                 scheduleSave();
-                toast('Video 已完成');
+                toast('视频已完成');
             } catch(e) {
-                const reason = e.message || tr('smart.errRunFailed');
+                const reason = userFacingGenerationError(e);
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
@@ -7893,6 +8317,7 @@
                 : targetSurface.key === 'auto'
                 ? `替换材质：${materialName}`
                 : `替换材质：${targetSurface.label} · ${materialName}`;
+            if(preventUnavailableGeneration('image', targetImg, label)) return;
             const meta = snapshotRunMeta(prompt, target.id);
             meta.settings = {
                 ...(meta.settings || {}),
@@ -7985,7 +8410,7 @@
                 scheduleSave();
                 toast('材质替换已完成');
             } catch(e) {
-                const reason = e.message || tr('smart.errRunFailed');
+                const reason = userFacingGenerationError(e);
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
@@ -8064,7 +8489,7 @@
             } catch(e) {
                 node.pending = 0;
                 if(extracted) restoreFromExtraction(node, extracted);
-                const reason = e.message || tr('smart.errRunFailed');
+                const reason = userFacingGenerationError(e);
                 pushSmartActionFailureLog('Run generation', reason, {
                     operation:settings.apiKind === 'video' ? 'video' : 'render-design',
                     attachments:refs.map((ref, index) => ({...ref, nodeId:ref.nodeId || node.id, imageIndex:Number(ref.imageIndex || index)}))
@@ -8082,10 +8507,21 @@
             if(field?.type === 'textarea' || /prompt|text|提示词|正向|负向/.test(key)) return 'prompt';
             return 'setting';
         }
-        async function runApiGeneration(prompt, refs){
+        async function runApiGeneration(prompt, refs, options={}){
             if(!settings.provider_id || !settings.model) throw new Error(tr('smart.errNoApiModel'));
             const count = Math.max(1, Math.min(4, Number(settings.count || 1)));
-            const payload = {prompt, provider_id:settings.provider_id, model:settings.model, size:sizeForRun(), quality:settings.quality || 'auto', n:count, reference_images:refs};
+            const payload = {
+                prompt,
+                provider_id:settings.provider_id,
+                model:settings.model,
+                size:options.sizeOverride || sizeForRun(),
+                quality:settings.quality || 'auto',
+                n:count,
+                reference_images:refs,
+                preserve_canvas:Boolean(options.preserveCanvas),
+                source_width:Math.max(0, Number(options.sourceWidth) || 0),
+                source_height:Math.max(0, Number(options.sourceHeight) || 0)
+            };
             const task = await fetch('/api/canvas-image-tasks', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}).then(async r => {
                 if(!r.ok) throw new Error(await r.text());
                 return r.json();
@@ -8124,11 +8560,11 @@
             }).then(async r => { if(!r.ok) throw new Error(await r.text()); return r.json(); });
             return (result?.videos || []).filter(Boolean);
         }
-        async function runModelscopeGeneration(prompt, refs){
+        async function runModelscopeGeneration(prompt, refs, sizeOverride=''){
             const modelKey = settings.msgenModel || 'zimage';
             const msModel = MS_GEN_MODELS[modelKey] || MS_GEN_MODELS.zimage;
             if(msModel.supportsImage && !refs.length) throw new Error(tr('smart.errMsNeedRefs'));
-            const size = apiImageSize(settings.msRatio || 'square', settings.msResolution || '1k', settings.msCustomRatio || '', settings.msCustomSize || '');
+            const size = sizeOverride || apiImageSize(settings.msRatio || 'square', settings.msResolution || '1k', settings.msCustomRatio || '', settings.msCustomSize || '');
             const parsed = parseSizeValue(size);
             const width = Number(parsed?.width) || 1024;
             const height = Number(parsed?.height) || 1024;
@@ -8355,7 +8791,7 @@
             scheduleSave();
         }
         shell.onmousedown = e => {
-            if(e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.agent-canvas-select-bar,.library-picker-modal')) return;
+            if(e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.library-picker-modal')) return;
             if(e.button === 0 && e.ctrlKey){
                 e.preventDefault();
                 didPan = false;
@@ -8370,14 +8806,14 @@
             shell.classList.add('panning');
         };
         shell.ondblclick = e => {
-            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             const p = screenToWorld(e);
             createNode(p.x - 130, p.y - 90);
         };
         shell.onclick = e => {
             if(selectionJustFinished) return;
-            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             clearSelection();
             render();
@@ -8615,7 +9051,7 @@
             }
         };
         shell.addEventListener('wheel', e => {
-            if(e.target.closest('.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(e.target.closest('.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             e.preventDefault();
             const rect = shell.getBoundingClientRect();
             const sx = e.clientX - rect.left;
@@ -8734,6 +9170,7 @@
         }
         runBtn.onclick = runGeneration;
         document.querySelector('.canvas-top-share')?.addEventListener('click', () => toast('分享入口已准备好；当前项目仍保持本地优先。'));
+        canvasApiSettingsBtn?.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); toggleCanvasApiSettings(); });
         openLibraryBtn.onclick = openLibraryPicker;
         materialCatalogueBtn.onclick = openMaterialCatalogue;
         customCutoutBtn.onclick = openCustomCutoutPanel;
@@ -8870,6 +9307,8 @@
         });
         quickActionDock?.addEventListener('pointerdown', event => event.stopPropagation());
         quickActionDock?.addEventListener('mousedown', event => event.stopPropagation());
+        canvasApiSettingsPanel?.addEventListener('pointerdown', event => event.stopPropagation());
+        canvasApiSettingsPanel?.addEventListener('mousedown', event => event.stopPropagation());
         smartAgentPanel?.addEventListener('pointerdown', event => event.stopPropagation());
         smartAgentPanel?.addEventListener('mousedown', event => event.stopPropagation());
         actionTemplatePanel?.addEventListener('mousedown', event => event.stopPropagation());
@@ -9035,7 +9474,21 @@
             if(event.data?.type === 'studio-lang' && window.StudioI18n) {
                 window.StudioI18n.set(event.data.lang || 'zh');
             }
+            if(event.data?.type === 'providers-changed') refreshCanvasApiProviders({announce:canvasApiSettingsPanel?.classList.contains('open')});
         });
+        window.addEventListener('storage', event => {
+            if(event.key === 'studio_api_providers_changed_at') refreshCanvasApiProviders({announce:canvasApiSettingsPanel?.classList.contains('open')});
+        });
+        window.addEventListener('focus', () => {
+            if(canvasApiSettingsPanel?.classList.contains('open')) refreshCanvasApiProviders();
+        });
+        let studioApiChannel = null;
+        try {
+            studioApiChannel = new BroadcastChannel('studio-api');
+            studioApiChannel.addEventListener('message', event => {
+                if(event.data?.type === 'providers-changed') refreshCanvasApiProviders({announce:canvasApiSettingsPanel?.classList.contains('open')});
+            });
+        } catch(_) {}
         window.addEventListener('studio-lang-change', () => {
             renderDynamicParams();
             renderInputThumbsRow(selectedNode());
