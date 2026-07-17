@@ -7260,9 +7260,20 @@
             const size = apiImageSize('source', resolution, `${sourceWidth}:${sourceHeight}`) || `${sourceWidth}x${sourceHeight}`;
             return {sourceWidth, sourceHeight, ratio:sourceWidth / sourceHeight, size};
         }
-        function populateCanvasLockPrompt(lock){
+        function actionUsesCanvasLock(action){
+            return ['populate','style','generate-style','swap','swap-material'].includes(String(action || ''));
+        }
+        function canvasLockPrompt(lock, action='populate'){
             const ratio = Math.round(Number(lock?.ratio || 1) * 10000) / 10000;
-            return `硬性约束：把图1作为完全锁定的背景底片，源画布 ${lock.sourceWidth}×${lock.sourceHeight}，宽高比 ${ratio}。输出必须保持同一画幅和像素坐标系；不得裁剪、扩图、拉伸、缩放、平移或旋转原图；不得改变相机位置、镜头焦段、拍摄角度、透视消失点、构图、建筑轮廓、门窗、材质、光照和现有物体。只允许在原有像素位置上原位叠加人物及必要的接触阴影。如其他描述与本约束冲突，以本约束为准。`;
+            const changeRule = ['style','generate-style'].includes(action)
+                ? '只允许在原有像素位置和既有几何轮廓内改变渲染风格、材质表现、色彩与氛围；不得增删、移动、缩放或变形任何建筑与场景元素。'
+                : ['swap','swap-material'].includes(action)
+                ? '只允许在已指定目标区域的原有像素位置内更换材质外观；不得改变该区域的形状、边界、尺度和朝向，未指定区域必须逐像素保持原设计。'
+                : '只允许在原有像素位置上原位叠加人物及必要的接触阴影；不得改变材质、光照和现有物体。';
+            return `硬性约束：把图1作为完全锁定的背景底片，源画布 ${lock.sourceWidth}×${lock.sourceHeight}，宽高比 ${ratio}。输出必须保持同一画幅和像素坐标系；不得裁剪、扩图、拉伸、缩放、平移或旋转原图；不得改变相机位置、镜头焦段、拍摄角度、透视消失点、构图、建筑体量、轮廓、门窗位置和现有元素的位置。${changeRule} 如其他描述与本约束冲突，以本约束为准。`;
+        }
+        function populateCanvasLockPrompt(lock){
+            return canvasLockPrompt(lock, 'populate');
         }
         function actionPreflightConfigLabel(action, countOverride=0){
             if(action === 'video'){
@@ -7354,6 +7365,36 @@
                 created_at:Date.now()
             };
         }
+        function actionOutputResolution(){
+            const value = settings.engine === 'modelscope' ? settings.msResolution : settings.resolution;
+            return ['1k','2k','4k'].includes(value) ? value : '1k';
+        }
+        function actionOutputCount(){
+            return Math.max(1, Math.min(4, Number(settings.count) || 1));
+        }
+        function actionOutputSettingsHtml(canvasLocked=false){
+            const resolution = actionOutputResolution();
+            const count = actionOutputCount();
+            const option = (value, current, label) => `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`;
+            return `<div class="action-param-grid action-output-settings" data-action-output-settings>
+                <label class="action-param-field"><span>输出分辨率</span><select data-action-output-resolution>${option('1k', resolution, '1K')}${option('2k', resolution, '2K')}${option('4k', resolution, '4K')}</select><small>${canvasLocked ? '宽高比跟随源图，仅调整清晰度。' : '使用当前画幅比例生成。'}</small></label>
+                <label class="action-param-field"><span>生成数量</span><select data-action-output-count>${[1,2,3,4].map(value => option(String(value), String(count), `${value} 张`)).join('')}</select><small>每次生成的候选数量。</small></label>
+            </div>`;
+        }
+        function bindActionOutputSettings(root=actionTemplatePanel){
+            root?.querySelector('[data-action-output-resolution]')?.addEventListener('change', event => {
+                const value = ['1k','2k','4k'].includes(event.target.value) ? event.target.value : '1k';
+                if(settings.engine === 'modelscope') settings.msResolution = value;
+                else settings.resolution = value;
+                renderDynamicParams();
+                scheduleSave();
+            });
+            root?.querySelector('[data-action-output-count]')?.addEventListener('change', event => {
+                settings.count = Math.max(1, Math.min(4, Number(event.target.value) || 1));
+                renderDynamicParams();
+                scheduleSave();
+            });
+        }
         function openMaterialTargetPromptPanel(targetNode, materialNode){
             const target = targetNode || selectedNode();
             if(!target || !materialNode || !actionTemplatePanel) return;
@@ -7426,6 +7467,7 @@
             actionTemplatePanel.classList.add('cutout-panel');
             actionTemplatePanel.innerHTML = `<div class="action-template-head"><div><div class="action-template-title">自定义人物素材</div><div class="action-template-sub">生成独立全身人物，随后可拖入画布或作为局部编辑参考。</div></div><button class="smart-agent-icon-btn" type="button" data-template-close="1" title="关闭"><i data-lucide="x"></i></button></div>
             <div class="action-preflight"><div class="action-preflight-title"><i data-lucide="clipboard-check"></i><span>生成预检</span></div><div class="action-preflight-row"><strong>输出类型</strong><span>独立人物素材</span></div><div class="action-preflight-row"><strong>调用配置</strong><span>${escapeHtml(actionPreflightConfigLabel('cutout'))}</span></div></div>
+            ${actionOutputSettingsHtml(false)}
             <div class="action-param-grid">
                 <label class="action-param-field"><span>年龄</span><select data-cutout-param="age">${option('any', params.age, '任意年龄')}${option('teen', params.age, '13-17')}${option('young', params.age, '18-25')}${option('adult', params.age, '26-35')}${option('mature', params.age, '36-45')}${option('older', params.age, '46-60')}${option('senior', params.age, '61+')}</select></label>
                 <label class="action-param-field"><span>人群特征</span><select data-cutout-param="ethnicity">${option('diverse', params.ethnicity, '多元')}${option('african', params.ethnicity, '非洲')}${option('asian', params.ethnicity, '东亚')}${option('southAsian', params.ethnicity, '南亚')}${option('european', params.ethnicity, '欧洲')}${option('latin', params.ethnicity, '拉丁')}${option('middleEastern', params.ethnicity, '中东')}</select></label>
@@ -7436,6 +7478,7 @@
             <div class="action-param-actions"><button class="action-param-run" type="button" data-cutout-run="1"><i data-lucide="person-standing"></i><span>生成素材</span></button></div>`;
             actionTemplatePanel.classList.add('open');
             actionTemplatePanel.setAttribute('aria-hidden','false');
+            bindActionOutputSettings();
             actionTemplatePanel.querySelector('[data-template-close]')?.addEventListener('click', closeActionTemplatePanel);
             const saveParams = () => {
                 const next = normalizedCutoutParams(settings.cutoutParams || {});
@@ -7581,9 +7624,12 @@
             const selectionImage = selectedActionImage(selection);
             const material = materialNodesForTarget(target)[0];
             const materialImage = selectedActionImage(material);
+            const canvasLock = sourceCanvasLock(target, targetImage);
             actionTemplatePanel.classList.remove('populate-panel','cutout-panel');
             actionTemplatePanel.innerHTML = `<div class="action-template-head"><div><div class="action-template-title">替换材质</div><div class="action-template-sub">只替换指定表面，保持原有几何、构图和光照不变。</div></div><button class="smart-agent-icon-btn" type="button" data-template-close title="关闭"><i data-lucide="x"></i></button></div>
             <div class="action-param-form">
+              <div class="action-design-note"><i data-lucide="lock-keyhole"></i><span><strong>画幅与镜头已锁定</strong> 保持源图 ${canvasLock.sourceWidth}×${canvasLock.sourceHeight} 的宽高比、构图、透视和相机角度，只改变指定区域的材质。</span></div>
+              ${actionOutputSettingsHtml(true)}
               <div class="action-section"><div class="action-section-head"><strong>替换区域</strong><button type="button" data-swap-select-area>${selectionImage ? '更换区域' : '选择区域'}</button></div>${selectionImage ? `<div class="action-focus-preview"><img src="${escapeHtml(selectionImage.url)}" alt=""><div><strong>已选区域</strong><span>仅修改该区域</span></div></div>` : '<div class="action-empty-drop">绘制遮罩，或使用整张图片。</div>'}</div>
               <div class="action-section"><div class="action-section-head"><strong>材质参考 <em>可选</em></strong><button type="button" data-swap-material>打开材质库</button></div>${materialImage ? `<div class="action-focus-preview"><img src="${escapeHtml(materialImage.url)}" alt=""><div><strong>${escapeHtml(materialNameForNode(material))}</strong><span>材质参考</span></div></div>` : '<div class="action-empty-drop">拖入或点击上传材质参考图</div>'}</div>
               <label class="action-param-field wide"><span>修改描述</span><textarea data-swap-description maxlength="900" placeholder="新材质、颜色与纹理、表面工艺、额外关键词">${escapeHtml(target.pendingSwapDescription || '')}</textarea></label>
@@ -7593,6 +7639,7 @@
             </div>`;
             actionTemplatePanel.classList.add('open');
             actionTemplatePanel.setAttribute('aria-hidden','false');
+            bindActionOutputSettings();
             actionTemplatePanel.querySelector('[data-template-close]')?.addEventListener('click', closeActionTemplatePanel);
             actionTemplatePanel.querySelector('[data-swap-select-area]')?.addEventListener('click', () => {
                 target.pendingSwapDescription = actionTemplatePanel.querySelector('[data-swap-description]')?.value || '';
@@ -7624,6 +7671,7 @@
             actionTemplatePanel.classList.remove('populate-panel','cutout-panel');
             actionTemplatePanel.innerHTML = `<div class="action-template-head"><div><div class="action-template-title">编辑</div><div class="action-template-sub">精确描述修改内容；未选区域保持不变。</div></div><button class="smart-agent-icon-btn" type="button" data-template-close title="关闭"><i data-lucide="x"></i></button></div>
             <div class="action-param-form">
+              ${actionOutputSettingsHtml(false)}
               <div class="action-section"><div class="action-section-head"><strong>编辑区域 <em>可选</em></strong><button type="button" data-edit-area>${selectionImage ? '更换区域' : '选择区域'}</button></div>${selectionImage ? `<div class="action-focus-preview"><img src="${escapeHtml(selectionImage.url)}" alt=""><div><strong>已选区域</strong><span>局部编辑遮罩</span></div></div>` : '<div class="action-empty-drop">使用整张图片，或先选择一个区域。</div>'}</div>
               <label class="action-param-field wide"><span>描述要修改的内容</span><textarea data-edit-description maxlength="1200" placeholder="请描述选中区域需要发生的变化">${escapeHtml(target.pendingEditDescription || '')}</textarea></label>
               <div class="action-section"><div class="action-section-head"><strong>图像参考 <em>可选</em></strong><button type="button" data-edit-reference>从画布选择</button></div><div class="action-empty-drop">拖入或点击上传参考图</div></div>
@@ -7632,6 +7680,7 @@
             </div>`;
             actionTemplatePanel.classList.add('open');
             actionTemplatePanel.setAttribute('aria-hidden','false');
+            bindActionOutputSettings();
             actionTemplatePanel.querySelector('[data-template-close]')?.addEventListener('click', closeActionTemplatePanel);
             const persist = () => {
                 target.pendingEditDescription = actionTemplatePanel.querySelector('[data-edit-description]')?.value || '';
@@ -7648,7 +7697,7 @@
                 const description = target.pendingEditDescription;
                 const editStrength = target.pendingEditStrength;
                 closeActionTemplatePanel();
-                runImageNodeAction('local-edit', target, {extraPrompt:`修改要求：${description}。参考影响强度 ${Math.round(editStrength * 100)}%。`, actionParams:{description,strength:editStrength}, candidateCount:1});
+                runImageNodeAction('local-edit', target, {extraPrompt:`修改要求：${description}。参考影响强度 ${Math.round(editStrength * 100)}%。`, actionParams:{description,strength:editStrength}, candidateCount:actionOutputCount()});
             });
             refreshIcons();
         }
@@ -7684,7 +7733,7 @@
                 <div class="action-focus-preview"><img src="${escapeHtml(targetImage.url)}" alt=""><div><strong>图像参考</strong><span>${escapeHtml(targetImage.name || target.title || '当前选中图片')}</span></div></div>
                 <div class="action-formula">推荐公式：<b>主体 · 关键空间与特征 · 氛围与光照 · 风格 · 额外约束</b></div>
                 <textarea data-action-prompt maxlength="1800" placeholder="描述想要的设计效果、材质、氛围和必须保持不变的内容…"></textarea>
-                <div class="action-form-tools"><button type="button" data-action-enhance-prompt><i data-lucide="sparkles"></i><span>补全提示</span></button><button class="action-param-run" type="button" data-action-prompt-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="wand-sparkles"></i><span>生成 2 个候选</span></button></div>
+                <div class="action-form-tools"><button type="button" data-action-enhance-prompt><i data-lucide="sparkles"></i><span>补全提示</span></button><button class="action-param-run" type="button" data-action-prompt-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="wand-sparkles"></i><span>生成候选</span></button></div>
             </div>` : '';
             const enhanceForm = action === 'enhance' ? `<div class="action-param-form">
                 <div class="action-focus-preview"><img src="${escapeHtml(targetImage.url)}" alt=""><div><strong>当前图片</strong><span>保持几何、构图和镜头视角不变。</span></div></div>
@@ -7710,8 +7759,9 @@
                 <div class="action-param-actions"><button class="action-param-run" type="button" data-populate-run="1"${imageActionBlocked ? ' disabled' : ''}><i data-lucide="users"></i><span>生成新版本</span></button></div>
             </div>` : '';
             const styleForm = action === 'style' ? `<div class="action-param-form">
+                <div class="action-design-note"><i data-lucide="lock-keyhole"></i><span><strong>画幅与镜头已锁定</strong> 输出保持源图宽高比、构图、透视和相机角度，只改变视觉表达风格。</span></div>
                 <div class="action-template-grid style-template-grid">${entries.map(([key,item]) => `<button class="action-template-card style-template-card ${key === defaultStyleKey ? 'active' : ''}" type="button" data-style-select="${escapeHtml(key)}" data-style-look="${escapeHtml(item.look || 'flat')}"><span class="style-preview"><img src="${escapeHtml(item.preview || targetImage.url)}" alt="${escapeHtml(item.label)}"></span><strong>${escapeHtml(item.label)}</strong></button>`).join('')}</div>
-                <div class="action-param-actions"><button class="action-param-run" type="button" data-style-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="sparkles"></i><span>生成 2 个候选</span></button></div>
+                <div class="action-param-actions"><button class="action-param-run" type="button" data-style-run${imageActionBlocked ? ' disabled' : ''}><i data-lucide="sparkles"></i><span>生成候选</span></button></div>
             </div>` : '';
             const videoForm = action === 'video' ? `<div class="action-param-form">
                 <div class="action-template-grid">${entries.map(([key, item]) => `<button class="action-template-card ${key === defaultStyleKey ? 'active' : ''}" type="button" data-video-select="${escapeHtml(key)}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.meta || item.prompt || '')}</span></button>`).join('')}</div>
@@ -7726,7 +7776,8 @@
                 </div>
                 <button class="smart-agent-icon-btn" type="button" data-template-close="1" title="关闭"><i data-lucide="x"></i></button>
             </div>
-            ${actionPreflightSummaryHtml(action, target, ['render','style'].includes(action) ? 2 : 1)}
+            ${actionPreflightSummaryHtml(action, target, action === 'video' ? 1 : actionOutputCount())}
+            ${action !== 'video' ? actionOutputSettingsHtml(actionUsesCanvasLock(action)) : ''}
             ${promptForm || enhanceForm || populateForm || styleForm || videoForm || `<div class="action-template-grid">
                 ${entries.map(([key, item]) => `<button class="action-template-card" type="button" data-template-run="${escapeHtml(key)}">
                     <strong>${escapeHtml(item.label)}</strong>
@@ -7735,6 +7786,7 @@
             </div>`}`;
             actionTemplatePanel.classList.add('open');
             actionTemplatePanel.setAttribute('aria-hidden', 'false');
+            bindActionOutputSettings();
             actionTemplatePanel.querySelector('[data-template-close]')?.addEventListener('click', closeActionTemplatePanel);
             actionTemplatePanel.querySelector('[data-action-enhance-prompt]')?.addEventListener('click', () => {
                 const field = actionTemplatePanel.querySelector('[data-action-prompt]');
@@ -7748,12 +7800,12 @@
                 const node = nodes.find(n => n.id === actionTemplateState.targetId) || selectedNode();
                 const extraPrompt = actionTemplatePanel.querySelector('[data-action-prompt]')?.value?.trim() || '';
                 closeActionTemplatePanel();
-                runImageNodeAction(action, node, {extraPrompt, candidateCount:action === 'render' ? 2 : 1});
+                runImageNodeAction(action, node, {extraPrompt, candidateCount:actionOutputCount()});
             });
             actionTemplatePanel.querySelector('[data-enhance-run]')?.addEventListener('click', () => {
                 const node = nodes.find(n => n.id === actionTemplateState.targetId) || selectedNode();
                 closeActionTemplatePanel();
-                runImageNodeAction('enhance', node, {candidateCount:1});
+                runImageNodeAction('enhance', node, {candidateCount:actionOutputCount()});
             });
             actionTemplatePanel.querySelectorAll('[data-populate-preset]').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -7794,7 +7846,7 @@
                 settings.populateParams = params;
                 const node = nodes.find(n => n.id === actionTemplateState.targetId) || selectedNode();
                 closeActionTemplatePanel();
-                runImageNodeAction('populate', node, {templateKey:params.preset, extraPrompt:populateParamsPrompt(params), actionParams:params, candidateCount:1});
+                runImageNodeAction('populate', node, {templateKey:params.preset, extraPrompt:populateParamsPrompt(params), actionParams:params, candidateCount:actionOutputCount()});
             });
             actionTemplatePanel.querySelectorAll('[data-style-select]').forEach(btn => btn.addEventListener('click', () => {
                 actionTemplatePanel.querySelectorAll('[data-style-select]').forEach(item => item.classList.toggle('active', item === btn));
@@ -7804,7 +7856,7 @@
                 const key = actionTemplateState.templateKey || defaultStyleKey;
                 const node = nodes.find(n => n.id === actionTemplateState.targetId) || selectedNode();
                 closeActionTemplatePanel();
-                runImageNodeAction('style', node, {templateKey:key, candidateCount:2});
+                runImageNodeAction('style', node, {templateKey:key, candidateCount:actionOutputCount()});
             });
             actionTemplatePanel.querySelectorAll('[data-video-select]').forEach(btn => btn.addEventListener('click', () => {
                 actionTemplatePanel.querySelectorAll('[data-video-select]').forEach(item => item.classList.toggle('active', item === btn));
@@ -8009,7 +8061,8 @@
                 inputNodeIds:inputIds,
                 created_at:Date.now()
             };
-            const retryCanvasLock = operation === 'populate' ? runSettings.actionPreflight.canvasLock : null;
+            const retryCanvasLock = actionUsesCanvasLock(operation) ? runSettings.actionPreflight.canvasLock : null;
+            const retryCount = operation === 'video' ? 1 : Math.max(1, Math.min(4, Number(runSettings.count) || 1));
             const meta = snapshotRunMeta(prompt, target.id);
             meta.settings = runSettings;
             meta.operation = operation;
@@ -8023,7 +8076,7 @@
                 if(node[key] != null && node[key] !== '') meta[key] = cloneSmartCanvasMeta(node[key]);
             });
             pushUndo();
-            const pendingNode = createActionPendingNode(target, label, operation, inputIds);
+            const pendingNode = createActionPendingNode(target, label, operation, inputIds, retryCount);
             pendingNode.retryOfNodeId = node.id;
             attachRunMeta(pendingNode, meta);
             runBtn.disabled = true;
@@ -8036,7 +8089,7 @@
                         renderDynamicParams();
                         return await runApiVideoGeneration(prompt, refs);
                     })
-                    : await withTemporaryRunSettings(runSettings, async () => await runImageReferenceGeneration(prompt, refs, 1, retryCanvasLock ? {
+                    : await withTemporaryRunSettings(runSettings, async () => await runImageReferenceGeneration(prompt, refs, retryCount, retryCanvasLock ? {
                         sizeOverride:retryCanvasLock.size,
                         preserveCanvas:true,
                         sourceWidth:retryCanvasLock.sourceWidth,
@@ -8058,7 +8111,7 @@
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
-                pendingNode.generationJob = {status:'error', expectedCount:1, error:reason, completedAt:Date.now()};
+                pendingNode.generationJob = {status:'error', expectedCount:retryCount, error:reason, completedAt:Date.now()};
                 selectedId = target.id;
                 selectedImage = {nodeId:'', index:-1};
                 pushSmartActionFailureLog(label, reason, {
@@ -8101,8 +8154,8 @@
                 refs.push({url:img.url, name:img.name || `参考图${refs.length + 1}`, role:`reference_${refs.length + 1}`});
             }
             const inputIds = Array.from(new Set([target.id, ...inputNodesFor(target).map(node => node.id)]));
-            const canvasLock = action === 'populate' ? sourceCanvasLock(target, targetImg) : null;
-            const generationPrompt = canvasLock ? `${spec.prompt} ${populateCanvasLockPrompt(canvasLock)}` : spec.prompt;
+            const canvasLock = actionUsesCanvasLock(action) ? sourceCanvasLock(target, targetImg) : null;
+            const generationPrompt = canvasLock ? `${spec.prompt} ${canvasLockPrompt(canvasLock, action)}` : spec.prompt;
             const meta = snapshotRunMeta(generationPrompt, target.id);
             const actionPreflight = actionPreflightSnapshot(action, target);
             if(options.actionParams) actionPreflight.actionParams = cloneSmartCanvasMeta(options.actionParams);
@@ -8289,6 +8342,7 @@
                 toast('请先选择材质目标面，或创建局部 selection');
                 return;
             }
+            const canvasLock = sourceCanvasLock(target, targetImg);
             const prompt = [
                 hasSelectionTarget
                     ? `使用图1作为目标设计图，使用图2作为局部选区引用，使用图3作为材质/纹理参考。`
@@ -8300,7 +8354,8 @@
                     : `只替换目标图中的${targetSurface.phrase}，将其变为“${materialName}”的质感、颜色、尺度和纹理方向。`,
                 target.pendingSwapDescription ? `补充要求：${String(target.pendingSwapDescription).slice(0, 900)}。` : '',
                 '保持原图构图、透视、主体结构、门窗位置、家具轮廓、光照方向和场景氛围不变。未指定的区域必须保持原材质和原设计。',
-                '不要改变建筑体量，不要添加无关物体，不要改变视角。输出真实、干净、可用于设计评审的效果图。'
+                '不要改变建筑体量，不要添加无关物体，不要改变视角。输出真实、干净、可用于设计评审的效果图。',
+                canvasLockPrompt(canvasLock, 'swap-material')
             ].join(' ');
             const refs = hasSelectionTarget
                 ? [
@@ -8318,19 +8373,21 @@
                 ? `替换材质：${materialName}`
                 : `替换材质：${targetSurface.label} · ${materialName}`;
             if(preventUnavailableGeneration('image', targetImg, label)) return;
+            const candidateCount = actionOutputCount();
             const meta = snapshotRunMeta(prompt, target.id);
             meta.settings = {
                 ...(meta.settings || {}),
                 engine: settings.engine === 'modelscope' ? 'modelscope' : 'api',
                 apiKind: 'image',
-                count: 1,
+                count: candidateCount,
                 actionPreflight:{
                     ...actionPreflightSnapshot('swap-material', target),
                     materialNodeId:materialNode.id,
                     materialName,
                     materialTarget:targetSurface.key,
                     materialTargetLabel:targetSurface.label,
-                    selectionNodeId:selectionNode?.id || ''
+                    selectionNodeId:selectionNode?.id || '',
+                    canvasLock:cloneSmartCanvasMeta(canvasLock)
                 }
             };
             meta.operation = 'swap-material';
@@ -8349,7 +8406,7 @@
             }
             pushUndo();
             const targetRect = nodeRect(target);
-            const pendingSize = pendingBoxSize(1);
+            const pendingSize = pendingBoxSize(candidateCount);
             const inputIds = Array.from(new Set([target.id, materialNode.id, selectionNode?.id].filter(Boolean)));
             const pendingNode = createNode(targetRect.x + targetRect.width + 72, targetRect.y, [], {
                 skipUndo:true,
@@ -8361,10 +8418,10 @@
                 candidateSession:true,
                 sessionOwnerId:target.id
             });
-            pendingNode.pending = 1;
+            pendingNode.pending = candidateCount;
             pendingNode.running = true;
             pendingNode.candidateStack = true;
-            pendingNode.generationJob = {status:'generating', expectedCount:1, startedAt:Date.now()};
+            pendingNode.generationJob = {status:'generating', expectedCount:candidateCount, startedAt:Date.now()};
             pendingNode.w = pendingSize.w;
             pendingNode.h = pendingSize.h;
             pendingNode.targetNodeId = target.id;
@@ -8385,7 +8442,12 @@
             runBtn.disabled = true;
             render();
             try {
-                const outImages = await runImageReferenceGeneration(prompt, refs);
+                const outImages = await runImageReferenceGeneration(prompt, refs, candidateCount, {
+                    sizeOverride:canvasLock.size,
+                    preserveCanvas:true,
+                    sourceWidth:canvasLock.sourceWidth,
+                    sourceHeight:canvasLock.sourceHeight
+                });
                 if(!outImages.length) throw new Error(tr('smart.errNoOutImages'));
                 finalizePendingNode(pendingNode, outImages, meta);
                 pendingNode.operation = 'swap-material';
@@ -8414,7 +8476,7 @@
                 pendingNode.pending = 0;
                 pendingNode.failed = true;
                 pendingNode.error = reason;
-                pendingNode.generationJob = {status:'error', expectedCount:1, error:reason, completedAt:Date.now()};
+                pendingNode.generationJob = {status:'error', expectedCount:candidateCount, error:reason, completedAt:Date.now()};
                 selectedId = target.id;
                 selectedImage = {nodeId:'', index:-1};
                 pushSmartActionFailureLog(label, reason, {
