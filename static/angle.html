@@ -905,30 +905,7 @@
             if (!uploadedFile) throw new Error("Please upload an image first");
 
             // Get token from centralized management (Personal -> Global)
-            let token = localStorage.getItem('modelscope_api_token');
-            
-            if (!token) {
-                try {
-                    const res = await fetch('/api/config/token');
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.token) token = data.token;
-                    }
-                } catch (e) {
-                    console.warn("Failed to fetch global token", e);
-                }
-            }
-
-            if (!token) {
-                if (window.parent && typeof window.parent.openTokenModal === 'function') {
-                    window.parent.openTokenModal();
-                    // Allow the error to propagate so user sees the message
-                    // const err = new Error("请先点击右上角设置 ModelScope Token");
-                    // err.silent = true;
-                    // throw err;
-                }
-                throw new Error("请先点击右上角设置 ModelScope Token");
-            }
+            const token = localStorage.getItem('modelscope_api_token') || '';
 
             // Convert image to Base64
             const toBase64 = file => new Promise((resolve, reject) => {

@@ -280,20 +280,25 @@
             min-height: 0;
             flex: 1;
             display: grid;
-            grid-template-columns: 286px minmax(0, 1fr);
-            gap: 22px;
-            padding: 20px;
+            grid-template-columns: 252px minmax(0, 1fr);
+            gap: 0;
+            padding: 0;
         }
 
         .app-body.workbench-layout {
-            grid-template-columns: 286px minmax(0, 1fr);
-            gap: 18px;
-            padding: 16px 20px 20px;
+            grid-template-columns: 252px minmax(0, 1fr);
+            gap: 0;
+            padding: 0;
         }
 
         .app-body.drawer-collapsed,
         .app-body.workbench-layout.drawer-collapsed {
-            grid-template-columns: 84px minmax(0, 1fr);
+            grid-template-columns: 64px minmax(0, 1fr);
+        }
+
+        .app-body.drawer-context-full,
+        .app-body.workbench-layout.drawer-context-full {
+            grid-template-columns: minmax(0, 1fr);
         }
 
         .left-panel,
@@ -309,12 +314,23 @@
 
         .left-panel {
             position: relative;
-            padding: 10px;
+            padding: 16px 14px 54px;
             overflow: hidden;
+            border-width: 0 1px 0 0;
+            border-radius: 0;
+            box-shadow: none;
             transition:
                 padding 0.32s var(--ease),
                 border-radius 0.32s var(--ease),
                 box-shadow 0.32s var(--ease);
+        }
+
+        .app-body.drawer-context-full .left-panel {
+            display: none;
+        }
+
+        .main-panel {
+            padding: 20px;
         }
 
         .right-panel {
@@ -332,9 +348,87 @@
         }
 
         .left-top {
-            padding: 0 0 22px;
+            padding: 0 0 14px;
             display: grid;
             gap: 10px;
+        }
+
+        .context-drawer {
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .context-drawer.hide {
+            display: none;
+        }
+
+        .context-drawer-head {
+            padding: 2px 4px 14px;
+            display: grid;
+            gap: 2px;
+        }
+
+        .context-drawer-kicker {
+            color: var(--brand);
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .context-drawer-title {
+            color: var(--text);
+            font-size: 16px;
+            font-weight: 860;
+            letter-spacing: -0.02em;
+        }
+
+        .context-drawer-sub {
+            color: var(--muted);
+            font-size: 10px;
+            line-height: 1.45;
+        }
+
+        .drawer-search {
+            height: 38px;
+            padding: 0 11px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--faint);
+            background: var(--bg-2);
+            border: 1px solid var(--line);
+            border-radius: 11px;
+        }
+
+        .drawer-search:focus-within {
+            color: var(--text);
+            border-color: rgba(88, 183, 148, 0.62);
+        }
+
+        .drawer-search i,
+        .drawer-search svg {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 auto;
+        }
+
+        .drawer-search input {
+            min-width: 0;
+            width: 100%;
+            height: 34px;
+            padding: 0;
+            color: var(--text);
+            background: transparent;
+            border: 0;
+            outline: 0;
+            font-size: 11px;
+        }
+
+        .drawer-search input::placeholder {
+            color: var(--faint);
         }
 
         .drawer-toggle {
@@ -357,6 +451,10 @@
         .drawer-toggle:hover {
             color: var(--text);
             transform: translateY(-1px);
+        }
+
+        .drawer-toggle[hidden] {
+            display: none !important;
         }
 
         .nav-primary {
@@ -421,50 +519,8 @@
             padding: 2px 0;
         }
 
-        .nav-list {
-            display: grid;
-            gap: 6px;
-        }
-
-        .nav-item {
-            width: 100%;
-            height: 52px;
-            border-radius: var(--radius-soft);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 0 16px;
-            font-size: 15px;
-            font-weight: 820;
-        }
-
-        .nav-item:hover {
-            border-color: rgba(88, 183, 148, 0.62);
-            background: var(--card-2);
-        }
-
-        .nav-item.active {
-            color: var(--on-accent);
-            border-color: var(--accent);
-            background: var(--accent);
-            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
-        }
-
-        .nav-item-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-        }
-
-        .nav-item-icon i {
-            width: 18px;
-            height: 18px;
-        }
-
         .recent-group {
-            margin-top: 20px;
+            margin-top: 6px;
         }
 
         .recent-label {
@@ -592,14 +648,49 @@
             line-height: 1.55;
         }
 
-        .app-body.drawer-collapsed .left-panel {
-            padding: 10px 8px 54px;
+        .workbench-drawer-list {
+            display: grid;
+            gap: 6px;
         }
 
-        .app-body.drawer-collapsed .nav-primary,
-        .app-body.drawer-collapsed .nav-item {
-            justify-content: center;
-            padding: 0;
+        .workbench-drawer-list .tool-list-item {
+            min-height: 60px;
+            grid-template-columns: 34px minmax(0, 1fr);
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 11px;
+            background: transparent;
+        }
+
+        .workbench-drawer-list .tool-list-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+        }
+
+        .workbench-drawer-list .tool-list-icon i,
+        .workbench-drawer-list .tool-list-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .workbench-drawer-list .tool-list-title {
+            font-size: 12px;
+        }
+
+        .workbench-drawer-list .tool-list-desc {
+            margin-top: 2px;
+            display: -webkit-box;
+            overflow: hidden;
+            color: var(--faint);
+            font-size: 9px;
+            line-height: 1.35;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+
+        .app-body.drawer-collapsed .left-panel {
+            padding: 12px 7px 54px;
         }
 
         .app-body.drawer-collapsed .new-chat-btn {
@@ -609,10 +700,12 @@
 
         .app-body.drawer-collapsed .new-chat-btn span,
         .app-body.drawer-collapsed .nav-primary span,
-        .app-body.drawer-collapsed .nav-item-label,
+        .app-body.drawer-collapsed .context-drawer-head,
+        .app-body.drawer-collapsed .drawer-search,
         .app-body.drawer-collapsed .recent-label,
         .app-body.drawer-collapsed .recent-title,
-        .app-body.drawer-collapsed .recent-time {
+        .app-body.drawer-collapsed .recent-time,
+        .app-body.drawer-collapsed .tool-list-copy {
             display: none;
         }
 
@@ -620,6 +713,13 @@
             grid-template-columns: 1fr;
             justify-items: center;
             padding: 5px;
+        }
+
+        .app-body.drawer-collapsed .workbench-drawer-list .tool-list-item {
+            min-height: 46px;
+            grid-template-columns: 1fr;
+            justify-items: center;
+            padding: 6px;
         }
 
         .main-panel {
@@ -1340,6 +1440,42 @@
             height: 18px;
         }
 
+        .agent-capability-row {
+            min-height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 760;
+        }
+
+        .agent-capability-chip {
+            min-height: 28px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--panel);
+        }
+
+        .agent-capability-chip.connected {
+            border-color: rgba(88, 183, 148, 0.5);
+            color: var(--text);
+        }
+
+        .agent-capability-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: currentColor;
+            opacity: 0.55;
+        }
+
         .workbench-stage {
             min-height: 0;
             height: min(78vh, 860px);
@@ -1584,7 +1720,8 @@
         }
 
         .agent-status.running .agent-status-dot,
-        .agent-status.loading .agent-status-dot {
+        .agent-status.loading .agent-status-dot,
+        .agent-status.partial .agent-status-dot {
             background: var(--warning);
         }
 
@@ -1674,7 +1811,7 @@
 
         @media (max-width: 1180px) {
             .app-body {
-                grid-template-columns: 250px minmax(0, 1fr);
+                grid-template-columns: 228px minmax(0, 1fr);
             }
             .right-panel {
                 display: none;
@@ -1713,8 +1850,10 @@
                 min-height: 0;
             }
             .left-panel {
-                border-right: 0;
-                padding: 0;
+                width: 100%;
+                max-height: 300px;
+                padding: 14px 14px 52px;
+                border-width: 0 0 1px;
             }
             .nav-scroll {
                 max-height: 420px;
@@ -1751,6 +1890,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="/static/studio-shell.css?v=20260720-unified-shell">
+    <script defer src="/static/studio-shell.js?v=20260720-unified-shell"></script>
 </head>
 
 <body>
@@ -1790,34 +1931,41 @@
         </header>
 
         <div class="app-body">
-	            <aside class="left-panel">
-	                <div class="left-top">
-	                    <button class="new-chat-btn" type="button" id="newAgentBtn">
-	                        <i data-lucide="sparkles"></i>
-	                        <span>Agent / 新对话</span>
-	                    </button>
-	                    <div class="nav-list">
-	                        <button class="nav-item" type="button" data-nav-page="workbench">
-	                            <span class="nav-item-icon"><i data-lucide="wrench"></i></span>
-	                            <span class="nav-item-label">图像工具</span>
-	                        </button>
-	                        <button class="nav-item" type="button" data-nav-page="wiki">
-	                            <span class="nav-item-icon"><i data-lucide="book-open"></i></span>
-	                            <span class="nav-item-label">知识库</span>
-	                        </button>
-	                        <button class="nav-item" type="button" data-nav-page="library">
-	                            <span class="nav-item-icon"><i data-lucide="library"></i></span>
-	                            <span class="nav-item-label">资源库</span>
-	                        </button>
-	                    </div>
-	                </div>
+	            <aside class="left-panel" aria-label="当前模块导航">
+                    <section class="context-drawer" id="agentDrawerContent" aria-label="助手对话">
+                        <div class="context-drawer-head">
+                            <span class="context-drawer-kicker">Assistant</span>
+                            <strong class="context-drawer-title">助手</strong>
+                            <span class="context-drawer-sub">当前项目的对话与任务记录</span>
+                        </div>
+                        <div class="left-top">
+                            <button class="new-chat-btn" type="button" id="newAgentBtn">
+                                <i data-lucide="message-square-plus"></i>
+                                <span>新建对话</span>
+                            </button>
+                            <label class="drawer-search">
+                                <i data-lucide="search" aria-hidden="true"></i>
+                                <input id="agentConversationSearch" type="search" placeholder="搜索对话" aria-label="搜索对话">
+                            </label>
+                        </div>
+                        <div class="nav-scroll">
+                            <div class="recent-group">
+                                <div class="recent-label">最近对话</div>
+                                <div id="recentAgentList"></div>
+                            </div>
+                        </div>
+                    </section>
 
-	                <div class="nav-scroll">
-	                    <div class="recent-group">
-	                        <div class="recent-label">最近</div>
-                        <div id="recentAgentList"></div>
-                    </div>
-                </div>
+                    <section class="context-drawer hide" id="workbenchDrawerContent" aria-label="AI 生图工具">
+                        <div class="context-drawer-head">
+                            <span class="context-drawer-kicker">AI Image</span>
+                            <strong class="context-drawer-title">AI 生图</strong>
+                            <span class="context-drawer-sub">选择生成、编辑或画布工具</span>
+                        </div>
+                        <div class="nav-scroll">
+                            <div class="workbench-drawer-list" id="workbenchToolList"></div>
+                        </div>
+                    </section>
 
                 <button class="drawer-toggle" type="button" id="drawerToggleBtn" title="收起菜单" aria-label="收起菜单">
                     <i data-lucide="panel-left-close"></i>
@@ -1889,6 +2037,9 @@
                                     <button class="agent-home-feature-btn" type="button" data-agent-mode="inspiration"><i data-lucide="sparkles"></i><span>获取灵感</span><i data-lucide="chevron-down"></i></button>
                                     <button class="agent-home-feature-btn" type="button" data-agent-mode="deep"><i data-lucide="brain"></i><span>深度思考</span><i data-lucide="chevron-down"></i></button>
                                     <button class="agent-home-feature-btn" type="button" data-agent-mode="learn"><i data-lucide="graduation-cap"></i><span>轻松学习</span><i data-lucide="chevron-down"></i></button>
+                                </div>
+                                <div class="agent-capability-row" id="agentCapabilityStatus" aria-label="Agent 能力状态">
+                                    <span class="agent-capability-chip"><span class="agent-capability-dot"></span>正在读取 Skills 和 MCP...</span>
                                 </div>
                             </div>
                         </div>
@@ -1972,25 +2123,24 @@
                                 <div class="workbench-empty-head">
                                     <span class="workbench-empty-icon"><i data-lucide="wrench"></i></span>
                                     <div>
-                                        <h2>工具</h2>
-                                        <p>生图、编辑、增强、对话和画布入口。</p>
+                                        <h2>AI 生图工作台</h2>
+                                        <p>从左侧选择生图、编辑、增强或智能画布工具。</p>
                                     </div>
                                 </div>
-                                <div class="workbench-tool-list" id="workbenchToolList"></div>
                             </div>
                         </div>
                         <div class="workbench-stage empty" id="workbenchStage">
-                            <iframe id="frame-zimage" data-src="/static/zimage.html?v=20260512-i18n2" scrolling="yes"></iframe>
-                            <iframe id="frame-online" data-src="/static/online.html?v=20260512-i18n2" scrolling="yes"></iframe>
-                            <iframe id="frame-klein" data-src="/static/klein.html?v=20260512-i18n2" scrolling="yes"></iframe>
-                            <iframe id="frame-enhance" data-src="/static/enhance.html?v=20260512-i18n2" scrolling="yes"></iframe>
-                            <iframe id="frame-angle" data-src="/static/angle.html?v=20260512-i18n2" scrolling="yes"></iframe>
-                            <iframe id="frame-gpt-chat" data-src="/static/gpt-chat.html?v=20260514-provider-chat-models" scrolling="yes"></iframe>
-                            <iframe id="frame-canvas" data-src="/static/canvas.html?v=20260518-canvas-fixes" scrolling="yes"></iframe>
-                            <iframe id="frame-library" data-src="/static/library.html?v=20260603-prompt-library-shell" scrolling="yes"></iframe>
-                            <iframe id="frame-wiki" data-src="/static/wiki.html?v=20260608-qa-bottom-composer" scrolling="yes"></iframe>
-                            <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=20260517-provider-fetch-form2" scrolling="yes"></iframe>
-                            <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=20260515-workflow-refresh" scrolling="yes"></iframe>
+                            <iframe id="frame-zimage" data-src="/static/zimage.html?v=20260512-i18n2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-online" data-src="/static/online.html?v=20260512-i18n2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-klein" data-src="/static/klein.html?v=20260512-i18n2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-enhance" data-src="/static/enhance.html?v=20260512-i18n2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-angle" data-src="/static/angle.html?v=20260512-i18n2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-gpt-chat" data-src="/static/gpt-chat.html?v=20260514-provider-chat-models" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-canvas" data-src="/static/canvas.html?v=20260518-canvas-fixes" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-library" data-src="/static/library.html?v=20260603-prompt-library-shell" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-wiki" data-src="/static/wiki.html?v=20260608-qa-bottom-composer" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=20260517-provider-fetch-form2" scrolling="yes" hidden inert aria-hidden="true"></iframe>
+                            <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=20260515-workflow-refresh" scrolling="yes" hidden inert aria-hidden="true"></iframe>
                         </div>
                     </div>
                 </section>
@@ -2088,14 +2238,14 @@
 
         const ACTIVE_PAGE_KEY = 'studio_active_page';
         const RECENT_AGENT_KEY = 'studio_agent_recent_v1';
-        const DRAWER_COLLAPSED_KEY = 'studio_drawer_collapsed';
+        const DRAWER_COLLAPSED_KEY = 'studio_context_drawer_collapsed_v2';
         const DEFAULT_PAGE_ID = 'agent';
         const PAGE_IDS = ['agent','workbench','zimage','enhance','klein','angle','online','gpt-chat','canvas','library','wiki','api-settings','comfyui-settings'];
         const FRAME_PAGE_IDS = ['zimage','enhance','klein','angle','online','gpt-chat','canvas','library','wiki','api-settings','comfyui-settings'];
         const AGENT_MODES = {
             summary: { label:'总结', taskType:'work_task', placeholder:'总结资料、会议记录或当前知识库内容。' },
             code: { label:'代码', taskType:'work_task', placeholder:'描述代码任务。第一版会记录入口，后续接 Pi Coding Agent。' },
-            design: { label:'设计', taskType:'design_task', placeholder:'直接提问，我会调用你选择的真实 API 模型回复。' },
+            design: { label:'设计', taskType:'design_task', placeholder:'描述设计目标，我会先生成可确认的工具调用计划。' },
             research: { label:'研究', taskType:'wiki_task', placeholder:'提出研究问题，我会先查 LLM Wiki 并保存问答档案。' },
             inspiration: { label:'获取灵感', taskType:'design_task', placeholder:'描述主题，我会结合 Wiki 和资源库生成灵感方向。' },
             deep: { label:'深度思考', taskType:'wiki_task', placeholder:'输入复杂问题，我会基于 Wiki 组织更深入的判断。' },
@@ -2123,6 +2273,7 @@
         let activeAgentMode = localStorage.getItem('studio_agent_mode') || 'design';
         let activeAgentChatConversationId = '';
         let agentHomeProviderModels = [];
+        let agentCapabilities = { skills:[], mcp_servers:[], connected_mcp_servers:0 };
         let selectedAgentWikiRoot = localStorage.getItem('studio_agent_selected_wiki_root') || '';
 
         const appBody = document.querySelector('.app-body');
@@ -2130,11 +2281,13 @@
         const workbenchView = document.getElementById('workbenchView');
         const workbenchStage = document.getElementById('workbenchStage');
         const leftPanel = document.querySelector('.left-panel');
+        const agentDrawerContent = document.getElementById('agentDrawerContent');
+        const workbenchDrawerContent = document.getElementById('workbenchDrawerContent');
         const workbenchToolList = document.getElementById('workbenchToolList');
         const agentRightPanel = document.getElementById('agentRightPanel');
         const workbenchRightPanel = document.getElementById('workbenchRightPanel');
         const newAgentBtn = document.getElementById('newAgentBtn');
-        const agentNavBtn = newAgentBtn;
+        const agentConversationSearch = document.getElementById('agentConversationSearch');
         const drawerToggleBtn = document.getElementById('drawerToggleBtn');
         const recentAgentList = document.getElementById('recentAgentList');
         const agentGoalInput = document.getElementById('agentGoalInput');
@@ -2176,6 +2329,7 @@
         const agentPlusWraps = document.querySelectorAll('[data-agent-plus]');
         const agentWikiLists = document.querySelectorAll('[data-agent-wiki-list]');
         const agentWikiChips = document.querySelectorAll('[data-agent-wiki-chip]');
+        const agentCapabilityStatus = document.getElementById('agentCapabilityStatus');
 
         function escapeHtml(value) {
             return String(value == null ? '' : value)
@@ -2270,6 +2424,19 @@
             refreshIcons();
         }
 
+        function syncContextDrawer() {
+            const fullWidthPages = ['library', 'wiki', 'api-settings', 'comfyui-settings'];
+            const context = activeShellMode === 'agent'
+                ? 'agent'
+                : (fullWidthPages.includes(currentPageId) ? 'full' : 'workbench');
+            appBody.classList.toggle('drawer-context-full', context === 'full');
+            appBody.classList.toggle('drawer-context-agent', context === 'agent');
+            appBody.classList.toggle('drawer-context-workbench', context === 'workbench');
+            agentDrawerContent?.classList.toggle('hide', context !== 'agent');
+            workbenchDrawerContent?.classList.toggle('hide', context !== 'workbench');
+            if (drawerToggleBtn) drawerToggleBtn.hidden = context === 'full';
+        }
+
         function switchShellMode(mode, options = {}) {
             activeShellMode = mode === 'workbench' ? 'workbench' : 'agent';
             agentView.classList.toggle('active', activeShellMode === 'agent');
@@ -2277,7 +2444,7 @@
             agentRightPanel?.classList.add('hide');
             workbenchRightPanel?.classList.add('hide');
             appBody.classList.toggle('workbench-layout', activeShellMode === 'workbench');
-            agentNavBtn?.classList.toggle('active', activeShellMode === 'agent');
+            syncContextDrawer();
             syncPrimaryNav();
             if (!options.skipRemember) {
                 localStorage.setItem(ACTIVE_PAGE_KEY, activeShellMode === 'agent' ? 'agent' : (activeFrameId || 'workbench'));
@@ -2286,8 +2453,22 @@
             refreshIcons();
         }
 
+        function setActiveFrame(target = null) {
+            document.querySelectorAll('iframe').forEach(frame => {
+                const active = Boolean(target && frame === target);
+                frame.classList.toggle('active', active);
+                frame.hidden = !active;
+                frame.setAttribute('aria-hidden', String(!active));
+                if (active) frame.removeAttribute('inert');
+                else frame.setAttribute('inert', '');
+            });
+        }
+
         function switchUI(el, id, options = {}) {
             if (!PAGE_IDS.includes(id)) id = DEFAULT_PAGE_ID;
+            window.StudioGlobalShell?.setActive(
+                id === 'agent' ? 'assistant' : (id === 'library' ? 'library' : 'generate')
+            );
             if (id === 'agent') {
                 currentPageId = 'agent';
                 switchShellMode('agent', options);
@@ -2296,7 +2477,7 @@
             if (id === 'workbench') {
                 currentPageId = 'workbench';
                 activeFrameId = '';
-                document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
+                setActiveFrame(null);
                 workbenchStage.classList.add('empty');
                 workbenchView.classList.remove('has-frame');
                 renderWorkbenchTools();
@@ -2313,10 +2494,9 @@
             if (!target) return;
             activeFrameId = id;
             currentPageId = id;
-            document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
             if (url) target.src = url;
             else if (!target.src) target.src = target.dataset.src;
-            target.classList.add('active');
+            setActiveFrame(target);
             workbenchStage.classList.remove('empty');
             workbenchView.classList.add('has-frame');
             renderWorkbenchTools();
@@ -2578,11 +2758,18 @@
 
         function buildAgentContext() {
             const modeCfg = currentAgentModeConfig();
+            const selectedModel = selectedAgentHomeModel();
             const base = {
                 active_page: currentPageId === 'agent' ? 'Agent' : currentPageId,
                 active_page_label: humanPageLabel(currentPageId),
+                project_id: localStorage.getItem('studio_active_project_id') || '',
                 mode: activeAgentMode,
                 task_type: modeCfg.taskType,
+                provider: selectedModel.provider || '',
+                model: selectedModel.model || '',
+                runtime: 'tool_calling_v1',
+                skill_ids: (agentCapabilities.skills || []).filter(item => item.enabled !== false).map(item => item.id),
+                mcp_server_ids: (agentCapabilities.mcp_servers || []).filter(item => item.status === 'connected').map(item => item.id),
                 ...activeLocalWikiContext()
             };
             return {
@@ -2621,6 +2808,7 @@
                 planned: '已生成计划',
                 running: '执行中',
                 succeeded: '执行完成',
+                partial: '部分完成',
                 failed: '执行失败',
                 cancelled: '已取消',
                 error: '出错了'
@@ -2644,7 +2832,7 @@
         }
 
         function renderAgentStatusSteps(status = currentAgentTask?.status || 'idle') {
-            const rank = { idle:0, loading:1, planned:2, running:3, succeeded:4, failed:3, cancelled:3, error:2 };
+            const rank = { idle:0, loading:1, planned:2, running:3, succeeded:4, partial:4, failed:3, cancelled:3, error:2 };
             const current = rank[status] || 0;
             const taskType = currentAgentTask?.task_type || currentAgentTask?.plan?.task_type || currentAgentModeConfig().taskType;
             const mode = currentAgentTask?.mode || currentAgentTask?.plan?.mode || activeAgentMode;
@@ -2698,7 +2886,7 @@
                 agentCancelBtn.disabled = false;
                 return;
             }
-            if (['succeeded', 'failed', 'cancelled'].includes(status)) {
+            if (['succeeded', 'partial', 'failed', 'cancelled'].includes(status)) {
                 agentRunBtn.disabled = true;
                 agentCancelBtn.disabled = true;
                 return;
@@ -2880,19 +3068,62 @@
             agentResult.innerHTML = `<div class="agent-empty">${escapeHtml(JSON.stringify(result))}</div>`;
         }
 
-        function loadRecentAgentThreads() {
+        function activeStudioProjectId() {
+            return localStorage.getItem('studio_active_project_id') || '';
+        }
+
+        function loadRecentAgentThreadStore() {
             try {
                 const raw = JSON.parse(localStorage.getItem(RECENT_AGENT_KEY) || '[]');
-                return Array.isArray(raw) ? raw.slice(0, 20) : [];
+                return Array.isArray(raw) ? raw.slice(0, 100) : [];
             } catch(e) {
                 return [];
             }
         }
 
-        function saveRecentAgentThreads(items) {
-            localStorage.setItem(RECENT_AGENT_KEY, JSON.stringify(items.slice(0, 20)));
+        function loadRecentAgentThreads() {
+            const projectId = activeStudioProjectId();
+            return loadRecentAgentThreadStore()
+                .filter(item => String(item.projectId || '') === projectId)
+                .slice(0, 20);
         }
 
+        function saveRecentAgentThreads(items) {
+            const projectId = activeStudioProjectId();
+            const currentItems = items.slice(0, 20).map(item => ({...item, projectId}));
+            const otherProjects = loadRecentAgentThreadStore().filter(item => String(item.projectId || '') !== projectId);
+            localStorage.setItem(RECENT_AGENT_KEY, JSON.stringify([...currentItems, ...otherProjects].slice(0, 100)));
+        }
+
+        async function hydrateAgentHistory() {
+            const projectId = activeStudioProjectId();
+            if (!projectId) {
+                renderRecentAgentThreads();
+                return;
+            }
+            try {
+                const response = await fetch(`/api/agent/history?project_id=${encodeURIComponent(projectId)}&limit=50`, {cache:'no-store'});
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || '读取 Agent 历史失败');
+                const serverItems = (data.tasks || []).map(task => ({
+                    id: task.id,
+                    taskId: task.id,
+                    title: String(task.goal || 'Agent 任务').slice(0, 42),
+                    taskType: task.task_type || '',
+                    mode: task.mode || 'design',
+                    status: task.status || '',
+                    outputs: task.outputs || [],
+                    goal: task.goal || '',
+                    projectId: task.project_id || projectId,
+                    updatedAt: Number(task.updated_at || task.created_at || Date.now())
+                }));
+                const localItems = loadRecentAgentThreads();
+                const merged = [...serverItems, ...localItems.filter(local => !serverItems.some(server => server.taskId === local.taskId))]
+                    .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+                saveRecentAgentThreads(merged);
+            } catch(e) {}
+            renderRecentAgentThreads();
+        }
         function renderRecentAgentThreads(activeTaskId = currentAgentTask?.id || '') {
             recentAgentItems = loadRecentAgentThreads();
             if (!recentAgentItems.length) {
@@ -2906,7 +3137,16 @@
                     <span class="recent-time">${escapeHtml(formatShortTime(item.updatedAt))}</span>
                 </button>
             `).join('');
+            filterRecentAgentThreads(agentConversationSearch?.value || '');
             refreshIcons();
+        }
+
+        function filterRecentAgentThreads(query = '') {
+            const normalized = String(query || '').trim().toLocaleLowerCase('zh-CN');
+            recentAgentList?.querySelectorAll('.recent-item').forEach(item => {
+                const title = item.querySelector('.recent-title')?.textContent?.toLocaleLowerCase('zh-CN') || '';
+                item.hidden = Boolean(normalized) && !title.includes(normalized);
+            });
         }
 
         function persistCurrentAgentThread(task, goal) {
@@ -2921,6 +3161,7 @@
                 status: task.status || '',
                 outputs: task.outputs || task.plan?.outputs || [],
                 goal: goal || task.goal || '',
+                projectId: activeStudioProjectId(),
                 updatedAt: Date.now()
             };
             const rest = loadRecentAgentThreads().filter(x => x.id !== item.id && x.taskId !== item.taskId);
@@ -2967,6 +3208,7 @@
                 status: 'chat',
                 outputs: [],
                 goal: title || '',
+                projectId: activeStudioProjectId(),
                 updatedAt: Date.now()
             };
             activeAgentConversationId = item.id;
@@ -2996,6 +3238,25 @@
             switchShellMode('agent');
         }
 
+        function resetAgentProjectContext() {
+            stopAgentPolling();
+            currentAgentTask = null;
+            agentContextOverride = null;
+            activeAgentChatConversationId = '';
+            activeAgentConversationId = '';
+            if (agentLiveMessages) agentLiveMessages.innerHTML = '';
+            if (agentGoalInput) agentGoalInput.value = '';
+            if (agentHomeInput) agentHomeInput.value = '';
+            setAgentDirectChat(false);
+            showAgentUserGoal('');
+            renderAgentPlan(null);
+            renderAgentResult(null);
+            renderAgentEvents(null);
+            setAgentStatus('idle', '已切换项目，请创建或选择该项目的 Agent 任务。');
+            updateAgentContextMeta();
+            updateAgentRunAvailability();
+        }
+
         function createLocalAgentConversation() {
             const id = `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
             const item = {
@@ -3007,6 +3268,7 @@
                 status: 'local',
                 outputs: [],
                 goal: '',
+                projectId: activeStudioProjectId(),
                 updatedAt: Date.now()
             };
             const rest = loadRecentAgentThreads().filter(x => x.id !== id);
@@ -3095,7 +3357,7 @@
                 setAgentStatus(data.status || 'running', message);
                 updateAgentRunAvailability();
                 renderRecentAgentThreads(data.id);
-                if (['succeeded', 'failed', 'cancelled'].includes(data.status)) {
+                if (['succeeded', 'partial', 'failed', 'cancelled'].includes(data.status)) {
                     stopAgentPolling();
                     agentPlanBtn.disabled = false;
                     agentCancelBtn.disabled = true;
@@ -3126,7 +3388,8 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         task_id: currentAgentTask.id,
-                        context_overrides: agentContextOverridesFromControls()
+                        context_overrides: agentContextOverridesFromControls(),
+                        confirmation_token: currentAgentTask.confirmation_token || ''
                     })
                 });
                 const data = await res.json();
@@ -3442,6 +3705,56 @@
             }
         }
 
+        async function loadAgentCapabilities() {
+            if (!agentCapabilityStatus) return;
+            try {
+                const res = await fetch('/api/agent/capabilities');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || '读取 Agent 能力失败');
+                agentCapabilities = data || { skills:[], mcp_servers:[], connected_mcp_servers:0 };
+                const skillChips = (data.skills || []).map(skill => `
+                    <span class="agent-capability-chip connected" title="${escapeHtml(skill.description || '')}">
+                        <span class="agent-capability-dot"></span>Skill · ${escapeHtml(skill.name || skill.id)}
+                    </span>
+                `);
+                const serverChips = (data.mcp_servers || []).map(server => `
+                    <span class="agent-capability-chip ${server.status === 'connected' ? 'connected' : ''}" title="${escapeHtml(server.error || `${server.tool_count || 0} 个工具`)}">
+                        <span class="agent-capability-dot"></span>MCP · ${escapeHtml(server.name || server.id)} · ${server.status === 'connected' ? '已连接' : '异常'}
+                    </span>
+                `);
+                agentCapabilityStatus.innerHTML = [...skillChips, ...serverChips].join('') || '<span class="agent-capability-chip">尚未启用 Skill/MCP</span>';
+            } catch (err) {
+                agentCapabilityStatus.innerHTML = `<span class="agent-capability-chip"><span class="agent-capability-dot"></span>${escapeHtml(err.message || 'Agent 能力状态不可用')}</span>`;
+            }
+        }
+
+        async function sendAgentHomeRequest(sourceInput = agentHomeInput) {
+            if (currentAgentModeConfig().taskType !== 'design_task') {
+                await sendAgentHomePrompt(sourceInput);
+                return;
+            }
+            const input = sourceInput?.value !== undefined ? sourceInput : agentHomeInput;
+            const goal = String(input?.value || '').trim();
+            if (!goal) {
+                input?.focus();
+                return;
+            }
+            const selected = selectedAgentHomeModel();
+            if (!selected.provider || !selected.model) {
+                setAgentDirectChat(true);
+                setAgentHomeVisible(false);
+                appendAgentLiveMessage('assistant', '请先在 API 设置里选择一个已经填写 Key 的聊天 API。', '配置缺失');
+                return;
+            }
+            input.value = '';
+            activeAgentChatConversationId = '';
+            setAgentDirectChat(false);
+            setAgentHomeVisible(false);
+            agentGoalInput.value = goal;
+            showAgentUserGoal(goal);
+            await createAgentPlan();
+        }
+
         window.addEventListener('message', (event) => {
             const data = event?.data;
             if (!data || typeof data !== 'object') return;
@@ -3461,6 +3774,14 @@
         });
         window.addEventListener('storage', event => {
             if (['studio_local_wikis', 'studio_active_local_wiki'].includes(event.key)) renderAgentWikiPickers();
+            if (event.key === 'studio_active_project_id') {
+                resetAgentProjectContext();
+                hydrateAgentHistory();
+            }
+        });
+        window.addEventListener('studio-project-change', () => {
+            resetAgentProjectContext();
+            hydrateAgentHistory();
         });
         try {
             const apiChannel = new BroadcastChannel('studio-api');
@@ -3485,6 +3806,8 @@
             setAgentStatus('idle', '还没有生成计划。');
             renderAgentEvents(null);
             loadModelSummary();
+            loadAgentCapabilities();
+            hydrateAgentHistory();
             renderAgentWikiPickers();
         }, { once: true });
 
@@ -3510,7 +3833,7 @@
             if (item) openStudioPage(item.dataset.toolId);
         });
 
-        agentHomeSendBtn?.addEventListener('click', () => sendAgentHomePrompt(agentHomeInput));
+        agentHomeSendBtn?.addEventListener('click', () => sendAgentHomeRequest(agentHomeInput));
 
         agentProviderTrigger?.addEventListener('click', event => {
             event.stopPropagation();
@@ -3569,7 +3892,7 @@
         agentHomeInput?.addEventListener('keydown', event => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
                 event.preventDefault();
-                sendAgentHomePrompt(agentHomeInput);
+                sendAgentHomeRequest(agentHomeInput);
             }
         });
 
@@ -3582,6 +3905,10 @@
             if (!item) return;
             if (item.dataset.recentTask) loadRecentAgentTask(item.dataset.recentTask);
             else loadLocalAgentConversation(item.dataset.recentId);
+        });
+
+        agentConversationSearch?.addEventListener('input', event => {
+            filterRecentAgentThreads(event.target.value);
         });
 
         drawerToggleBtn?.addEventListener('click', () => {

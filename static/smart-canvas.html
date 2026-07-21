@@ -836,6 +836,48 @@
         .quick-action-btn i,.quick-action-btn svg { width:15px !important; height:15px !important; stroke-width:2.1; }
         .quick-action-btn .new-badge,.context-action-btn .new-badge { position:absolute; right:2px; top:-5px; height:13px; padding:0 4px; border-radius:999px; display:inline-flex; align-items:center; color:#fff; background:#ec4899; font-size:6.5px; font-weight:950; letter-spacing:.04em; }
         .quick-zoom { min-width:52px; color:#cbd2df; font-variant-numeric:tabular-nums; }
+        .production-panel { position:absolute; right:14px; top:70px; bottom:70px; z-index:76; width:min(390px,calc(100vw - 28px)); display:none; flex-direction:column; overflow:hidden; color:#e7eaf0; background:rgba(25,28,36,.98); border:1px solid rgba(148,163,184,.22); border-radius:15px; box-shadow:0 22px 64px rgba(0,0,0,.44); backdrop-filter:blur(18px); }
+        .production-panel.open { display:flex; }
+        .production-head { min-height:58px; padding:12px 13px; display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid #343b49; }
+        .production-title { display:flex; align-items:center; gap:7px; font-size:11px; font-weight:900; }
+        .production-title i,.production-title svg { width:15px !important; height:15px !important; color:#c4b5fd; }
+        .production-sub { margin-top:3px; color:#7f899c; font-size:8px; font-weight:700; }
+        .production-tools { display:flex; align-items:center; gap:4px; }
+        .production-icon-btn { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:#929caf; background:#222731; border:1px solid #373f4d; }
+        .production-icon-btn:hover { color:#fff; background:#2d3441; }
+        .production-icon-btn i,.production-icon-btn svg { width:13px !important; height:13px !important; }
+        .production-stats { padding:9px 13px; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; border-bottom:1px solid #303744; }
+        .production-stat { padding:7px; border-radius:9px; background:#171a22; border:1px solid #2e3542; }
+        .production-stat strong { display:block; color:#f4f6fa; font-size:13px; }
+        .production-stat span { color:#727d91; font-size:7.5px; font-weight:750; }
+        .production-scroll { min-height:0; flex:1; overflow:auto; padding:12px; display:grid; align-content:start; gap:16px; }
+        .production-section { display:grid; gap:8px; }
+        .production-section-head { display:flex; align-items:center; justify-content:space-between; color:#b8c0ce; font-size:9px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
+        .production-section-head span { color:#687387; font-size:7px; }
+        .production-task-list,.lineage-list,.asset-version-list { display:grid; gap:7px; }
+        .production-task { padding:9px; display:grid; gap:6px; border-radius:11px; background:#171a22; border:1px solid #303746; }
+        .production-task-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .task-status { height:19px; padding:0 7px; border-radius:999px; display:inline-flex; align-items:center; gap:5px; color:#cbd5e1; background:#29303c; font-size:7px; font-weight:900; }
+        .task-status::before { content:""; width:5px; height:5px; border-radius:50%; background:#94a3b8; }
+        .task-status.running,.task-status.queued { color:#bfdbfe; background:rgba(59,130,246,.14); }.task-status.running::before,.task-status.queued::before { background:#60a5fa; }
+        .task-status.succeeded { color:#bbf7d0; background:rgba(34,197,94,.14); }.task-status.succeeded::before { background:#4ade80; }
+        .task-status.failed,.task-status.cancelled { color:#fecaca; background:rgba(239,68,68,.14); }.task-status.failed::before,.task-status.cancelled::before { background:#f87171; }
+        .production-task time { color:#687387; font-size:7px; }
+        .production-task-prompt { color:#d6dbe5; font-size:9px; line-height:1.45; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .production-task-meta { color:#747f92; font-size:7.5px; line-height:1.4; }
+        .production-task-error { padding:6px; border-radius:7px; color:#fca5a5; background:rgba(127,29,29,.18); font-size:7.5px; line-height:1.4; }
+        .production-task-actions { display:flex; flex-wrap:wrap; gap:5px; }
+        .production-task-actions button { height:24px; padding:0 7px; border-radius:7px; color:#d6dbe5; background:#272d38; border:1px solid #3a4251; font-size:7.5px; font-weight:800; }
+        .production-task-actions button.primary { color:#fff; background:#7c3aed; border-color:#8b5cf6; }
+        .lineage-card { padding:9px; display:grid; gap:7px; border-radius:11px; background:#171a22; border:1px solid #303746; }
+        .lineage-asset-id { color:#c4b5fd; font-family:ui-monospace,monospace; font-size:7px; word-break:break-all; }
+        .lineage-card strong { color:#eef1f6; font-size:9.5px; }
+        .lineage-card p { margin:0; color:#7d8799; font-size:8px; line-height:1.45; }
+        .lineage-chip { width:100%; padding:7px; display:flex; align-items:center; gap:8px; text-align:left; border-radius:9px; color:#cdd3df; background:#222731; border:1px solid #343c49; }
+        .lineage-chip img { width:34px; height:34px; object-fit:cover; border-radius:7px; background:#11141a; }
+        .lineage-chip span { min-width:0; display:grid; gap:2px; font-size:8px; }
+        .lineage-chip small { color:#687387; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .production-empty { padding:13px; border-radius:11px; color:#737e91; background:#171a22; border:1px dashed #394150; font-size:8.5px; line-height:1.5; text-align:center; }
 
         .context-toolbar { padding:5px; gap:2px; border-radius:12px; background:rgba(29,32,41,.96); border-color:rgba(148,163,184,.22); box-shadow:0 16px 44px rgba(0,0,0,.38); }
         .context-action-btn { height:32px; min-width:32px; padding:0 8px; border-radius:8px; color:#9aa4b6; font-size:9.5px; }
@@ -887,8 +929,10 @@
         .history-limit-card strong { display:block; margin-bottom:3px; color:#f0b6d5; font-size:10px; }
         .history-limit-card button { width:100%; height:30px; margin-top:8px; border-radius:8px; color:#fff; background:#7c3aed; font-size:9px; font-weight:850; }
 
-        @media (max-width:760px) { .composer { width:min(540px, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) 50px; } .context-toolbar { max-width:calc(100vw - 28px); flex-wrap:wrap; } .object-context-card { width:calc(100vw - 28px); } .canvas-project-sub,.upgrade-link,.canvas-top-share span,.canvas-top-api-settings span { display:none; } .canvas-project-copy .smart-title { max-width:150px; } .smart-agent-panel,.action-template-panel { left:10px; right:10px; width:auto; } .material-catalogue-modal { padding:70px 10px; } .material-catalogue-panel { width:100%; } .version-history-rail { left:10px; width:calc(100vw - 20px); } .quick-action-dock { left:10px; right:10px; transform:none; overflow-x:auto; justify-content:flex-start; } .quick-action-btn span { display:none; } .onboarding-overlay { grid-template-columns:1fr; overflow:auto; } .onboarding-form { min-height:100vh; padding:28px 22px; } .onboarding-preview { display:none; } }
+        @media (max-width:760px) { .composer { width:min(540px, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) 50px; } .context-toolbar { max-width:calc(100vw - 28px); flex-wrap:wrap; } .object-context-card { width:calc(100vw - 28px); } .canvas-project-sub,.upgrade-link,.canvas-top-share span,.canvas-top-api-settings span { display:none; } .canvas-project-copy .smart-title { max-width:150px; } .smart-agent-panel,.action-template-panel,.production-panel { left:10px; right:10px; width:auto; } .material-catalogue-modal { padding:70px 10px; } .material-catalogue-panel { width:100%; } .version-history-rail { left:10px; width:calc(100vw - 20px); } .quick-action-dock { left:10px; right:10px; transform:none; overflow-x:auto; justify-content:flex-start; } .quick-action-btn span { display:none; } .onboarding-overlay { grid-template-columns:1fr; overflow:auto; } .onboarding-form { min-height:100vh; padding:28px 22px; } .onboarding-preview { display:none; } }
     </style>
+    <link rel="stylesheet" href="/static/studio-shell.css?v=20260720-unified-shell">
+    <script defer src="/static/studio-shell.js?v=20260720-unified-shell"></script>
 </head>
 <body>
     <section id="gendoOnboarding" class="onboarding-overlay" aria-hidden="true" aria-label="首次使用引导">
@@ -994,6 +1038,29 @@
         <aside id="versionHistoryRail" class="version-history-rail" aria-label="项目历史"></aside>
         <button id="projectHistoryToggleBtn" class="history-toggle" type="button" aria-expanded="false"><i data-lucide="history"></i><span>项目历史</span></button>
         <div id="quickActionDock" class="quick-action-dock" aria-label="快捷动作"></div>
+        <aside id="productionPanel" class="production-panel" aria-label="生产记录" aria-hidden="true">
+            <div class="production-head">
+                <div>
+                    <div class="production-title"><i data-lucide="list-checks"></i><span>生产记录</span></div>
+                    <div id="productionSub" class="production-sub">任务、资产版本与永久血缘</div>
+                </div>
+                <div class="production-tools">
+                    <button id="productionRefreshBtn" class="production-icon-btn" type="button" title="刷新"><i data-lucide="refresh-cw"></i></button>
+                    <button id="productionCloseBtn" class="production-icon-btn" type="button" title="关闭"><i data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div id="productionStats" class="production-stats"></div>
+            <div class="production-scroll">
+                <section class="production-section">
+                    <div class="production-section-head"><strong>生成任务</strong><span id="productionTaskCount">0 项</span></div>
+                    <div id="productionTaskList" class="production-task-list"></div>
+                </section>
+                <section class="production-section">
+                    <div class="production-section-head"><strong>当前资产血缘</strong><span>永久记录</span></div>
+                    <div id="productionLineage"></div>
+                </section>
+            </div>
+        </aside>
         <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff,.heic,.heif,.avif" aria-label="选择要上传到智能画布的图片" multiple hidden>
         <div id="canvasDropOverlay" class="canvas-drop-overlay">松开即可上传图片 · 支持多选</div>
         <div id="minimap" class="smart-minimap" aria-hidden="true">
@@ -1255,6 +1322,14 @@
         const versionHistoryRail = document.getElementById('versionHistoryRail');
         const projectHistoryToggleBtn = document.getElementById('projectHistoryToggleBtn');
         const quickActionDock = document.getElementById('quickActionDock');
+        const productionPanel = document.getElementById('productionPanel');
+        const productionSub = document.getElementById('productionSub');
+        const productionStats = document.getElementById('productionStats');
+        const productionTaskCount = document.getElementById('productionTaskCount');
+        const productionTaskList = document.getElementById('productionTaskList');
+        const productionLineage = document.getElementById('productionLineage');
+        const productionRefreshBtn = document.getElementById('productionRefreshBtn');
+        const productionCloseBtn = document.getElementById('productionCloseBtn');
         const smartAgentPanel = document.getElementById('smartAgentPanel');
         const smartAgentMessages = document.getElementById('smartAgentMessages');
         const smartAgentPrimaryAction = document.getElementById('smartAgentPrimaryAction');
@@ -1297,6 +1372,7 @@
         let minimapViewport = document.getElementById('minimapViewport');
         let canvas = null;
         let nodes = [];
+        const generationAssetMetaByUrl = new Map();
         let selectedId = '';
         let selectedIds = [];
         let selectedImage = {nodeId:'', index:-1};
@@ -1348,6 +1424,13 @@
         let imageEditorSelectionContext = null;
         let imageEditorSelectionMode = false;
         let projectHistoryOpen = false;
+        let productionPanelOpen = false;
+        let productionTasks = [];
+        let productionLineageData = null;
+        let productionLineageAssetId = '';
+        let productionSelectionAssetId = '';
+        let productionRefreshTimer = null;
+        let productionPollTimer = null;
         let agentCanvasSelectionMode = false;
         let agentCanvasSelectionBefore = {selectedId:'', selectedIds:[]};
         let onboardingStep = 1;
@@ -1766,7 +1849,11 @@
             localStorage.setItem(ONBOARDING_PROFILE_KEY, JSON.stringify({...onboardingDraft(), completed:false, skippedAt:Date.now()}));
             closeOnboarding();
         }
-        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=20260520-smart-prompt-drafts'; }
+        function backToCanvasList(){
+            savePromptDraftForCurrent();
+            const projectId = localStorage.getItem('studio_active_project_id') || '';
+            window.location.href = `/static/project-workbench.html${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`;
+        }
         function promptPlainText(){
             return promptInput.innerText.replace(/\u00a0/g, ' ').trim();
         }
@@ -3154,6 +3241,23 @@
             shell.style.backgroundPosition = '0 0';
             renderMinimap();
         }
+        function fitCanvasToContent(){
+            if(!nodes.length || !shell.clientWidth || !shell.clientHeight) return false;
+            const rects = nodes.map(nodeRect);
+            const minX = Math.min(...rects.map(rect => rect.x));
+            const minY = Math.min(...rects.map(rect => rect.y));
+            const maxX = Math.max(...rects.map(rect => rect.x + rect.width));
+            const maxY = Math.max(...rects.map(rect => rect.y + rect.height));
+            const contentWidth = Math.max(1, maxX - minX);
+            const contentHeight = Math.max(1, maxY - minY);
+            const padding = 84;
+            viewport.scale = Math.max(0.2, Math.min(1, (shell.clientWidth - padding * 2) / contentWidth, (shell.clientHeight - padding * 2) / contentHeight));
+            viewport.x = Math.round(shell.clientWidth / 2 - (minX + contentWidth / 2) * viewport.scale);
+            viewport.y = Math.round(shell.clientHeight / 2 - (minY + contentHeight / 2) * viewport.scale);
+            applyViewport();
+            renderQuickActionDock();
+            return true;
+        }
         function screenToWorld(event){
             const rect = shell.getBoundingClientRect();
             return {
@@ -4027,6 +4131,9 @@
                 updateProviderModels();
                 applyViewport();
                 render();
+                if(new URLSearchParams(location.search).get('fit') === '1') {
+                    requestAnimationFrame(() => fitCanvasToContent());
+                }
             } catch(e) { toast(tr('smart.toastCanvasFail')); }
         }
         function scheduleSave(){
@@ -4134,6 +4241,7 @@
         function libraryImageToNodeImage(img){
             return {
                 url: img.url,
+                asset_id: img.asset_id || (img.scope === 'project' ? img.id : '') || '',
                 name: img.filename || 'library-image',
                 width: Number(img.width) || 0,
                 height: Number(img.height) || 0,
@@ -4141,6 +4249,8 @@
                 natural_h: Number(img.height) || 0,
                 thumb_url: img.thumb_url || '',
                 library_image_id: img.id || '',
+                library_scope: img.scope || 'shared',
+                library_project_id: img.project_id || '',
                 library_source_id: img.source_id || '',
                 library_source_name: img.source_name || img.source_id || '',
                 library_categories: Array.isArray(img.categories) ? img.categories.slice(0, 8) : [],
@@ -4175,6 +4285,8 @@
             const target = materialTargetSpec(node.material_target || node.materialTarget || image.material_target || image.materialTarget || 'auto');
             return {
                 url:image.url,
+                asset_id:image.asset_id || '',
+                generation_task_id:image.generation_task_id || '',
                 name:image.name || node.title || `output-${index + 1}.png`,
                 image_index:index,
                 node_id:node.id,
@@ -4210,6 +4322,7 @@
                 const record = imported[index];
                 if(!record) return;
                 img.library_image_id = record.id || img.library_image_id || '';
+                img.asset_id = record.asset_id || img.asset_id || '';
                 img.library_source_id = record.source_id || data.source_id || img.library_source_id || '';
                 img.library_source_name = record.source_name || '智能画布';
                 img.library_saved_url = record.url || '';
@@ -4558,11 +4671,219 @@
                 ${moreActions.length ? `<details class="context-more"><summary class="context-action-btn" aria-label="更多操作"><i data-lucide="ellipsis"></i><span>更多</span></summary><div class="context-more-menu">${moreActions.map(actionButton).join('')}</div></details>` : ''}
             </div>`;
         }
+        function productionStatusLabel(status=''){
+            return {
+                queued:'排队中',
+                running:'生成中',
+                succeeded:'已完成',
+                failed:'失败',
+                cancelled:'已取消'
+            }[status] || status || '未知';
+        }
+        function productionTime(value){
+            const number = Number(value || 0);
+            const date = new Date(number < 10000000000 ? number * 1000 : number);
+            if(Number.isNaN(date.getTime())) return '--';
+            return date.toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+        }
+        function selectedProductionImage(){
+            const node = selectedNode();
+            if(!node) return null;
+            if(selectedImage.nodeId === node.id && Number(selectedImage.index) >= 0){
+                return node.images?.[Number(selectedImage.index)] || null;
+            }
+            return selectedActionImage(node);
+        }
+        function selectedProductionAssetId(){
+            return String(selectedProductionImage()?.asset_id || selectedNode()?.asset_id || '');
+        }
+        function productionTaskCard(task){
+            const status = String(task.status || '');
+            const canCancel = status === 'queued' || status === 'running';
+            const canRetry = status === 'failed' || status === 'cancelled';
+            const params = task.parameters || {};
+            const model = task.model || params.model || '默认模型';
+            const count = Number(task.output_count || 0);
+            return `<article class="production-task" data-production-task="${escapeHtml(task.id)}">
+                <div class="production-task-head">
+                    <span class="task-status ${escapeHtml(status)}">${escapeHtml(productionStatusLabel(status))}</span>
+                    <time>${escapeHtml(productionTime(task.updated_at))}</time>
+                </div>
+                <div class="production-task-prompt">${escapeHtml(task.prompt || '未记录提示词')}</div>
+                <div class="production-task-meta">${escapeHtml(task.provider_id || 'provider')} · ${escapeHtml(model)} · 输入 ${Number(task.input_count || 0)} · 输出 ${count}</div>
+                ${task.error ? `<div class="production-task-error">${escapeHtml(task.error)}</div>` : ''}
+                <div class="production-task-actions">
+                    ${task.source_node_id ? '<button type="button" data-production-action="focus">定位输入</button>' : ''}
+                    ${count ? '<button type="button" data-production-action="output">查看产物</button>' : ''}
+                    ${canCancel ? '<button type="button" data-production-action="cancel">取消任务</button>' : ''}
+                    ${canRetry ? '<button type="button" class="primary" data-production-action="retry">重新执行</button>' : ''}
+                </div>
+            </article>`;
+        }
+        function lineageChip(item, direction){
+            const assetId = direction === 'up' ? item.from_asset_id : item.to_asset_id;
+            const label = item.title || (direction === 'up' ? '上游素材' : '下游版本');
+            const url = item.storage_url || '';
+            return `<button type="button" class="lineage-chip" data-lineage-asset="${escapeHtml(assetId || '')}">
+                ${url ? `<img src="${escapeHtml(url)}" alt="">` : '<span class="lineage-placeholder"><i data-lucide="image"></i></span>'}
+                <span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(assetId || '')}</small></span>
+            </button>`;
+        }
+        function renderProductionPanel(){
+            if(!productionPanel) return;
+            productionPanel.classList.toggle('open', productionPanelOpen);
+            productionPanel.setAttribute('aria-hidden', productionPanelOpen ? 'false' : 'true');
+            if(!productionPanelOpen) return;
+            const active = productionTasks.filter(task => ['queued','running'].includes(task.status)).length;
+            const succeeded = productionTasks.filter(task => task.status === 'succeeded').length;
+            const failed = productionTasks.filter(task => ['failed','cancelled'].includes(task.status)).length;
+            productionStats.innerHTML = [
+                [active, '进行中'],
+                [succeeded, '已完成'],
+                [failed, '需处理']
+            ].map(([value,label]) => `<div class="production-stat"><strong>${value}</strong><span>${label}</span></div>`).join('');
+            productionTaskCount.textContent = `${productionTasks.length} 项`;
+            productionTaskList.innerHTML = productionTasks.length
+                ? productionTasks.map(productionTaskCard).join('')
+                : '<div class="production-empty">当前画布还没有持久化生成任务。完成一次在线生图后，任务、输入、输出和状态会显示在这里。</div>';
+            if(!productionLineageAssetId){
+                productionLineage.innerHTML = '<div class="production-empty">选中一个带资产身份的生成结果，即可查看来源、资产版本和后续分支。</div>';
+            } else if(!productionLineageData){
+                productionLineage.innerHTML = '<div class="production-empty">正在读取资产血缘…</div>';
+            } else {
+                const data = productionLineageData;
+                const asset = data.asset || {};
+                const versions = data.versions || [];
+                const upstream = data.upstream || [];
+                const downstream = data.downstream || [];
+                productionLineage.innerHTML = `<div class="lineage-card">
+                    <strong>${escapeHtml(asset.title || '画布资产')}</strong>
+                    <div class="lineage-asset-id">${escapeHtml(asset.id || productionLineageAssetId)}</div>
+                    <p>${versions.length} 个文件版本 · ${upstream.length} 个上游输入 · ${downstream.length} 个下游结果</p>
+                    ${versions.length ? `<div class="asset-version-list">${versions.map((version,index) => `<button type="button" class="lineage-chip" data-lineage-url="${escapeHtml(version.storage_url || '')}">${version.storage_url ? `<img src="${escapeHtml(version.storage_url)}" alt="">` : ''}<span><strong>版本 ${versions.length - index}</strong><small>${escapeHtml(version.storage_url || '')}</small></span></button>`).join('')}</div>` : ''}
+                    ${upstream.length ? `<div class="production-section-head"><strong>上游输入</strong><span>${upstream.length}</span></div><div class="lineage-list">${upstream.map(item => lineageChip(item,'up')).join('')}</div>` : ''}
+                    ${downstream.length ? `<div class="production-section-head"><strong>后续版本</strong><span>${downstream.length}</span></div><div class="lineage-list">${downstream.map(item => lineageChip(item,'down')).join('')}</div>` : ''}
+                </div>`;
+            }
+            productionTaskList.querySelectorAll('[data-production-action]').forEach(button => button.addEventListener('click', event => {
+                handleProductionTaskAction(event).catch(error => toast((error.message || '任务操作失败').slice(0,120)));
+            }));
+            productionLineage.querySelectorAll('[data-lineage-asset]').forEach(button => button.addEventListener('click', () => focusProductionAsset(button.dataset.lineageAsset)));
+            productionLineage.querySelectorAll('[data-lineage-url]').forEach(button => button.addEventListener('click', () => {
+                const node = nodes.find(item => (item.images || []).some(image => image.asset_id === productionLineageAssetId));
+                if(node) focusCanvasNode(node.id);
+            }));
+            if(window.lucide) lucide.createIcons();
+        }
+        async function loadProductionLineage(assetId){
+            productionLineageAssetId = String(assetId || '');
+            productionLineageData = null;
+            renderProductionPanel();
+            if(!productionLineageAssetId) return;
+            try {
+                const response = await fetch(`/api/assets/${encodeURIComponent(productionLineageAssetId)}/lineage`, {cache:'no-store'});
+                if(!response.ok) throw new Error(await response.text());
+                productionLineageData = await response.json();
+            } catch(error) {
+                productionLineageData = {
+                    asset:{id:productionLineageAssetId,title:'血缘读取失败'},
+                    versions:[],
+                    upstream:[],
+                    downstream:[]
+                };
+            }
+            renderProductionPanel();
+        }
+        async function refreshProductionTasks(){
+            if(!canvasId) return;
+            const query = new URLSearchParams({canvas_id:canvasId,limit:'60'});
+            const response = await fetch(`/api/generation-tasks?${query.toString()}`, {cache:'no-store'});
+            if(!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            productionTasks = Array.isArray(data.tasks) ? data.tasks : [];
+            renderProductionPanel();
+        }
+        async function refreshProductionPanel(){
+            if(!productionPanelOpen) return;
+            productionSub.textContent = '正在同步任务与资产血缘…';
+            try {
+                await refreshProductionTasks();
+                const selectedAssetId = selectedProductionAssetId();
+                productionSelectionAssetId = selectedAssetId;
+                await loadProductionLineage(selectedAssetId);
+                productionSub.textContent = '任务、资产版本与永久血缘';
+            } catch(error) {
+                productionSub.textContent = '同步失败，请重试';
+                toast((error.message || '生产记录同步失败').slice(0,120));
+            }
+        }
+        function queueProductionSelectionRefresh(){
+            if(!productionPanelOpen) return;
+            const assetId = selectedProductionAssetId();
+            if(assetId === productionSelectionAssetId) return;
+            productionSelectionAssetId = assetId;
+            clearTimeout(productionRefreshTimer);
+            productionRefreshTimer = setTimeout(() => loadProductionLineage(assetId), 120);
+        }
+        function openProductionPanel(){
+            productionPanelOpen = true;
+            toggleSmartAgent(false);
+            closeActionTemplatePanel();
+            closeMaterialCatalogue();
+            renderQuickActionDock();
+            renderProductionPanel();
+            refreshProductionPanel();
+            clearInterval(productionPollTimer);
+            productionPollTimer = setInterval(() => {
+                if(productionPanelOpen) refreshProductionTasks().catch(() => {});
+            }, 4000);
+        }
+        function closeProductionPanel(){
+            productionPanelOpen = false;
+            clearInterval(productionPollTimer);
+            productionPollTimer = null;
+            renderProductionPanel();
+            renderQuickActionDock();
+        }
+        async function handleProductionTaskAction(event){
+            const button = event.currentTarget;
+            const card = button.closest('[data-production-task]');
+            const taskId = card?.dataset.productionTask || '';
+            const task = productionTasks.find(item => item.id === taskId);
+            if(!task) return;
+            const action = button.dataset.productionAction || '';
+            if(action === 'focus'){
+                if(!focusCanvasNode(task.source_node_id)) toast('输入节点已不在当前画布，但任务记录仍然保留。');
+                return;
+            }
+            if(action === 'output'){
+                const response = await fetch(`/api/generation-tasks/${encodeURIComponent(taskId)}`, {cache:'no-store'});
+                const data = await response.json().catch(() => ({}));
+                const assetId = data.task?.outputs?.[0]?.asset_id || '';
+                if(assetId) await loadProductionLineage(assetId);
+                else toast('该任务还没有可查看的产物。');
+                return;
+            }
+            const response = await fetch(`/api/canvas-image-tasks/${encodeURIComponent(taskId)}/${action}`, {method:'POST'});
+            const data = await response.json().catch(() => ({}));
+            if(!response.ok){
+                toast(String(data.detail || `${action} failed`).slice(0,120));
+                return;
+            }
+            toast(action === 'retry' ? '任务已重新进入队列' : '任务已取消');
+            await refreshProductionTasks();
+        }
+        function focusProductionAsset(assetId){
+            const node = nodes.find(item => (item.images || []).some(image => image.asset_id === assetId));
+            if(node) focusCanvasNode(node.id);
+            else loadProductionLineage(assetId);
+        }
         function renderQuickActionDock(){
             if(!quickActionDock) return;
             const percent = Math.round(safeScale(viewport.scale) * 100);
             quickActionDock.innerHTML = `<div class="quick-dock-group">
                 <button type="button" class="quick-action-btn ${projectHistoryOpen ? 'active' : ''}" data-dock-action="history" title="项目历史"><i data-lucide="history"></i><span>历史</span></button>
+                <button type="button" class="quick-action-btn ${productionPanelOpen ? 'active' : ''}" data-dock-action="production" title="生产记录"><i data-lucide="list-checks"></i><span>生产记录</span></button>
                 <button type="button" class="quick-action-btn" data-dock-action="undo" title="Undo"${undoStack.length ? '' : ' disabled'}><i data-lucide="undo-2"></i></button>
                 <button type="button" class="quick-action-btn" data-dock-action="redo" title="Redo"${redoStack.length ? '' : ' disabled'}><i data-lucide="redo-2"></i></button>
             </div><div class="quick-dock-group">
@@ -4587,6 +4908,9 @@
                     projectHistoryOpen = !projectHistoryOpen;
                     renderVersionHistoryRail();
                     renderQuickActionDock();
+                } else if(action === 'production') {
+                    if(productionPanelOpen) closeProductionPanel();
+                    else openProductionPanel();
                 } else if(action === 'undo') performUndo();
                 else if(action === 'redo') performRedo();
                 else if(action === 'agent') toggleSmartAgent();
@@ -4828,6 +5152,8 @@
             try {
                 const params = new URLSearchParams();
                 params.set('page_size', '120');
+                params.set('scope', 'available');
+                if(canvas?.project_id) params.set('project_id', canvas.project_id);
                 if(query) params.set('q', query);
                 if(libraryPickerState.activeSource) params.set('source_id', libraryPickerState.activeSource);
                 if(libraryPickerState.activeCategory) params.set('category', libraryPickerState.activeCategory);
@@ -4857,7 +5183,7 @@
             libraryPickerState.open = false;
             libraryPickerModal?.classList.remove('open');
         }
-        function insertSelectedLibraryImages(){
+        async function insertSelectedLibraryImages(){
             const picked = (libraryPickerState.items || []).filter(img => libraryPickerState.selectedIds.has(img.id));
             if(!picked.length){
                 toast(tr('smart.toastLibraryInsertNeedSelection'));
@@ -4865,7 +5191,16 @@
             }
             const center = viewportCenter();
             const images = picked.map(libraryImageToNodeImage);
-            createNode(center.x - 130, center.y - 90, images);
+            const node = createNode(center.x - 130, center.y - 90, images);
+            await Promise.all(picked.map(img => fetch(`/api/library/images/${encodeURIComponent(img.id)}/feedback`, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    project_id:canvas?.project_id || '',
+                    event_type:'used_in_canvas',
+                    context:{canvas_id:canvasId, node_id:node?.id || '', source:'smart_canvas_picker'}
+                })
+            }).catch(() => null)));
             closeLibraryPicker();
             toast((tr('smart.toastLibraryInserted') || '已插入 {n} 张图片').replace('{n}', String(images.length)));
         }
@@ -5098,7 +5433,8 @@
                         canvas_title:canvas?.title || '',
                         node_id:node.id,
                         categories:materialSwapLibraryCategories(node),
-                        manual_tags:materialSwapLibraryTags(node)
+                        manual_tags:materialSwapLibraryTags(node),
+                        project_id:canvas?.project_id || ''
                     })
                 });
                 const data = await res.json().catch(() => ({}));
@@ -5251,6 +5587,7 @@
             renderSmartAgentPanel();
             renderAgentCanvasSelectBar();
             renderMinimap();
+            queueProductionSelectionRefresh();
             if(window.lucide) lucide.createIcons();
             measureSmartNodeImages();
         }
@@ -7140,7 +7477,16 @@
         function finalizePendingNode(pendingNode, urls, meta, kind='image'){
             if(!pendingNode) return;
             const ext = kind === 'video' ? 'mp4' : 'png';
-            const imgs = urls.map((url, i) => ({url, name:`output-${i + 1}.${ext}`, kind}));
+            const imgs = urls.map((url, i) => {
+                const assetMeta = generationAssetMetaByUrl.get(url) || {};
+                return {
+                    url,
+                    name:`output-${i + 1}.${ext}`,
+                    kind,
+                    asset_id:assetMeta.asset_id || '',
+                    generation_task_id:assetMeta.generation_task_id || ''
+                };
+            });
             pendingNode.images = imgs;
             pendingNode.pending = 0;
             pendingNode.outputKind = kind;
@@ -8572,6 +8918,10 @@
         async function runApiGeneration(prompt, refs, options={}){
             if(!settings.provider_id || !settings.model) throw new Error(tr('smart.errNoApiModel'));
             const count = Math.max(1, Math.min(4, Number(settings.count || 1)));
+            const enrichedRefs = refs.map(ref => {
+                const sourceImage = nodes.flatMap(item => item.images || []).find(image => image.url === ref.url);
+                return {...ref, asset_id:ref.asset_id || sourceImage?.asset_id || ''};
+            });
             const payload = {
                 prompt,
                 provider_id:settings.provider_id,
@@ -8579,16 +8929,25 @@
                 size:options.sizeOverride || sizeForRun(),
                 quality:settings.quality || 'auto',
                 n:count,
-                reference_images:refs,
+                reference_images:enrichedRefs,
                 preserve_canvas:Boolean(options.preserveCanvas),
                 source_width:Math.max(0, Number(options.sourceWidth) || 0),
-                source_height:Math.max(0, Number(options.sourceHeight) || 0)
+                source_height:Math.max(0, Number(options.sourceHeight) || 0),
+                project_id:canvas?.project_id || '',
+                canvas_id:canvasId,
+                source_node_id:selectedNode()?.id || ''
             };
             const task = await fetch('/api/canvas-image-tasks', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}).then(async r => {
                 if(!r.ok) throw new Error(await r.text());
                 return r.json();
             });
             const result = await pollTask(task.task_id);
+            (result?.domain?.outputs || []).forEach(item => {
+                if(item?.url) generationAssetMetaByUrl.set(item.url, {
+                    asset_id:item.asset_id || '',
+                    generation_task_id:result.generation_task_id || task.task_id
+                });
+            });
             return (result?.images || []).filter(Boolean);
         }
         async function runApiVideoGeneration(prompt, refs){
@@ -8853,7 +9212,7 @@
             scheduleSave();
         }
         shell.onmousedown = e => {
-            if(e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.library-picker-modal')) return;
+            if(e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.production-panel,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.library-picker-modal')) return;
             if(e.button === 0 && e.ctrlKey){
                 e.preventDefault();
                 didPan = false;
@@ -8868,14 +9227,14 @@
             shell.classList.add('panning');
         };
         shell.ondblclick = e => {
-            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.production-panel,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             const p = screenToWorld(e);
             createNode(p.x - 130, p.y - 90);
         };
         shell.onclick = e => {
             if(selectionJustFinished) return;
-            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(didPan || e.target.closest('.image-node,.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.production-panel,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             clearSelection();
             render();
@@ -9113,7 +9472,7 @@
             }
         };
         shell.addEventListener('wheel', e => {
-            if(e.target.closest('.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
+            if(e.target.closest('.composer,.context-toolbar,.quick-action-dock,.version-history-rail,.production-panel,.smart-back,.smart-top-actions,.smart-agent-panel,.action-template-panel,.canvas-api-settings-panel,.agent-canvas-select-bar,.image-edit-modal,.library-picker-modal')) return;
             e.preventDefault();
             const rect = shell.getBoundingClientRect();
             const sx = e.clientX - rect.left;
@@ -9369,6 +9728,10 @@
         });
         quickActionDock?.addEventListener('pointerdown', event => event.stopPropagation());
         quickActionDock?.addEventListener('mousedown', event => event.stopPropagation());
+        productionPanel?.addEventListener('pointerdown', event => event.stopPropagation());
+        productionPanel?.addEventListener('mousedown', event => event.stopPropagation());
+        productionRefreshBtn?.addEventListener('click', () => refreshProductionPanel());
+        productionCloseBtn?.addEventListener('click', closeProductionPanel);
         canvasApiSettingsPanel?.addEventListener('pointerdown', event => event.stopPropagation());
         canvasApiSettingsPanel?.addEventListener('mousedown', event => event.stopPropagation());
         smartAgentPanel?.addEventListener('pointerdown', event => event.stopPropagation());
@@ -9399,6 +9762,7 @@
             if(event.key === 'Escape'){
                 closeAllSmartPopovers();
                 closeActionTemplatePanel();
+                if(productionPanelOpen) closeProductionPanel();
             }
         });
         document.getElementById('cropBox').addEventListener('mousedown', event => beginCropDrag(event, 'move'));

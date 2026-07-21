@@ -141,6 +141,8 @@ def check_smart_canvas_script():
     assert "applyMaterialTargetToCurrentNodes" in html, "material target selector should update current material links"
     assert "selected_library_import_items" in html and "items:importItems" in html, "library save should send material swap metadata items"
     assert "applyLibraryImportResultToNode" in html and "library_imported_ids" in html, "library save should mark generated result nodes as imported"
+    assert "params.set('scope', 'available')" in html and "params.set('project_id', canvas.project_id)" in html, "canvas library picker should use current-project plus shared assets only"
+    assert "event_type:'used_in_canvas'" in html and "/feedback`" in html, "putting a library asset on canvas should persist a project feedback event"
     assert "material_node_id" in html and "selection_node_id" in html and "material_target_label" in html, "swap results should preserve material target provenance"
     assert "POPULATE_TEMPLATES" in html and "场景人物" in html and "人物数量、位置和服装关键词" in html, "Populate should expose lightweight parameters"
     assert "POPULATE_PRESET_PARAMS" in html and 'data-populate-param="density"' in html and 'data-populate-param="placement"' in html, "Populate should expose editable density and placement controls"

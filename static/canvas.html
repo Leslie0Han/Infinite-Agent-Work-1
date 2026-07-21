@@ -78,6 +78,7 @@
         .toolbar { padding:10px; display:flex; gap:8px; align-items:center; }
         .tool-btn { height:38px; min-width:38px; padding:0 12px; border-radius:999px; display:flex; align-items:center; justify-content:center; gap:7px; color:var(--muted); background:var(--card-solid); border:1px solid var(--line); font-size:11px; font-weight:700; transition:all .2s var(--ease); pointer-events:auto; }
         .tool-btn:hover { background:var(--soft-2); color:var(--text); }
+        .project-switcher { height:34px; max-width:180px; padding:0 10px; border:1px solid var(--line); border-radius:999px; background:var(--card-solid); color:var(--text); font-size:11px; font-weight:700; }
         .theme-toggle.active { background:var(--strong); color:var(--strong-text); border-color:var(--strong); }
         .board { position:absolute; inset:0; cursor:grab; background-color:var(--page); background-image:radial-gradient(var(--grid) 1px, transparent 1px); background-size:24px 24px; }
         body.canvas-knife .board,
@@ -782,6 +783,10 @@
                         <div id="gateSubtitle" class="gate-subtitle">打开已有画布，或新建一个开始创作。</div>
                     </div>
                     <div class="gate-head-actions">
+                        <select id="gateProjectSelect" class="project-switcher" aria-label="当前项目"></select>
+                        <button id="gateCreateProjectBtn" class="gate-icon-btn" type="button" title="新建项目" aria-label="新建项目">
+                            <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                        </button>
                         <button id="gateRefreshBtn" class="gate-icon-btn" type="button" title="刷新列表" aria-label="刷新列表" data-i18n-title="canvas.refresh">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                         </button>
@@ -1012,6 +1017,8 @@
         const gateSubtitle = document.getElementById('gateSubtitle');
         const gateCanvasList = document.getElementById('gateCanvasList');
         const gateTitleInput = document.getElementById('gateTitleInput');
+        const gateProjectSelect = document.getElementById('gateProjectSelect');
+        const gateCreateProjectBtn = document.getElementById('gateCreateProjectBtn');
         const gateConfirmBtn = document.getElementById('gateConfirmBtn');
         const gateCancelBtn = document.getElementById('gateCancelBtn');
         const backToManagerBtn = document.getElementById('backToManagerBtn');
@@ -1039,6 +1046,8 @@
         const errorMessage = document.getElementById('errorMessage');
         let canvases = [];
         let deletedCanvases = [];
+        let projects = [];
+        let activeProjectId = localStorage.getItem('studio_active_project_id') || '';
         let canvas = null;
         let nodes = [];
         let connections = [];
@@ -1060,6 +1069,7 @@
         let selected = new Set();
         let saveTimer = null;
         let creatingCanvas = false;
+        let creatingProject = false;
         let createCanvasKind = 'classic';
         let trashMode = false;
         let pendingDeleteCanvasId = null;
@@ -1525,13 +1535,16 @@
         }
         function setCreateMode(active, kind='classic'){
             creatingCanvas = active;
+            creatingProject = active && kind === 'project';
             createCanvasKind = active ? (kind === 'smart' ? 'smart' : 'classic') : 'classic';
             if(active) trashMode = false;
             canvasGate.classList.toggle('creating', active);
             refreshGateViewControls();
             setStatus(active ? tr('canvas.enterCanvasName') : (canvases.length ? tr('canvas.chooseFirst') : tr('canvas.noCanvasCreateFirst')));
             if(active) {
-                gateTitleInput.placeholder = createCanvasKind === 'smart'
+                gateTitleInput.placeholder = creatingProject
+                    ? '项目名称'
+                    : createCanvasKind === 'smart'
                     ? (tr('canvas.newSmartCanvasPlaceholder') || tr('canvas.newCanvasPlaceholder'))
                     : tr('canvas.newCanvasPlaceholder');
                 gateTitleInput.focus();
@@ -1674,9 +1687,37 @@
             const sel = selected && list.includes(selected) ? selected : list[0];
             return list.map(m => `<option value="${escapeHtml(m)}" ${m === sel ? 'selected' : ''}>${escapeHtml(m.split('/').pop().split(':')[0])}</option>`).join('');
         }
+        async function loadProjects(){
+            const response = await fetch('/api/projects');
+            if(!response.ok) throw new Error('项目加载失败');
+            const data = await response.json();
+            projects = data.projects || [];
+            if(!projects.some(item => item.id === activeProjectId)) activeProjectId = projects[0]?.id || '';
+            if(activeProjectId) localStorage.setItem('studio_active_project_id', activeProjectId);
+            gateProjectSelect.innerHTML = projects.map(item =>
+                `<option value="${escapeAttr(item.id)}" ${item.id === activeProjectId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`
+            ).join('');
+        }
+        async function createProjectFromGate(name){
+            if(!name?.trim()) throw new Error('请输入项目名称');
+            const response = await fetch('/api/projects', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({name:name.trim()})
+            });
+            const data = await response.json().catch(() => ({}));
+            if(!response.ok) throw new Error(data.detail || '项目创建失败');
+            activeProjectId = data.project.id;
+            localStorage.setItem('studio_active_project_id', activeProjectId);
+            await loadProjects();
+            canvas = null;
+            setCreateMode(false);
+            await loadCanvasList(false);
+        }
         async function loadCanvasList(openFirst=true){
             try {
-                const res = await fetch('/api/canvases');
+                const query = activeProjectId ? `?project_id=${encodeURIComponent(activeProjectId)}` : '';
+                const res = await fetch(`/api/canvases${query}`);
                 if(!res.ok) throw new Error(tr('canvas.canvasListFailed'));
                 const data = await res.json();
                 canvases = data.canvases || [];
@@ -1695,7 +1736,8 @@
         }
         async function loadTrashList(){
             try {
-                const res = await fetch('/api/canvases/trash');
+                const query = activeProjectId ? `?project_id=${encodeURIComponent(activeProjectId)}` : '';
+                const res = await fetch(`/api/canvases/trash${query}`);
                 if(!res.ok) throw new Error(tr('canvas.trashLoadFailed'));
                 const data = await res.json();
                 deletedCanvases = data.canvases || [];
@@ -1710,7 +1752,8 @@
         async function refreshTrashCount(){
             if(trashMode) return;
             try {
-                const res = await fetch('/api/canvases/trash');
+                const query = activeProjectId ? `?project_id=${encodeURIComponent(activeProjectId)}` : '';
+                const res = await fetch(`/api/canvases/trash${query}`);
                 if(!res.ok) return;
                 const data = await res.json();
                 deletedCanvases = data.canvases || [];
@@ -1837,6 +1880,15 @@
         }
         async function createCanvas(){
             const customTitle = gateTitleInput?.value.trim();
+            if(creatingProject){
+                try {
+                    await createProjectFromGate(customTitle);
+                    setStatus('项目已创建');
+                } catch(error) {
+                    setStatus(error.message || '项目创建失败');
+                }
+                return;
+            }
             const isSmart = createCanvasKind === 'smart';
             const titleBase = isSmart ? tr('canvas.newSmartCanvas') : tr('canvas.newCanvas');
             const title = customTitle || `${titleBase} ${new Date().toLocaleTimeString(window.StudioI18n?.lang() === 'en' ? 'en-US' : 'zh-CN', {hour:'2-digit', minute:'2-digit'})}`;
@@ -1847,7 +1899,12 @@
                 const res = await fetch('/api/canvases', {
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({title, icon:isSmart ? 'sparkles' : '🧩', kind:isSmart ? 'smart' : 'classic'})
+                    body:JSON.stringify({
+                        title,
+                        icon:isSmart ? 'sparkles' : '🧩',
+                        kind:isSmart ? 'smart' : 'classic',
+                        project_id:activeProjectId
+                    })
                 });
                 if(!res.ok) throw new Error(tr('canvas.createFailed'));
                 const data = await res.json();
@@ -2201,6 +2258,14 @@
         window.returnToCanvasManager = returnToCanvasManager;
         gateCreateBtn.addEventListener('click', () => setCreateMode(true));
         gateCreateSmartBtn?.addEventListener('click', createSmartCanvas);
+        gateProjectSelect?.addEventListener('change', async event => {
+            activeProjectId = event.target.value || '';
+            localStorage.setItem('studio_active_project_id', activeProjectId);
+            canvas = null;
+            deletedCanvases = [];
+            await loadCanvasList(false);
+        });
+        gateCreateProjectBtn?.addEventListener('click', () => setCreateMode(true, 'project'));
         gateBackBtn.addEventListener('click', () => setTrashMode(false));
         gateTrashBtn.addEventListener('click', () => setTrashMode(true));
         gateRefreshBtn.addEventListener('click', () => trashMode ? loadTrashList() : loadCanvasList(false));
@@ -7998,8 +8063,11 @@
             applyViewport();
             await loadConfig();
             pruneMissingComfyWorkflows();
+            await loadProjects();
             await loadCanvasList(false);
-            setCanvasMode(false);
+            const requestedCanvasId = new URLSearchParams(window.location.search).get('id') || '';
+            if(requestedCanvasId && canvases.some(item => item.id === requestedCanvasId)) await openCanvas(requestedCanvasId);
+            else setCanvasMode(false);
         };
     </script>
 </body>

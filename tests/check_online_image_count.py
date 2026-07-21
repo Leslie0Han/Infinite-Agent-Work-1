@@ -29,7 +29,7 @@ def check_online_image_count_contract():
     original_save_history = app_main.save_to_history
     original_loop = app_main.GLOBAL_LOOP
 
-    async def fake_generate(*args):
+    async def fake_generate(*args, **kwargs):
         index = len(calls) + 1
         calls.append(args)
         return {"type": "url", "value": f"https://example.test/{index}.png"}, {"id": f"request-{index}"}
