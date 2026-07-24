@@ -87,6 +87,7 @@ def check_smart_canvas_script():
     assert "function focusCanvasNode" in html and "点击定位结果" in html, "recent actions and lineage chips should focus canvas result nodes"
     assert "fetch('/api/canvas-llm'" in html, "Agent panel should call the existing canvas LLM endpoint"
     assert "canvasAgentInventory" in html and "recentHistory:history" in html and "supportingReferences:supporting" in html, "Agent should send a whole-canvas inventory, not only the selected node"
+    assert "function canvasAgentHistoryNodes()" in html and "canvasAgentHistoryNodes().map(canvasAgentNodeSummary)" in html, "Agent inventory must call its defined whole-canvas history selector"
     assert "selectedInputs" in html and "selectedOutputs" in html and "canvasInventory" in html, "Agent context should include selected node lineage and project history"
     assert "请先综合 canvasInventory、selectedInputs、selectedOutputs 和附件" in html, "Agent prompt should instruct the model to reason over the whole canvas"
     assert "function chatProviders()" in html, "Agent should resolve a chat-capable provider instead of reusing image provider settings"
@@ -121,12 +122,17 @@ def check_smart_canvas_script():
     assert "mentionSelectedObjectInPrompt" in html and "data-context-action=\"mention-prompt\"" in html and "引用到 Prompt" in html, "selected canvas objects should be insertable as prompt mention tokens"
     assert "selectedMentionImage" in html and "insertMentionToken(mention)" in html, "object prompt references should reuse mention tokens with node/image/role metadata"
     assert "createSelectionReferenceNode" in html, "local-edit workflow should expose selection reference creation"
-    selection_entry = re.search(r"function createSelectionReferenceNode[\s\S]*?function closeActionTemplatePanel", html)
-    assert selection_entry and "openImageEditor(target.id, imageIndex)" in selection_entry.group(0) and "setImageEditMode('crop', true)" in selection_entry.group(0), "selection action should require an explicit user crop instead of silently using a fixed center region"
-    assert "imageEditSelectionBtn" in html and "createSelectionReferenceFromEditor" in html, "image editor should create selection references from a user-defined crop box"
-    assert "normalizedCropSelection" in html and "_selection.png" in html, "selection references should persist normalized crop regions and a selection thumbnail"
+    selection_entry = re.search(r"function openSelectionReferenceEditor[\s\S]*?function restoreSelectionEditorContext", html)
+    assert selection_entry and "选择局部区域" in selection_entry.group(0) and "完成并创建选区" in selection_entry.group(0), "selection action should use a task-specific area mode instead of exposing the generic crop editor"
+    assert "setImageEditMode('polygon', true)" in selection_entry.group(0) and "逐点勾勒替换区域" in selection_entry.group(0), "material area selection should open the dedicated polygon editor"
+    assert "function restoreSelectionEditorContext" in html and "if(context.action === 'swap'){" in html and "openSwapMaterialPanel(target);" in html and "else if(context.action === 'edit'){" in html and "openEditActionPanel(target);" in html, "cancelling an area selection must restore the originating task panel and its draft state"
+    assert "imageEditSelectionBtn" in html and "createSelectionReferenceFromEditor" in html, "image editor should create selection references from a user-defined area"
+    assert "imagePolygonTools" in html and "polygonUndoBtn" in html and "polygonClearBtn" in html and "polygonCloseBtn" in html, "polygon selection should support undo, clear, and explicit closure"
+    assert "polygonSelectionPoints" in html and "normalizedPolygonSelection" in html, "polygon vertices should be persisted as normalized selection metadata"
+    assert "selectionCtx.clip()" in html and "_selection.png" in html, "polygon selection thumbnails should preserve the actual clipped shape"
+    assert "normalizedCropSelection" in html, "ordinary rectangular crop selections should remain supported"
     assert "asset_kind:'selection'" in html, "selection nodes should use the normalized asset_kind field"
-    assert "const selection = normalizedCropSelection()" in html, "selection nodes should persist the user-defined normalized region"
+    assert "const selection = isPolygon ? normalizedPolygonSelection() : normalizedCropSelection()" in html, "selection nodes should persist polygon or rectangular regions"
     assert "operation:'local-edit'" in html, "local edit should be traceable as an operation"
     assert "请先选择材质目标面，或创建局部 selection" in html, "ambiguous material swaps should ask for a target surface or selection"
     assert "openMaterialTargetPromptPanel" in html and "选择材质替换目标面" in html and "data-material-target-run" in html, "ambiguous material swaps should show an inline target-surface chooser"
@@ -136,6 +142,8 @@ def check_smart_canvas_script():
     assert "applyMaterialTargetToCurrentNodes" in html, "material target selector should update current material links"
     assert "selected_library_import_items" in html and "items:importItems" in html, "library save should send material swap metadata items"
     assert "applyLibraryImportResultToNode" in html and "library_imported_ids" in html, "library save should mark generated result nodes as imported"
+    assert "params.set('scope', 'available')" in html and "params.set('project_id', canvas.project_id)" in html, "canvas library picker should use current-project plus shared assets only"
+    assert "event_type:'used_in_canvas'" in html and "/feedback`" in html, "putting a library asset on canvas should persist a project feedback event"
     assert "material_node_id" in html and "selection_node_id" in html and "material_target_label" in html, "swap results should preserve material target provenance"
     assert "POPULATE_TEMPLATES" in html and "场景人物" in html and "人物数量、位置和服装关键词" in html, "Populate should expose lightweight parameters"
     assert "POPULATE_PRESET_PARAMS" in html and 'data-populate-param="density"' in html and 'data-populate-param="placement"' in html, "Populate should expose editable density and placement controls"
@@ -143,6 +151,20 @@ def check_smart_canvas_script():
     assert 'data-populate-density' in html and all(value in html for value in ["lite:'极少", "packed:'密集"]), "Populate density should match the demonstrated five-level Lite-to-Packed control"
     assert 'data-populate-age="${value}"' in html and "['teenagers','young-adults','adults','seniors']" in html and "至少保留一个年龄组" in html, "Populate age groups should be independently selectable without allowing an invalid empty set"
     assert 'data-populate-param="outfit"' in html and 'data-populate-param="extra"' in html and "populateParamsPrompt" in html, "Populate should persist outfit keywords and adversarial constraints in the generation prompt"
+    assert "sourceCanvasLock" in html and "populateCanvasLockPrompt" in html and "preserveCanvas:true" in html, "Populate should lock generation to the source canvas instead of inheriting the global aspect ratio"
+    assert "actionUsesCanvasLock" in html and "['populate','style','generate-style','swap','swap-material']" in html, "Populate, style, and material replacement should share the source canvas lock"
+    assert "canvasLockPrompt(canvasLock, action)" in html and "canvasLockPrompt(canvasLock, 'swap-material')" in html, "Style and material prompts should preserve the source framing and camera"
+    assert "sizeOverride:canvasLock.size" in html and "sourceWidth:canvasLock.sourceWidth" in html and "sourceHeight:canvasLock.sourceHeight" in html, "Locked image actions should request and normalize to the source dimensions"
+    assert "actionOutputSettingsHtml" in html and 'data-action-output-resolution' in html and 'data-action-output-count' in html, "Image action panels should expose output resolution and candidate count"
+    assert "宽高比跟随源图，仅调整清晰度" in html and "candidateCount:actionOutputCount()" in html, "Locked actions should keep source aspect ratio while honoring the panel candidate count"
+    assert "const candidateCount = actionOutputCount()" in html and "runImageReferenceGeneration(prompt, refs, candidateCount" in html, "Material replacement should honor the panel candidate count"
+    assert "画幅与镜头已锁定" in html and "只原位叠加人物" in html, "Populate preflight should visibly disclose its immutable canvas behavior"
+    assert "不得改变相机位置、镜头焦段、拍摄角度" in html and "只允许在原有像素位置上原位叠加人物" in html, "Populate prompts must treat composition and camera as immutable"
+    assert "不得增加家具、植物、灯具或其他场景元素" in html, "Populate must not invite unrelated scene redesign"
+    connection_renderer = re.search(r"function renderConnections\(\)\{[\s\S]*?\n        \}", html)
+    assert connection_renderer and "return '';" in connection_renderer.group(0) and "canvas.connections" in connection_renderer.group(0), "canvas relationships should persist without rendering connector lines"
+    assert "toolbar-above" in html and "toolbar-below" in html and "placeBelow ? r.y + r.height + gap" in html, "the selected-image toolbar should stay outside the image and flip below when there is no room above"
+    assert ".context-toolbar.toolbar-above .context-agent-session-menu" in html and "bottom:38px" in html and "submenuReserve = Math.max(80, Math.round(160 / scale))" in html and "max-height:var(--context-submenu-max, 180px); overflow:auto" in html, "toolbar submenus should open away from the selected image without leaving the viewport"
     assert "actionPreflight.actionParams" in html, "custom action parameters should be preserved in version provenance"
     assert "STYLE_TEMPLATES" in html and all(label in html for label in ["Flat Shade", "Heavy Marker", "Loose Sketch", "Physical Model", "Pink Blue", "Post Digital", "Precise Sketch", "Urban Marker", "Vintage Japanese"]), "Style should expose the demonstrated nine visual-media presets"
     assert all(f"/static/style-previews/{name}.png" in html for name in ["flat-shade", "heavy-marker", "loose-sketch", "physical-model", "pink-blue", "post-digital", "precise-sketch", "urban-marker", "vintage-japanese"]), "style choices should use real visual assets captured from the reference recording"
@@ -151,6 +173,9 @@ def check_smart_canvas_script():
     assert "dblclick" in html and "data-candidate-add" in html and "draggable=\"true\"" in html, "candidate promotion should work by double-click, plus, or drag"
     assert "return Boolean(node && node.candidateSession === true)" in html, "only explicit candidate sessions may be folded into a source rail"
     assert "function markPromotedCandidate" in html and "delete node.candidateSession" in html and "delete node.sessionOwnerId" in html, "promoted results must clear every candidate-session identity field"
+    assert "data-video-select" in html and "data-video-run" in html and "生成视频候选" in html, "video camera choices must be selected before an explicit generate action can submit a task"
+    assert "generationReadinessError" in html and "未配置 API Key" in html and "风格示意预览，不能作为视频首帧" in html, "generation controls must surface missing configuration and invalid video inputs before creating failed candidates"
+    assert "申请免费样品" not in html and "aria-label=\"用作材质参考" in html, "material cards should expose product actions with accessible labels and no plan/sample upsell copy"
     node_events = re.search(r"function bindNodeEvents\(\)[\s\S]*?function rectOverlapNode", html)
     assert node_events and "candidateStack" not in node_events.group(0), "clicking or double-clicking an independent canvas object must never route back through candidate behavior"
     assert "const candidateSource = isCandidateSession(source)" in html and "markPromotedCandidate(newNode, source, candidateOwner)" in html, "candidate drag promotion must use explicit session identity and produce an independent object"
@@ -158,7 +183,7 @@ def check_smart_canvas_script():
     assert "moved:false" in html and "if(!dragState.moved && !dragState.thumbDetached)" in html, "a click without real pointer movement must not run drag-drop merge logic"
     assert "pendingNode.generationJob = {status:'error'" in html and "pushSmartActionFailureLog" in html, "failed generations should preserve a recoverable candidate session"
     assert "openSwapMaterialPanel" in html and "data-swap-select-area" in html and "data-swap-material" in html and "data-swap-description" in html, "Swap Material should expose surface, material reference, and description inputs"
-    assert "materialCatalogueState.detailId" in html and "用作材质参考" in html and "申请免费样品" in html, "material cards should open the demonstrated detail actions"
+    assert "materialCatalogueState.detailId" in html and "用作材质参考" in html and "申请免费样品" not in html, "material cards should open product actions without sample or upgrade copy"
     assert "action === 'download'" in html and "downloadSelectedCanvasImage(node)" in html and "openDownloadRightsPanel" not in html, "download should export directly without commercial or upgrade prompts"
     assert "data-enhance-run" in html and "一键增强" in html, "Enhance should remain a deliberate one-click action without an unnecessary prompt"
     populate_run = re.search(r"querySelector\('\[data-populate-run\]'\)[\s\S]*?querySelectorAll\('\[data-style-select\]'\)", html)
@@ -174,6 +199,13 @@ def check_smart_canvas_script():
     assert 'id="addStickyNoteBtn"' in html and "createStickyNote" in html and "sticky-note-text" in html, "the demonstrated sticky-note canvas tool should persist editable notes"
     assert "startAgentCanvasSelection" in html and "toggleAgentCanvasNodeSelection" in html and 'data-agent-select-canvas="1"' in html, "Agent attachments should support the demonstrated visible multi-select-on-canvas workflow"
     assert "actionPreflightSummaryHtml" in html and "动作预检" in html and "调用配置" in html, "template actions should show a preflight summary before execution"
+    assert 'id="canvasApiSettingsBtn"' in html and "本画布 API" in html and 'id="canvasApiSettingsPanel"' in html, "the canvas should expose one global image API entry in its top bar"
+    assert "renderCanvasApiSettings" in html and 'data-canvas-api-provider' in html and 'data-canvas-api-model' in html and 'data-canvas-api-dropdown-toggle' in html, "the global canvas API entry should expose linked provider and model dropdowns"
+    assert "所有图片生成统一使用这里的设置，可随时切换" in html and "渲染设计、编辑、材质替换、添加人物、生成风格和人物素材都会使用当前选择" in html, "the global API selector should disclose that it applies across image actions"
+    assert "renderImageActionProviderSelector" not in html and 'data-action-image-provider' not in html, "individual image action panels must not duplicate the global API selection control"
+    assert 'role="listbox" aria-label="${escapeHtml(label)}"' in html and "canvasApiSettingsPanel?.addEventListener('pointerdown'" in html, "the global API dropdowns should be accessible and insulated from canvas pan handlers"
+    assert "refreshCanvasApiProviders" in html and "cache:'no-store'" in html and "studio_api_providers_changed_at" in html and "new BroadcastChannel('studio-api')" in html, "saved API model changes should refresh into the canvas without a stale cache"
+    assert "新增模型需先在 API 设置页保存，保存后这里会自动同步" in html, "the canvas API panel should explain the saved-model synchronization contract"
     assert "function closeActionTemplatePanel(event=null)" in html and "event?.stopPropagation?.()" in html, "closing an action panel should not clear the selected canvas object through click bubbling"
     assert "actionPreflightSnapshot" in html and "actionPreflight:actionPreflightSnapshot" in html, "action results should persist a preflight snapshot in runSettings"
     assert "materialNodeId:materialNode.id" in html and "materialTargetLabel:targetSurface.label" in html, "swap material preflight should persist material and target surface metadata"
@@ -300,6 +332,24 @@ def check_builtin_material_pack():
     for path in files:
         with Image.open(path) as image:
             assert image.size == (1024, 1024), f"{path.name} should be a 1K texture"
+
+
+def check_populate_canvas_lock():
+    sys.path.insert(0, str(ROOT))
+    app_main = importlib.import_module("main")
+    ratio, resolution = app_main.apimart_size_resolution("1080x948", preserve_canvas=True)
+    assert ratio == "90:79" and resolution == "1k", "APIMart populate requests should preserve the exact source aspect ratio"
+    original_local_resolver = app_main.local_asset_path_from_url
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        image_path = Path(tmp_dir) / "generated.png"
+        Image.new("RGB", (1200, 800), (30, 40, 50)).save(image_path)
+        try:
+            app_main.local_asset_path_from_url = lambda _url: str(image_path)
+            assert app_main.normalize_generated_canvas("/output/generated.png", 1000, 1000) == "/output/generated.png"
+        finally:
+            app_main.local_asset_path_from_url = original_local_resolver
+        with Image.open(image_path) as normalized:
+            assert normalized.size == (800, 800), "ignored upstream ratios should be center-cropped back to the locked source canvas"
 
 
 def check_ai_reference_upload_validation():
@@ -621,6 +671,7 @@ if __name__ == "__main__":
     check_canvas_agent_decision_contract()
     check_canvas_llm_local_images_are_inlined()
     check_builtin_material_pack()
+    check_populate_canvas_lock()
     check_archlib_material_chain()
     check_ai_reference_upload_validation()
     check_canvas_material_persistence()

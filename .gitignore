@@ -7,6 +7,10 @@ get-pip.py
 dist/
 build/
 .venv/
+.venv-macos/
+node_modules/
+.npm-cache/
+.wrangler/
 .DS_Store
 *.exe
 packages/
@@ -15,6 +19,7 @@ data/canvases/
 data/library/
 data/library.json
 data/agent_tasks/
+data/infinite_agent_work.db*
 *.spec
 .claude/settings.local.json
 history.json

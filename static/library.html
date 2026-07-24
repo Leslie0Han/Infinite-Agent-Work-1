@@ -212,6 +212,9 @@
             .prompt-detail { position:static; }
         }
     </style>
+    <script src="/static/vendor/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/studio-shell.css?v=20260720-unified-shell">
+    <script defer src="/static/studio-shell.js?v=20260720-unified-shell"></script>
 </head>
 <body>
     <div class="page-loading" id="page-loading"><div class="loader"></div></div>
@@ -250,6 +253,11 @@
         <div id="image-workspace">
         <!-- Toolbar -->
         <div class="toolbar">
+            <div class="library-tabs" aria-label="素材范围">
+                <button class="library-tab active" id="scope-project" onclick="switchLibraryScope('project')">当前项目</button>
+                <button class="library-tab" id="scope-shared" onclick="switchLibraryScope('shared')">永久库</button>
+                <button class="library-tab" id="scope-all" onclick="switchLibraryScope('all')">全部</button>
+            </div>
             <select id="source-filter" class="form-select" style="width:160px;border-radius:999px;font-size:12px;padding:6px 12px" onchange="loadImages()">
                 <option value="" data-i18n="library.allSources">全部来源</option>
             </select>
@@ -365,6 +373,16 @@
                 <div class="meta-label" data-i18n="library.notes">备注</div>
                 <textarea id="drawer-notes" class="form-input" rows="3" style="resize:vertical;font-size:12px" onchange="saveNotes()"></textarea>
             </div>
+            <div class="meta-section">
+                <div class="meta-label">项目偏好反馈</div>
+                <div class="tag-input-wrap">
+                    <select id="drawer-rating" class="form-select" style="flex:1;font-size:12px;padding:5px 8px;border-radius:8px" onchange="rateCurrentImage(this.value)">
+                        <option value="">-- 评分 --</option>
+                        <option value="1">1 分 · 不符合</option><option value="2">2 分</option><option value="3">3 分</option><option value="4">4 分</option><option value="5">5 分 · 高度符合</option>
+                    </select>
+                    <button class="glass-btn outline sm" onclick="toggleReject()" id="drawer-reject-btn">标记淘汰</button>
+                </div>
+            </div>
             <!-- Actions -->
             <div class="drawer-actions">
                 <button class="glass-btn sm" onclick="sendCurrentToSmartCanvas()" id="drawer-send-smart-btn">
@@ -383,6 +401,8 @@
                     <i data-lucide="sparkles" style="width:12px;height:12px"></i>
                     <span data-i18n="library.aiTagThis">AI 标注</span>
                 </button>
+                <button class="glass-btn outline sm" onclick="toggleAdopt()" id="drawer-adopt-btn">标记最终采用</button>
+                <button class="glass-btn outline sm" onclick="copyCurrentImageScope()" id="drawer-scope-copy-btn"></button>
                 <div style="flex:1"></div>
                 <button class="glass-btn danger sm" onclick="deleteCurrentImage()">
                     <i data-lucide="trash-2" style="width:12px;height:12px"></i>
@@ -507,10 +527,18 @@
     let promptStyleFilter = '';
     let promptSceneFilter = '';
     let promptVisibleCount = 80;
+    let libraryScope = 'project';
+    let currentProjectId = '';
     const SMART_CANVAS_IMPORT_KEY = 'smart_canvas_pending_import_v1';
+
+    function readCurrentProjectId() {
+        const params = new URLSearchParams(window.location.search || '');
+        return params.get('project_id') || localStorage.getItem('studio_active_project_id') || '';
+    }
 
     // --- Init ---
     document.addEventListener('DOMContentLoaded', async () => {
+        currentProjectId = readCurrentProjectId();
         lucide.createIcons();
         renderSkeletonGrid();
         try { await loadSources(); } catch(e) { console.error('loadSources:', e); }
@@ -525,6 +553,23 @@
             if ((params.get('view') || '').toLowerCase() === 'prompts') switchLibraryView('prompts');
         } catch(e) {}
         document.getElementById('page-loading').classList.add('done');
+    });
+
+    window.addEventListener('studio-project-change', event => {
+        currentProjectId = event.detail?.projectId || readCurrentProjectId();
+        currentPage = 1;
+        selectedImageIds.clear();
+        loadImages();
+        loadStats();
+    });
+
+    window.addEventListener('storage', event => {
+        if (event.key !== 'studio_active_project_id') return;
+        currentProjectId = event.newValue || '';
+        currentPage = 1;
+        selectedImageIds.clear();
+        loadImages();
+        loadStats();
     });
 
     // --- API helpers ---
@@ -543,6 +588,20 @@
 
     function currentImageRecord() {
         return allImages.find(i => i.id === currentImageId) || null;
+    }
+
+    function libraryImageApi(id) {
+        const suffix = currentProjectId ? `?project_id=${encodeURIComponent(currentProjectId)}` : '';
+        return `/api/library/images/${encodeURIComponent(id)}${suffix}`;
+    }
+
+    async function recordLibraryFeedback(imageId, eventType, context = {}) {
+        if (!currentProjectId) throw new Error('请先选择当前项目');
+        return api(`/api/library/images/${encodeURIComponent(imageId)}/feedback`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({project_id: currentProjectId, event_type: eventType, context})
+        });
     }
 
     function currentSelectedImages() {
@@ -572,6 +631,8 @@
         return {
             active_page: 'library',
             active_page_label: '资源库',
+            project_id: currentProjectId,
+            library_scope: libraryScope,
             source_id: source?.id || '',
             source_name: source?.name || '',
             category: activeCategory || '',
@@ -626,6 +687,9 @@
             created_at: Date.now(),
             images: (images || []).map(img => ({
                 id: img.id,
+                asset_id: img.asset_id || '',
+                scope: img.scope || 'shared',
+                project_id: img.project_id || '',
                 url: img.url,
                 thumb_url: img.thumb_url || '',
                 filename: img.filename || 'library-image',
@@ -645,7 +709,7 @@
     }
 
     function openSmartCanvasUrl(canvasId) {
-        const url = `/static/smart-canvas.html?id=${encodeURIComponent(canvasId)}&v=20260521-smart-library-workflow`;
+        const url = `/static/smart-canvas.html?id=${encodeURIComponent(canvasId)}&v=20260724-canvas-agent-history-fix`;
         if (window.top && window.top !== window) window.top.location.href = url;
         else window.location.href = url;
     }
@@ -662,12 +726,16 @@
                 body: JSON.stringify({
                     title: smartCanvasTitleForImage(img),
                     icon: 'sparkles',
-                    kind: 'smart'
+                    kind: 'smart',
+                    project_id: currentProjectId
                 })
             });
             const canvasId = data.canvas?.id;
             if (!canvasId) throw new Error(tr('canvas.createFailed'));
             localStorage.setItem(SMART_CANVAS_IMPORT_KEY, JSON.stringify(smartCanvasImportPayload([img], canvasId)));
+            try {
+                await recordLibraryFeedback(img.id, 'used_in_canvas', {canvas_id: canvasId, source: 'library'});
+            } catch (_) {}
             toast(tr('library.openingSmartCanvas'), 'success', 1200);
             setTimeout(() => openSmartCanvasUrl(canvasId), 120);
         } catch (e) {
@@ -1460,6 +1528,17 @@
     }
 
     let activeCategory = '';
+    function switchLibraryScope(scope) {
+        libraryScope = ['project', 'shared', 'all'].includes(scope) ? scope : 'project';
+        ['project', 'shared', 'all'].forEach(value => {
+            document.getElementById(`scope-${value}`)?.classList.toggle('active', libraryScope === value);
+        });
+        currentPage = 1;
+        selectedImageIds.clear();
+        loadImages();
+        loadStats();
+    }
+
     function filterCategory(el, cat) {
         document.querySelectorAll('#category-pills .pill').forEach(p => p.classList.remove('active'));
         el.classList.add('active');
@@ -1479,6 +1558,8 @@
         if (q) params.set('q', q);
         if (filterUntagged) params.set('ai_tagged', 'false');
         if (filterFav) params.set('favorited', 'true');
+        params.set('scope', libraryScope);
+        if (currentProjectId) params.set('project_id', currentProjectId);
         params.set('page', currentPage);
         params.set('page_size', 50);
         try {
@@ -1522,6 +1603,8 @@
                     ${img.favorited ? `<div class="card-fav">&#10084;</div>` : ''}
                     <div class="card-info">
                         <div class="card-filename">${esc(img.filename)}</div>
+                        <div style="font-size:10px;color:#9ca3af;margin-top:3px">${img.scope === 'shared' ? '永久库' : '当前项目'}</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:3px">${img.adopted ? '✓ 已采用 · ' : ''}反馈 ${img.feedback?.event_count || 0} · 质量 ${img.feedback?.score || 0}</div>
                         <div class="card-tags">${tags.map(t => `<span class="card-tag">${esc(t)}</span>`).join('')}</div>
                     </div>
                 </div>`;
@@ -1573,10 +1656,18 @@
         document.getElementById('drawer-notes').value = img.notes || '';
         // Fav
         updateFavBtn(img.favorited);
+        updateAdoptBtn(Boolean(img.adopted));
+        document.getElementById('drawer-rating').value = img.rating ? String(img.rating) : '';
+        updateRejectBtn(Boolean(img.rejected));
+        const scopeCopyBtn = document.getElementById('drawer-scope-copy-btn');
+        scopeCopyBtn.textContent = img.scope === 'shared' ? '复制到当前项目' : '提升到永久库';
+        scopeCopyBtn.disabled = img.scope === 'shared' && !currentProjectId;
         sourceCanvasBtn.style.display = img.source_canvas_id ? '' : 'none';
         workflowMeta.innerHTML = [
+            `<span class="drawer-meta-pill">${img.scope === 'shared' ? '永久库' : '项目素材'}</span>`,
             img.source_name ? `<span class="drawer-meta-pill"><i data-lucide="library" style="width:12px;height:12px"></i>${esc(img.source_name)}</span>` : '',
-            img.source_canvas_title ? `<span class="drawer-meta-pill"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${esc(img.source_canvas_title)}</span>` : ''
+            img.source_canvas_title ? `<span class="drawer-meta-pill"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${esc(img.source_canvas_title)}</span>` : '',
+            `<span class="drawer-meta-pill">反馈 ${img.feedback?.event_count || 0} · 质量 ${img.feedback?.score || 0}${img.rating ? ` · ${img.rating}分` : ''}${img.rejected ? ' · 已淘汰' : ''}</span>`
         ].filter(Boolean).join('');
         // Cat select (grouped by dimension)
         const sel = document.getElementById('drawer-cat-select');
@@ -1633,7 +1724,7 @@
         const cat = document.getElementById('drawer-cat-select').value;
         if (!cat) return;
         try {
-            const data = await api(`/api/library/images/${currentImageId}`, {
+            const data = await api(libraryImageApi(currentImageId), {
                 method: 'PUT', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({categories: [cat]})
             });
@@ -1645,7 +1736,7 @@
     async function removeCategory(cat) {
         if (!currentImageId) return;
         try {
-            const data = await api(`/api/library/images/${currentImageId}`, {
+            const data = await api(libraryImageApi(currentImageId), {
                 method: 'PUT', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({categories: []})
             });
@@ -1671,7 +1762,7 @@
         const img = allImages.find(i => i.id === currentImageId);
         const tags = [...(img?.manual_tags || []), tag];
         try {
-            const data = await api(`/api/library/images/${currentImageId}`, {
+            const data = await api(libraryImageApi(currentImageId), {
                 method: 'PUT', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({manual_tags: tags})
             });
@@ -1687,7 +1778,7 @@
         const img = allImages.find(i => i.id === currentImageId);
         const tags = (img?.manual_tags || []).filter(t => t !== tag);
         try {
-            const data = await api(`/api/library/images/${currentImageId}`, {
+            const data = await api(libraryImageApi(currentImageId), {
                 method: 'PUT', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({manual_tags: tags})
             });
@@ -1700,7 +1791,7 @@
         if (!currentImageId) return;
         const notes = document.getElementById('drawer-notes').value;
         try {
-            await api(`/api/library/images/${currentImageId}`, {
+            await api(libraryImageApi(currentImageId), {
                 method: 'PUT', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({notes})
             });
@@ -1711,13 +1802,68 @@
         if (!currentImageId) return;
         const img = allImages.find(i => i.id === currentImageId);
         try {
-            const data = await api(`/api/library/images/${currentImageId}`, {
-                method: 'PUT', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({favorited: !img?.favorited})
-            });
+            const data = await recordLibraryFeedback(currentImageId, img?.favorited ? 'unfavorite' : 'favorite', {source:'library'});
             updateLocalImage(data.image);
             updateFavBtn(data.image.favorited);
-        } catch(e) {}
+            renderGrid();
+            openDrawer(currentImageId);
+        } catch(e) { toast(`操作失败: ${e.message}`, 'error'); }
+    }
+
+    async function toggleAdopt() {
+        if (!currentImageId) return;
+        const img = currentImageRecord();
+        try {
+            const data = await recordLibraryFeedback(currentImageId, img?.adopted ? 'final_unadopted' : 'final_adopted', {source:'library'});
+            updateLocalImage(data.image);
+            updateAdoptBtn(Boolean(data.image.adopted));
+            renderGrid();
+            openDrawer(currentImageId);
+            toast(data.image.adopted ? '已标记为最终采用' : '已取消最终采用', 'success');
+        } catch(e) { toast(`操作失败: ${e.message}`, 'error'); }
+    }
+
+    async function rateCurrentImage(value) {
+        if (!currentImageId || !value) return;
+        try {
+            const data = await recordLibraryFeedback(currentImageId, 'rated', {source:'library', rating:Number(value)});
+            updateLocalImage(data.image);
+            renderGrid();
+            openDrawer(currentImageId);
+            toast(`已记录 ${value} 分，Agent 下次会使用该偏好`, 'success');
+        } catch(e) { toast(`评分失败: ${e.message}`, 'error'); }
+    }
+
+    async function toggleReject() {
+        if (!currentImageId) return;
+        const img = currentImageRecord();
+        try {
+            const data = await recordLibraryFeedback(currentImageId, img?.rejected ? 'unrejected' : 'rejected', {source:'library'});
+            updateLocalImage(data.image);
+            renderGrid();
+            openDrawer(currentImageId);
+            toast(data.image.rejected ? '已标记淘汰，后续排序将降权' : '已取消淘汰', 'success');
+        } catch(e) { toast(`操作失败: ${e.message}`, 'error'); }
+    }
+
+    async function copyCurrentImageScope() {
+        const img = currentImageRecord();
+        if (!img) return;
+        const targetScope = img.scope === 'shared' ? 'project' : 'shared';
+        if (targetScope === 'project' && !currentProjectId) return toast('请先选择当前项目', 'error');
+        try {
+            await api(`/api/library/images/${currentImageId}/copy`, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({target_scope: targetScope, project_id: currentProjectId})
+            });
+            toast(targetScope === 'shared' ? '已提升到永久库' : '已复制到当前项目', 'success');
+            closeDrawer();
+            await loadImages();
+            loadStats();
+        } catch (e) {
+            toast(`操作失败: ${e.message}`, 'error');
+        }
     }
 
     function updateFavBtn(fav) {
@@ -1725,6 +1871,18 @@
         btn.style.background = fav ? '#fef2f2' : '';
         btn.style.color = fav ? '#ef4444' : '';
         btn.style.borderColor = fav ? '#ef4444' : '';
+    }
+
+    function updateAdoptBtn(adopted) {
+        const btn = document.getElementById('drawer-adopt-btn');
+        btn.textContent = adopted ? '取消最终采用' : '标记最终采用';
+        btn.classList.toggle('active', adopted);
+    }
+
+    function updateRejectBtn(rejected) {
+        const btn = document.getElementById('drawer-reject-btn');
+        btn.textContent = rejected ? '取消淘汰' : '标记淘汰';
+        btn.classList.toggle('active', rejected);
     }
 
     async function deleteCurrentImage() {
@@ -1793,7 +1951,9 @@
             targets = allImages.filter(i => !i.ai_tagged).map(i => i.id);
         } else if (scope === 'all') {
             try {
-                const data = await api('/api/library/images?page_size=9999');
+                const params = new URLSearchParams({page_size:'9999', scope:libraryScope});
+                if (currentProjectId) params.set('project_id', currentProjectId);
+                const data = await api('/api/library/images?' + params);
                 targets = (data.images || []).map(i => i.id);
             } catch(e) { toast('获取图片列表失败', 'error'); return; }
         } else {
@@ -1884,7 +2044,9 @@
     // --- Stats ---
     async function loadStats() {
         try {
-            const data = await api('/api/library/stats');
+            const params = new URLSearchParams({scope:libraryScope});
+            if (currentProjectId) params.set('project_id', currentProjectId);
+            const data = await api('/api/library/stats?' + params);
             document.getElementById('stats-bar').innerHTML = `
                 <span class="stat-item"><strong>${data.total_images}</strong> 张图片</span>
                 <span class="stat-item"><strong>${data.total_sources}</strong> 个来源</span>

@@ -382,15 +382,7 @@
 
         // 4. ModelScope 浜戠閫昏緫
         async function runCloudTask(prompt) {
-            let apiKey = localStorage.getItem(MS_TOKEN_KEY);
-            if (!apiKey) {
-                try {
-                    const res = await fetch('/api/config/token');
-                    const data = await res.json();
-                    if (data.token) apiKey = data.token;
-                } catch (e) { }
-            }
-            if (!apiKey) return alert(tr('studio.modelscopeTokenRequired'));
+            const apiKey = localStorage.getItem(MS_TOKEN_KEY) || '';
 
             const btn = document.getElementById('mainGenBtn');
             setLoading(true);

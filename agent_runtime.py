@@ -8,6 +8,20 @@ from typing import Any, Dict, List, Optional
 
 AGENT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
     {
+        "id": "get_project_context",
+        "name": "读取项目上下文",
+        "description": "读取当前项目、画布、素材和生成任务摘要。",
+        "writes": False,
+        "scopes": ["home", "library", "smart-canvas", "wiki"],
+    },
+    {
+        "id": "mcp.project_reader.workspace_summary",
+        "name": "读取工作区结构",
+        "description": "通过只读 Project Reader MCP 获取当前工作区的文件和目录结构摘要。",
+        "writes": False,
+        "scopes": ["home"],
+    },
+    {
         "id": "list_library_images",
         "name": "读取资源库图片",
         "description": "按筛选条件读取当前资源库图片列表，用于筛图、打标签或送入画布。",
@@ -113,6 +127,13 @@ AGENT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "scopes": ["home", "wiki", "library", "smart-canvas"],
     },
     {
+        "id": "link_project_output",
+        "name": "核对项目产物",
+        "description": "核对生成结果、素材和画布的项目归属，返回可追溯的项目产物摘要。",
+        "writes": False,
+        "scopes": ["home", "library", "smart-canvas"],
+    },
+    {
         "id": "code_agent_placeholder",
         "name": "代码智能体入口",
         "description": "代码模式第一版只保留入口，后续再接 Pi Coding Agent。",
@@ -120,6 +141,24 @@ AGENT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "scopes": ["home"],
     },
 ]
+
+TOOL_CALLING_V1_TOOL_IDS = {
+    "get_project_context",
+    "mcp.project_reader.workspace_summary",
+    "list_library_images",
+    "tag_library_images",
+    "create_smart_canvas",
+    "append_images_to_smart_canvas",
+    "read_smart_canvas",
+    "save_canvas_node_images_to_library",
+    "search_wiki_context",
+    "write_wiki_qa",
+    "write_agent_report",
+    "generate_design_brief",
+    "generate_design_image",
+    "save_design_output",
+    "link_project_output",
+}
 
 PAGE_ROLE_ALIASES = {
     "library": "library",
@@ -145,7 +184,7 @@ PAGE_LABELS = {
     "home": "首页工作台",
 }
 
-FINAL_TASK_STATUSES = {"succeeded", "failed", "cancelled"}
+FINAL_TASK_STATUSES = {"succeeded", "partial", "failed", "cancelled"}
 
 
 def now_ms() -> int:
@@ -179,8 +218,13 @@ def task_path(task_dir: str, task_id: str) -> str:
 def save_task(task_dir: str, task: Dict[str, Any]) -> Dict[str, Any]:
     ensure_agent_task_dir(task_dir)
     task["updated_at"] = now_ms()
-    with open(task_path(task_dir, task["id"]), "w", encoding="utf-8") as f:
+    destination = task_path(task_dir, task["id"])
+    temporary = f"{destination}.{uuid.uuid4().hex}.tmp"
+    with open(temporary, "w", encoding="utf-8") as f:
         json.dump(task, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temporary, destination)
     return task
 
 
@@ -192,6 +236,26 @@ def load_task(task_dir: str, task_id: str) -> Dict[str, Any]:
         return json.load(f)
 
 
+def list_tasks(task_dir: str, project_id: str = "", limit: int = 50) -> List[Dict[str, Any]]:
+    ensure_agent_task_dir(task_dir)
+    wanted_project = str(project_id or "").strip()
+    tasks: List[Dict[str, Any]] = []
+    for filename in os.listdir(task_dir):
+        if not filename.startswith("agent_") or not filename.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(task_dir, filename), "r", encoding="utf-8") as handle:
+                task = json.load(handle)
+        except Exception:
+            continue
+        context = task.get("context") or {}
+        result = task.get("result") or {}
+        task_project = str(context.get("project_id") or result.get("project_id") or "").strip()
+        if wanted_project and task_project != wanted_project:
+            continue
+        tasks.append(task)
+    tasks.sort(key=lambda item: int(item.get("updated_at") or item.get("created_at") or 0), reverse=True)
+    return tasks[:max(1, min(200, int(limit or 50)))]
 def cancel_task(task_dir: str, task_id: str) -> Dict[str, Any]:
     task = load_task(task_dir, task_id)
     if task.get("status") in FINAL_TASK_STATUSES:
@@ -202,6 +266,18 @@ def cancel_task(task_dir: str, task_id: str) -> Dict[str, Any]:
         "type": "cancelled",
         "message": "任务已取消",
         "at": now_ms(),
+    })
+    return save_task(task_dir, task)
+
+
+def confirm_task(task_dir: str, task_id: str) -> Dict[str, Any]:
+    task = load_task(task_dir, task_id)
+    task["confirmed_at"] = now_ms()
+    task["confirmation_token"] = ""
+    task.setdefault("events", []).append({
+        "type": "confirmed",
+        "message": "用户已确认当前计划中的写入操作。",
+        "at": task["confirmed_at"],
     })
     return save_task(task_dir, task)
 
@@ -292,6 +368,28 @@ def task_type_for_mode(mode: str, page_role: str) -> str:
     return "work_task"
 
 
+def design_goal_flags(goal: str) -> Dict[str, bool]:
+    text = str(goal or "")
+    no_image = any(token in text for token in [
+        "不生图", "不要生图", "无需生图", "不出图", "不要出图", "无需出图",
+        "不生成图片", "不要生成图片", "只创建画布",
+    ])
+    wants_canvas = any(token in text for token in ["画布", "白板", "节点"])
+    wants_image = any(token in text for token in ["生图", "出图", "效果图", "生成图片", "渲染图"]) and not no_image
+    read_signal = any(token in text for token in ["读取", "只读", "检查", "查看项目", "项目摘要"])
+    explicit_read_only = any(token in text for token in [
+        "只读取", "只读", "不创建", "不要创建", "不修改", "不要修改", "不写入", "不要写入",
+    ])
+    read_only = read_signal and explicit_read_only and not wants_canvas and not wants_image
+    return {
+        "no_image": no_image,
+        "wants_canvas": wants_canvas,
+        "wants_image": wants_image,
+        "read_signal": read_signal,
+        "read_only": read_only,
+    }
+
+
 def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
     page_role = resolve_page_role(page)
     context = context or {}
@@ -339,7 +437,16 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
     elif page_role == "smart-canvas":
         task_type = "design_task"
         mode = "design"
-        if intent == "save_to_library" or any(token in final_goal for token in ["入库", "回存", "保存到资源库"]):
+        canvas_read_only = (
+            any(token in final_goal for token in ["只读取", "只读", "不写入", "不要写入"])
+            and not any(token in final_goal for token in ["入库", "回存", "保存到资源库", "标注", "修改"])
+        )
+        if canvas_read_only:
+            tool_ids = ["read_smart_canvas"]
+            plan_title = "智能画布只读检查计划"
+            output_target = "读取当前画布节点、连接和图片摘要，不写入任何内容"
+            outputs = [{"type": "canvas_summary", "label": "画布摘要"}]
+        elif intent == "save_to_library" or any(token in final_goal for token in ["入库", "回存", "保存到资源库"]):
             tool_ids = ["read_smart_canvas", "save_canvas_node_images_to_library"]
             plan_title = "智能画布结果回存计划"
             output_target = "读取当前画布结果，并准备把选中的输出回存到资源库"
@@ -357,24 +464,60 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
         blockers = ["代码模式暂未接入 Pi Coding Agent；当前只保留入口和任务记录。"]
         outputs = [{"type": "placeholder", "label": "代码智能体入口"}]
     elif task_type == "design_task":
-        used_context = ["LLM Wiki", "资源库图片", "提示词库", "当前页面上下文"]
-        tool_ids = ["search_wiki_context", "list_library_images", "generate_design_brief", "generate_design_image", "save_design_output"]
-        plan_title = "设计 Agent 出图计划"
-        output_target = "生成设计依据、提示词和图片结果，并保存到资源库 / Wiki / 智能画布。"
-        outputs = [
-            {"type": "wiki_design", "label": "设计简报"},
-            {"type": "library_images", "label": "资源库图片"},
-            {"type": "canvas", "label": "智能画布"},
-        ]
+        design_flags = design_goal_flags(final_goal)
+        if design_flags["read_only"]:
+            used_context = ["当前项目上下文"]
+            tool_ids = ["get_project_context"]
+            plan_title = "项目只读检查计划"
+            output_target = "读取并总结当前项目，不创建或修改任何内容。"
+            outputs = [{"type": "project_summary", "label": "项目摘要"}]
+        elif design_flags["wants_canvas"] and design_flags["no_image"]:
+            used_context = ["当前项目上下文"]
+            tool_ids = ["get_project_context", "create_smart_canvas", "link_project_output"]
+            plan_title = "智能画布创建计划"
+            output_target = "在当前项目中创建并核对智能画布，不调用生图。"
+            outputs = [{"type": "canvas", "label": "智能画布"}]
+        else:
+            used_context = ["LLM Wiki", "资源库图片", "提示词库", "当前页面上下文"]
+            tool_ids = [
+                "get_project_context",
+                "mcp.project_reader.workspace_summary",
+                "search_wiki_context",
+                "list_library_images",
+                "generate_design_brief",
+                "generate_design_image",
+                "create_smart_canvas",
+                "append_images_to_smart_canvas",
+                "save_design_output",
+                "link_project_output",
+            ]
+            plan_title = "设计 Agent 出图计划"
+            output_target = "由 Agent 根据工具结果动态决定步骤，生成设计依据、图片和可追溯的项目产物。"
+            outputs = [
+                {"type": "wiki_design", "label": "设计简报"},
+                {"type": "library_images", "label": "资源库图片"},
+                {"type": "canvas", "label": "智能画布"},
+            ]
     elif task_type == "wiki_task":
-        used_context = ["LLM Wiki 来源", "摘要", "概念", "问答档案"]
-        tool_ids = ["search_wiki_context", "write_wiki_qa"]
-        plan_title = "知识库问答计划"
-        output_target = "检索 LLM Wiki，生成回答并保存为 Q&A 档案。"
-        outputs = [{"type": "wiki_qa", "label": "问答档案"}]
+        used_context = ["当前项目上下文", "LLM Wiki 来源", "摘要", "概念", "问答档案"]
+        if mode in {"learn", "deep"}:
+            tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
+            plan_title = "知识学习沉淀计划"
+            output_target = "检索 Wiki 依据，整理学习结论并写入可追溯文档。"
+            outputs = [{"type": "wiki_report", "label": "学习笔记"}]
+        elif mode == "wiki" or any(token in final_goal for token in ["问答", "回答", "解答"]):
+            tool_ids = ["get_project_context", "search_wiki_context", "write_wiki_qa"]
+            plan_title = "知识库问答计划"
+            output_target = "检索 LLM Wiki，生成回答并保存为 Q&A 档案。"
+            outputs = [{"type": "wiki_qa", "label": "问答档案"}]
+        else:
+            tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
+            plan_title = "知识研究报告计划"
+            output_target = "检索 Wiki 依据，生成研究结论并写入可追溯报告。"
+            outputs = [{"type": "wiki_report", "label": "研究报告"}]
     else:
-        used_context = ["LLM Wiki", "问答档案", "当前页面上下文"]
-        tool_ids = ["search_wiki_context", "write_agent_report"]
+        used_context = ["当前项目上下文", "LLM Wiki", "问答档案"]
+        tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
         plan_title = "工作 Agent 资料整理计划"
         output_target = "检索知识库并生成总结、研究报告、学习材料或方案文档。"
         outputs = [{"type": "wiki_report", "label": "工作报告"}]
@@ -391,6 +534,25 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
             "writes": tool["writes"],
         })
 
+    runtime = "tool_calling_v1" if task_type in {"design_task", "wiki_task", "work_task"} and tool_ids and set(tool_ids).issubset(TOOL_CALLING_V1_TOOL_IDS) else "legacy_workflow"
+    skill_ids = []
+    if runtime == "tool_calling_v1":
+        skill_ids = ["architectural-concept-design"] if task_type == "design_task" else ["knowledge-research"]
+    required_tools: List[str] = []
+    if runtime == "tool_calling_v1":
+        if task_type in {"wiki_task", "work_task"}:
+            required_tools = list(tool_ids)
+        elif page_role in {"library", "smart-canvas"}:
+            required_tools = list(tool_ids)
+        else:
+            design_flags = design_goal_flags(final_goal)
+            required_tools.append("get_project_context")
+            if design_flags["wants_image"]:
+                required_tools.extend(["generate_design_brief", "generate_design_image", "save_design_output", "link_project_output"])
+            elif design_flags["wants_canvas"]:
+                required_tools.append("create_smart_canvas")
+            elif not design_flags["read_signal"]:
+                required_tools.append("generate_design_brief")
     return {
         "title": plan_title,
         "summary": f"围绕“{final_goal}”生成一份 {page_label(page_role)} 可执行计划。",
@@ -407,6 +569,10 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
         "outputs": outputs,
         "steps": steps,
         "tool_ids": tool_ids,
+        "runtime": runtime,
+        "skill_ids": skill_ids,
+        "required_tools": required_tools,
+        "max_steps": min(12, max(4, len(tool_ids) + 2)) if runtime == "tool_calling_v1" else len(tool_ids),
     }
 
 
@@ -435,6 +601,8 @@ def create_plan_task(task_dir: str, goal: str, page: str, context: Dict[str, Any
                 "at": timestamp,
             }
         ],
+        "confirmation_token": uuid.uuid4().hex if plan.get("requires_confirmation") else "",
+        "confirmed_at": 0,
         "result": None,
         "created_at": timestamp,
         "updated_at": timestamp,
@@ -545,6 +713,23 @@ def update_task_result(task_dir: str, task_id: str, result: Dict[str, Any], mess
     task.setdefault("events", []).append({
         "type": "succeeded",
         "message": message or "任务执行完成。",
+        "progress_current": task.get("progress_current", 0),
+        "progress_total": task.get("progress_total", 0),
+        "at": now_ms(),
+    })
+    return save_task(task_dir, task)
+
+
+def update_task_partial(task_dir: str, task_id: str, result: Dict[str, Any], message: str = "") -> Dict[str, Any]:
+    task = load_task(task_dir, task_id)
+    if task.get("status") == "cancelled":
+        return task
+    task["status"] = "partial"
+    task["result"] = result
+    task["current_step"] = None
+    task.setdefault("events", []).append({
+        "type": "partial",
+        "message": message or "任务已完成可执行部分，仍有未完成项。",
         "progress_current": task.get("progress_current", 0),
         "progress_total": task.get("progress_total", 0),
         "at": now_ms(),
