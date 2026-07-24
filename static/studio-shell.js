@@ -20,7 +20,7 @@
 
     function pageModule() {
         const path = location.pathname;
-        if (path.endsWith('/project-workbench.html')) return 'projects';
+        if (path.endsWith('/project-workbench.html') || path.endsWith('/ppt-workbench.html')) return 'projects';
         if (path.endsWith('/smart-canvas.html') || path.endsWith('/canvas.html')) return 'generate';
         if (path.endsWith('/library.html')) return 'library';
         if (path === '/' || path.endsWith('/index.html')) {
@@ -36,7 +36,7 @@
     function bodyModuleClass(moduleId) {
         const path = location.pathname;
         if (path.endsWith('/smart-canvas.html') || path.endsWith('/canvas.html')) return 'canvas';
-        if (path.endsWith('/project-workbench.html')) return 'projects';
+        if (path.endsWith('/project-workbench.html') || path.endsWith('/ppt-workbench.html')) return 'projects';
         if (path.endsWith('/library.html')) return 'library';
         return 'index';
     }

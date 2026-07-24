@@ -6,7 +6,7 @@ version: 1.0.0
 enabled: true
 task_types: ["design_task"]
 scopes: ["home", "library", "smart-canvas", "wiki"]
-allowed_tools: ["get_project_context", "mcp.project_reader.workspace_summary", "search_wiki_context", "list_library_images", "generate_design_brief", "generate_design_image", "create_smart_canvas", "append_images_to_smart_canvas", "save_design_output", "link_project_output"]
+allowed_tools: ["get_project_context", "mcp.project_reader.workspace_summary", "search_wiki_context", "list_library_images", "tag_library_images", "generate_design_brief", "generate_design_image", "create_smart_canvas", "append_images_to_smart_canvas", "read_smart_canvas", "save_canvas_node_images_to_library", "write_wiki_qa", "save_design_output", "link_project_output"]
 mcp_servers: ["project-reader"]
 ---
 # 建筑概念设计 Skill
@@ -17,7 +17,7 @@ mcp_servers: ["project-reader"]
 
 1. 先调用 `get_project_context` 读取当前项目、画布、素材和生成任务。
 2. 需要理解代码库/工作区结构时，调用只读的 `mcp.project_reader.workspace_summary`。
-3. 按目标检索 Wiki 和素材库；已有足够依据时不要重复搜索。
+3. 读取项目偏好画像，按目标检索 Wiki 和素材库；优先参考已采纳/高评分素材，对已淘汰/低评分素材降权。
 4. 生成设计简报，明确设计目标、依据、方向、正向提示词和负向提示词。
 5. 生图是写入/消耗型操作，只能在用户确认计划后执行。
 6. 生图成功时，把结果回存资源库并放入智能画布；生图失败时，保留简报和可操作的错误原因。
@@ -29,3 +29,4 @@ mcp_servers: ["project-reader"]
 - 生图成功时，用户能打开包含结果的智能画布。
 - 任何上游失败都必须显示原因，不能声称已成功。
 - 所有产物都必须归属当前项目。
+- 设计简报必须说明是否使用了项目历史偏好；候选 Skill 未审核前不得当作正式规则。

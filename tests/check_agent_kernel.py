@@ -190,6 +190,7 @@ def check_agent_kernel_contract():
     assert read_only_plan["tool_ids"] == ["get_project_context"]
     assert read_only_plan["required_tools"] == ["get_project_context"]
     assert read_only_plan["requires_confirmation"] is False
+    assert read_only_plan["outputs"] == [{"type": "project_summary", "label": "项目摘要"}]
 
     canvas_only_plan = build_plan(
         "在当前项目创建一个验收画布，只创建画布，不生图",
@@ -199,6 +200,49 @@ def check_agent_kernel_contract():
     assert canvas_only_plan["tool_ids"] == ["get_project_context", "create_smart_canvas", "link_project_output"]
     assert canvas_only_plan["required_tools"] == ["get_project_context", "create_smart_canvas"]
     assert "generate_design_image" not in canvas_only_plan["tool_ids"]
+
+    library_tag_plan = build_plan(
+        "把当前选中的素材分类并标注",
+        "library",
+        {"intent": "batch_tag", "provider": "test", "model": "test-model"},
+    )
+    assert library_tag_plan["runtime"] == "tool_calling_v1"
+    assert library_tag_plan["required_tools"] == ["list_library_images", "tag_library_images"]
+
+    canvas_save_plan = build_plan(
+        "把当前选中画布结果回存到资源库",
+        "smart-canvas",
+        {"intent": "save_to_library", "canvas_id": "canvas_test"},
+    )
+    assert canvas_save_plan["runtime"] == "tool_calling_v1"
+    assert canvas_save_plan["required_tools"] == ["read_smart_canvas", "save_canvas_node_images_to_library"]
+
+    canvas_read_plan = build_plan(
+        "只读取当前智能画布，汇总节点和图片，不写入任何内容",
+        "smart-canvas",
+        {"canvas_id": "canvas_test"},
+    )
+    assert canvas_read_plan["runtime"] == "tool_calling_v1"
+    assert canvas_read_plan["tool_ids"] == ["read_smart_canvas"]
+    assert canvas_read_plan["requires_confirmation"] is False
+
+    research_plan = build_plan("研究当前知识并生成报告", "home", {"mode": "research"})
+    assert research_plan["runtime"] == "tool_calling_v1"
+    assert research_plan["skill_ids"] == ["knowledge-research"]
+    assert research_plan["required_tools"] == ["get_project_context", "search_wiki_context", "write_agent_report"]
+
+    summary_plan = build_plan("总结当前项目知识", "home", {"mode": "summary"})
+    assert summary_plan["runtime"] == "tool_calling_v1"
+    assert summary_plan["task_type"] == "work_task"
+    assert summary_plan["required_tools"] == ["get_project_context", "search_wiki_context", "write_agent_report"]
+
+    learn_plan = build_plan("学习当前知识并沉淀笔记", "wiki", {"mode": "learn"})
+    assert learn_plan["runtime"] == "tool_calling_v1"
+    assert learn_plan["outputs"] == [{"type": "wiki_report", "label": "学习笔记"}]
+
+    code_plan = build_plan("检查项目代码", "home", {"mode": "code"})
+    assert code_plan["runtime"] == "legacy_workflow"
+    assert code_plan["can_run"] is False
 
 
 if __name__ == "__main__":

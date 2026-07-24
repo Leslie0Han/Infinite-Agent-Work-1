@@ -87,6 +87,7 @@ def check_smart_canvas_script():
     assert "function focusCanvasNode" in html and "点击定位结果" in html, "recent actions and lineage chips should focus canvas result nodes"
     assert "fetch('/api/canvas-llm'" in html, "Agent panel should call the existing canvas LLM endpoint"
     assert "canvasAgentInventory" in html and "recentHistory:history" in html and "supportingReferences:supporting" in html, "Agent should send a whole-canvas inventory, not only the selected node"
+    assert "function canvasAgentHistoryNodes()" in html and "canvasAgentHistoryNodes().map(canvasAgentNodeSummary)" in html, "Agent inventory must call its defined whole-canvas history selector"
     assert "selectedInputs" in html and "selectedOutputs" in html and "canvasInventory" in html, "Agent context should include selected node lineage and project history"
     assert "请先综合 canvasInventory、selectedInputs、selectedOutputs 和附件" in html, "Agent prompt should instruct the model to reason over the whole canvas"
     assert "function chatProviders()" in html, "Agent should resolve a chat-capable provider instead of reusing image provider settings"

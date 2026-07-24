@@ -49,23 +49,6 @@
     "volcengine_region": ""
   },
   {
-    "id": "api",
-    "name": "新 API 平台",
-    "base_url": "https://ai.t8star.org",
-    "protocol": "openai",
-    "enabled": true,
-    "primary": false,
-    "image_models": [
-      "gpt-image-2"
-    ],
-    "chat_models": [],
-    "video_models": [],
-    "ms_loras": [],
-    "ms_defaults_version": 0,
-    "volcengine_project_name": "",
-    "volcengine_region": ""
-  },
-  {
     "id": "apimart",
     "name": "APIMart",
     "base_url": "https://api.apimart.ai/v1",
@@ -138,23 +121,6 @@
     "chat_models": [
       "deepseek-v4-flash",
       "deepseek-v4-pro"
-    ],
-    "video_models": [],
-    "ms_loras": [],
-    "ms_defaults_version": 0,
-    "volcengine_project_name": "",
-    "volcengine_region": ""
-  },
-  {
-    "id": "fhl",
-    "name": "fhl",
-    "base_url": "https://www.fhl.mom",
-    "protocol": "openai",
-    "enabled": true,
-    "primary": false,
-    "image_models": [],
-    "chat_models": [
-      "gpt-5.5"
     ],
     "video_models": [],
     "ms_loras": [],

@@ -56,6 +56,9 @@ def check_unified_shell_contract():
     smart_canvas = (STATIC / "smart-canvas.html").read_text(encoding="utf-8")
     assert "fit=1" in project_workbench
     assert "function fitCanvasToContent" in smart_canvas
+    assert "window.top.openStudioPage('canvas', '/static/canvas.html?v=20260724-canvas-back-flow')" in smart_canvas, "embedded canvas back should reset the canvas frame to its picker"
+    assert "window.location.href = '/?page=canvas'" in smart_canvas, "standalone canvas back should open the full app canvas picker"
+    assert "window.location.href = `/static/project-workbench.html" not in smart_canvas, "canvas back must not switch to project management"
 
 
 if __name__ == "__main__":

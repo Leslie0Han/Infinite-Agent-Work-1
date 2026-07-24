@@ -19,6 +19,7 @@ import hashlib
 import tempfile
 import math
 import xml.etree.ElementTree as ET
+from collections import Counter
 from typing import List, Dict, Any, Optional
 from threading import Lock
 import httpx
@@ -49,6 +50,26 @@ from agent_kernel import AgentKernelError, AgentLoop, ToolRegistry, ToolSpec
 from agent_skills import SkillRegistry
 from domain_store import DomainStore
 from mcp_gateway import MCPGateway, MCPServerConfig
+from ppt_workbench import (
+    PptWorkbenchError,
+    add_preview_urls,
+    assign_image_object as assign_ppt_image_object,
+    assign_slot as assign_ppt_slot,
+    clear_image_assignment as clear_ppt_image_assignment,
+    create_manifest as create_ppt_manifest,
+    export_path as ppt_export_path,
+    export_presentation as export_ppt_presentation,
+    fingerprint_image_path,
+    job_dir as ppt_job_dir,
+    list_manifests as list_ppt_manifests,
+    load_manifest as load_ppt_manifest,
+    quality_report as ppt_quality_report,
+    render_template_previews,
+    save_replacement_image,
+    save_manifest as save_ppt_manifest,
+    scan_recommendations as scan_ppt_recommendations,
+    update_text_object as update_ppt_text_object,
+)
 
 QUIET_ACCESS_PATHS = {
     "/api/queue_status",
@@ -202,6 +223,7 @@ STATIC_DIR = os.path.join(BUNDLE_DIR, "static")
 STATIC_RUNNINGHUB_DIR = os.path.join(STATIC_DIR, "runninghub")
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+PPT_WORKBENCH_DIR = os.path.join(ASSETS_DIR, "ppt_workbench")
 OUTPUT_INPUT_DIR = os.path.join(ASSETS_DIR, "input")
 OUTPUT_OUTPUT_DIR = os.path.join(ASSETS_DIR, "output")
 HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
@@ -2966,6 +2988,100 @@ def library_image_feedback(image: Dict[str, Any], project_id: str):
         return DOMAIN_STORE._feedback_summary([]), None
     return DOMAIN_STORE.feedback_for_asset(asset["id"], project_id), asset
 
+def build_project_preference_profile(project_id: str) -> Dict[str, Any]:
+    project_id = str(project_id or "").strip()
+    if not project_id or not DOMAIN_STORE.get_project(project_id):
+        return {}
+    summary = DOMAIN_STORE.project_feedback_summary(project_id, limit=50)
+    library_by_id = {str(item.get("id") or ""): item for item in load_library_images()}
+    positive_terms = Counter()
+    avoided_terms = Counter()
+    positive_assets = []
+    avoided_assets = []
+    explicit_signal_count = 0
+    for asset in summary.get("top_assets") or []:
+        feedback = asset.get("feedback") or {}
+        try:
+            metadata = json.loads(asset.get("metadata_json") or "{}")
+        except (TypeError, ValueError):
+            metadata = {}
+        library_item = library_by_id.get(str(metadata.get("library_image_id") or "")) or {}
+        terms = [
+            *(library_item.get("categories") or []),
+            *(library_item.get("ai_tags") or []),
+            *(library_item.get("manual_tags") or []),
+            str(library_item.get("source_operation") or ""),
+            str(library_item.get("material_name") or ""),
+        ]
+        generic_terms = {"设计Agent", "项目素材", "参考图", "生成结果"}
+        terms = list(dict.fromkeys(
+            str(term).strip()
+            for term in terms
+            if str(term).strip() and str(term).strip() not in generic_terms and len(str(term).strip()) <= 16
+        ))
+        rating = int(feedback.get("rating") or 0)
+        is_positive = bool(feedback.get("adopted") or feedback.get("favorited") or rating >= 4) and not feedback.get("rejected")
+        is_avoided = bool(feedback.get("rejected") or (rating and rating <= 2))
+        explicit_signal_count += int(bool(feedback.get("adopted"))) + int(bool(feedback.get("favorited"))) + int(bool(rating)) + int(bool(feedback.get("rejected")))
+        asset_record = {
+            "asset_id": str(asset.get("id") or ""),
+            "title": str(asset.get("title") or library_item.get("filename") or "未命名素材"),
+            "storage_url": str(asset.get("storage_url") or library_item.get("url") or ""),
+            "score": int(feedback.get("score") or 0),
+            "rating": rating,
+            "terms": terms[:12],
+        }
+        if is_positive:
+            positive_assets.append(asset_record)
+            positive_terms.update(terms)
+        if is_avoided:
+            avoided_assets.append(asset_record)
+            avoided_terms.update(terms)
+    preferred = [term for term, _ in positive_terms.most_common(12) if term not in avoided_terms]
+    avoided = [term for term, _ in avoided_terms.most_common(12)]
+    guidance = []
+    if preferred:
+        guidance.append("优先考虑：" + "、".join(preferred[:8]))
+    if avoided:
+        guidance.append("降低或避免：" + "、".join(avoided[:8]))
+    if positive_assets:
+        guidance.append("优先参考已采纳/高评分素材，不要仅按时间排序。")
+    return {
+        "project_id": project_id,
+        "event_count": int(summary.get("event_count") or 0),
+        "explicit_signal_count": explicit_signal_count,
+        "adopted_assets": int(summary.get("adopted_assets") or 0),
+        "favorited_assets": int(summary.get("favorited_assets") or 0),
+        "rejected_assets": int(summary.get("rejected_assets") or 0),
+        "rated_assets": int(summary.get("rated_assets") or 0),
+        "average_rating": float(summary.get("average_rating") or 0),
+        "preferred_terms": preferred,
+        "avoided_terms": avoided,
+        "positive_assets": positive_assets[:8],
+        "avoided_assets": avoided_assets[:8],
+        "guidance": guidance,
+        "ready": explicit_signal_count >= 2,
+    }
+
+def refresh_project_preference_skill_candidate(project_id: str) -> Optional[Dict[str, Any]]:
+    profile = build_project_preference_profile(project_id)
+    if not profile.get("ready"):
+        return None
+    instructions = "\n".join([
+        "# 项目素材偏好候选",
+        "",
+        "这是由项目反馈事件生成的候选规则，未发布到正式 Skill。",
+        *(f"- {line}" for line in (profile.get("guidance") or ["当前信号尚少，仅作候选。"])),
+        "- 使用偏好时仍需尊重当前任务的明确约束。",
+    ])
+    return DOMAIN_STORE.upsert_skill_candidate(
+        project_id,
+        "material-preference",
+        "项目素材偏好候选",
+        instructions,
+        evidence=profile,
+    )
+
 def enrich_library_image_record(image, source_map=None, project_id: str = ""):
     if not isinstance(image, dict):
         return image
@@ -2979,6 +3095,8 @@ def enrich_library_image_record(image, source_map=None, project_id: str = ""):
     if project_id:
         record["favorited"] = feedback["favorited"]
         record["adopted"] = feedback["adopted"]
+        record["rejected"] = feedback["rejected"]
+        record["rating"] = feedback["rating"]
     source_id = str(record.get("source_id") or "")
     src = source_map.get(source_id) or {}
     if source_id:
@@ -3090,6 +3208,7 @@ BACKEND_LOCAL_LOAD = {addr: 0 for addr in COMFYUI_INSTANCES}
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(ASSETS_DIR, exist_ok=True)
+os.makedirs(PPT_WORKBENCH_DIR, exist_ok=True)
 os.makedirs(OUTPUT_INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_OUTPUT_DIR, exist_ok=True)
 if not getattr(sys, 'frozen', False):
@@ -3157,6 +3276,28 @@ class OnlineImageRequest(BaseModel):
     project_id: str = ""
     canvas_id: str = ""
     source_node_id: str = ""
+    quality_gate: bool = False
+    quality_requirements: List[str] = []
+    quality_pass_threshold: float = Field(default=75, ge=0, le=100)
+    quality_max_retries: int = Field(default=0, ge=0, le=2)
+    quality_attempt: int = Field(default=1, ge=1, le=3)
+    quality_root_task_id: str = ""
+    quality_parent_task_id: str = ""
+    judge_provider: str = ""
+    judge_model: str = ""
+    context_compilation_id: str = ""
+    compiled_constraints: List[str] = []
+
+class QualityEvaluationRequest(BaseModel):
+    judge_provider: str = ""
+    judge_model: str = ""
+    requirements: List[str] = []
+    pass_threshold: float = Field(default=75, ge=0, le=100)
+
+class QualityRetryRequest(BaseModel):
+    judge_provider: str = ""
+    judge_model: str = ""
+    max_retries: int = Field(default=0, ge=0, le=2)
 
 CANVAS_TASKS: Dict[str, Dict[str, Any]] = {}
 CANVAS_ASYNC_TASKS: Dict[str, asyncio.Task] = {}
@@ -3287,6 +3428,9 @@ class AssetFeedbackRequest(BaseModel):
     event_type: str
     context: Dict[str, Any] = Field(default_factory=dict)
 
+class SkillCandidateReviewRequest(BaseModel):
+    status: str
+
 class LibraryTagRequest(BaseModel):
     image_ids: List[str]
     provider: str = ""
@@ -3393,6 +3537,25 @@ class LibraryImportRequest(BaseModel):
 class ProjectCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     code: str = Field(default="", max_length=40)
+
+class ProjectContextCompileRequest(BaseModel):
+    goal: str = Field(min_length=1, max_length=2000)
+    reference_images: List[AIReference] = []
+    local_wiki_root: str = ""
+
+
+class PptSlotAssignRequest(BaseModel):
+    asset_id: str = Field(min_length=1, max_length=180)
+
+
+class PptImageObjectAssignRequest(BaseModel):
+    asset_id: str = Field(min_length=1, max_length=180)
+    apply_scope: str = "object"
+
+
+class PptTextObjectUpdateRequest(BaseModel):
+    text: str = Field(default="", max_length=20000)
+    revision: int = 0
 
 # --- 负载均衡 ---
 
@@ -3712,6 +3875,51 @@ def library_agent_target_source_label(context: Dict[str, Any], source_mode: str)
     return "当前筛选" if has_filter else "全部资源库"
 
 
+def project_domain_assets_for_library(project_id: str) -> List[Dict[str, Any]]:
+    project_id = str(project_id or "").strip()
+    if not project_id or not DOMAIN_STORE.get_project(project_id):
+        return []
+    workspace = DOMAIN_STORE.project_workspace(project_id, limit=100)
+    items = []
+    for asset in workspace.get("recent_assets") or []:
+        url = str(asset.get("storage_url") or "").strip()
+        if not url:
+            continue
+        try:
+            metadata = json.loads(asset.get("metadata_json") or "{}")
+        except (TypeError, ValueError):
+            metadata = {}
+        source = str(asset.get("source") or "")
+        if source == "generation_input":
+            categories = ["项目素材", "参考图"]
+        elif source == "generation_output":
+            categories = ["项目素材", "生成结果"]
+        else:
+            categories = ["项目素材"]
+        items.append({
+            "id": str(metadata.get("library_image_id") or asset.get("id") or ""),
+            "asset_id": str(asset.get("id") or ""),
+            "project_id": project_id,
+            "scope": "project",
+            "source_id": "project-assets",
+            "source_name": "项目资产",
+            "filename": str(asset.get("title") or os.path.basename(urllib.parse.urlparse(url).path) or "project-asset"),
+            "url": url,
+            "thumb_url": url,
+            "width": int(asset.get("width") or 0),
+            "height": int(asset.get("height") or 0),
+            "size_bytes": int(asset.get("byte_size") or 0),
+            "categories": categories,
+            "tags": [source] if source else [],
+            "manual_tags": [],
+            "notes": f"项目资产 · {source}" if source else "项目资产",
+            "created_at": int(asset.get("created_at") or 0),
+            "updated_at": int(asset.get("updated_at") or 0),
+            "domain_only": not bool(metadata.get("library_image_id")),
+        })
+    return items
+
+
 def resolve_library_agent_matches(context: Dict[str, Any], limit: int, enrich: bool = False):
     project_id = resolve_project_id(
         str(context.get("project_id") or ""),
@@ -3726,6 +3934,11 @@ def resolve_library_agent_matches(context: Dict[str, Any], limit: int, enrich: b
     visible_image_ids = [str(x).strip() for x in (context.get("visible_image_ids") or []) if str(x).strip()]
 
     images = filter_library_images_by_scope(load_library_images(), "available", project_id)
+    known_urls = {str(image.get("url") or "") for image in images}
+    images.extend(
+        image for image in project_domain_assets_for_library(project_id)
+        if str(image.get("url") or "") not in known_urls
+    )
     source_map = {str(s.get("id") or ""): s for s in load_library_sources()}
     result = images[:]
     source_mode = "filtered"
@@ -3751,7 +3964,8 @@ def resolve_library_agent_matches(context: Dict[str, Any], limit: int, enrich: b
                 " ".join(img.get("manual_tags", [])),
                 img.get("notes", ""),
             ]).lower()
-            return q in searchable
+            query_tokens = [token for token in re.split(r"\s+", q) if token]
+            return q in searchable or any(token in searchable for token in query_tokens)
         result = [img for img in result if match_q(img)]
     if favorited:
         result = [img for img in result if library_image_feedback(img, project_id)[0].get("favorited")]
@@ -3785,8 +3999,8 @@ def filter_library_images_for_agent(context: Dict[str, Any], limit: int = AGENT_
 
 
 def library_tag_targets_for_agent(context: Dict[str, Any], limit: int = AGENT_LIBRARY_TAG_LIMIT):
-    resolved = resolve_library_agent_matches(context, limit=limit, enrich=False)
-    return resolved["items"]
+    resolved = resolve_library_agent_matches(context, limit=max(limit * 3, 100), enrich=False)
+    return [item for item in resolved["items"] if not item.get("domain_only")][:limit]
 
 
 def build_agent_plan_preview(page_role: str, tool_ids: List[str], context: Dict[str, Any]) -> Dict[str, Any]:
@@ -5512,7 +5726,7 @@ async def run_library_to_smart_canvas_task(task_id: str, context: Dict[str, Any]
         "kind": "smart_canvas_created",
         "canvas_id": canvas["id"],
         "canvas_title": canvas["title"],
-        "open_url": f"/static/smart-canvas.html?id={urllib.parse.quote(canvas['id'])}&v=20260521-smart-library-workflow",
+        "open_url": f"/static/smart-canvas.html?id={urllib.parse.quote(canvas['id'])}&v=20260724-canvas-agent-history-fix",
         "inserted_image_count": len(node["images"]),
         "matched_total": total,
         "processed_count": len(node["images"]),
@@ -5719,7 +5933,158 @@ def agent_create_wiki_output_page(context: Dict[str, Any], output_type: str, tit
         return local_wiki_create_output_page(root, output_type, title, content, related_ids=related_ids)
     return create_wiki_output_page(output_type, title, content, related_ids=related_ids)
 
-def build_design_prompt(goal: str, wiki_matches: List[Dict[str, Any]], library_items: List[Dict[str, Any]]) -> Dict[str, str]:
+def compile_project_design_context(
+    project_id: str,
+    goal: str,
+    context: Optional[Dict[str, Any]] = None,
+    *,
+    persist: bool = True,
+) -> Dict[str, Any]:
+    project = DOMAIN_STORE.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    context = dict(context or {})
+    goal = str(goal or "").strip()
+    preference = build_project_preference_profile(project_id)
+    wiki_matches = agent_wiki_search_items(goal, context, limit=4) if goal else []
+    try:
+        settings = json.loads(project.get("settings_json") or "{}")
+    except (TypeError, ValueError):
+        settings = {}
+
+    constraints: List[Dict[str, Any]] = []
+    sources: List[Dict[str, Any]] = []
+    references: List[Dict[str, Any]] = []
+    seen_constraints = set()
+    seen_urls = set()
+
+    def add_constraint(kind: str, polarity: str, text: str, source_type: str, source_id: str = "", priority: int = 50):
+        normalized = " ".join(str(text or "").split()).strip(" ，,;；")
+        key = (polarity, normalized.lower())
+        if not normalized or key in seen_constraints:
+            return
+        seen_constraints.add(key)
+        constraints.append({
+            "id": f"constraint_{hashlib.sha256((polarity + normalized).encode('utf-8')).hexdigest()[:12]}",
+            "kind": kind,
+            "polarity": polarity,
+            "text": normalized[:500],
+            "source_type": source_type,
+            "source_id": str(source_id or ""),
+            "priority": int(priority),
+        })
+
+    def add_reference(raw: Dict[str, Any], reason: str, source_type: str):
+        url = str(raw.get("url") or raw.get("storage_url") or "").strip()
+        if not url or url in seen_urls:
+            return
+        seen_urls.add(url)
+        reference = {
+            "asset_id": str(raw.get("asset_id") or raw.get("id") or ""),
+            "title": str(raw.get("title") or raw.get("name") or "项目参考图")[:160],
+            "url": url,
+            "reason": reason,
+            "source_type": source_type,
+        }
+        references.append(reference)
+        sources.append({"type": source_type, **reference})
+
+    add_constraint("task", "positive", goal, "task", priority=100)
+    positive_setting_keys = ("design_constraints", "style_rules", "positive_rules", "requirements")
+    negative_setting_keys = ("negative_rules", "avoid_rules", "forbidden")
+    for key in positive_setting_keys + negative_setting_keys:
+        raw_values = settings.get(key) or []
+        if isinstance(raw_values, str):
+            raw_values = [raw_values]
+        for value in raw_values if isinstance(raw_values, list) else []:
+            add_constraint(
+                "manual",
+                "negative" if key in negative_setting_keys else "positive",
+                str(value),
+                "project_settings",
+                key,
+                90,
+            )
+    if any(settings.get(key) for key in positive_setting_keys + negative_setting_keys):
+        sources.append({"type": "project_settings", "id": project_id, "title": "项目手工规则"})
+
+    for line in preference.get("guidance") or []:
+        polarity = "negative" if str(line).startswith("降低或避免") else "positive"
+        add_constraint("preference", polarity, line, "feedback", project_id, 80)
+    for asset in preference.get("positive_assets") or []:
+        add_reference(asset, "已采纳、收藏或高评分素材", "positive_feedback_asset")
+    for asset in preference.get("avoided_assets") or []:
+        sources.append({
+            "type": "negative_feedback_asset",
+            "asset_id": str(asset.get("asset_id") or ""),
+            "title": str(asset.get("title") or "已淘汰素材"),
+            "url": str(asset.get("storage_url") or ""),
+            "reason": "已淘汰或低评分，不作为视觉参考",
+        })
+
+    explicit_references = context.get("reference_images") or []
+    for raw in explicit_references if isinstance(explicit_references, list) else []:
+        if isinstance(raw, BaseModel):
+            raw = raw.model_dump(mode="json")
+        if isinstance(raw, dict):
+            add_reference(raw, "本次任务明确指定", "task_reference")
+
+    for match in wiki_matches:
+        item = match.get("item") or {}
+        item_id = str(item.get("id") or item.get("path") or "")
+        excerpt = wiki_excerpt(read_agent_wiki_match_content(match) or item.get("excerpt", ""), 240)
+        title = str(item.get("title") or "Wiki 依据")
+        sources.append({"type": "wiki", "id": item_id, "title": title, "excerpt": excerpt})
+        if excerpt:
+            add_constraint("knowledge", "positive", f"参考知识《{title}》：{excerpt}", "wiki", item_id, 60)
+
+    constraints.sort(key=lambda item: (-int(item.get("priority") or 0), item["id"]))
+    references = references[:4]
+    payload = {
+        "project_id": project_id,
+        "goal": goal,
+        "constraints": constraints[:16],
+        "sources": sources[:24],
+        "reference_assets": references,
+    }
+    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    if persist:
+        compiled = DOMAIN_STORE.record_project_context_compilation(
+            project_id,
+            goal,
+            digest=digest,
+            constraints=payload["constraints"],
+            sources=payload["sources"],
+            reference_assets=payload["reference_assets"],
+        )
+    else:
+        compiled = {"id": "", "digest": digest, **payload}
+    compiled["positive_constraints"] = [
+        item["text"] for item in payload["constraints"] if item.get("polarity") != "negative"
+    ]
+    compiled["negative_constraints"] = [
+        item["text"] for item in payload["constraints"] if item.get("polarity") == "negative"
+    ]
+    compiled["wiki_matches"] = wiki_matches
+    return compiled
+
+
+def apply_compiled_context_to_prompt(prompt: str, compiled_context: Optional[Dict[str, Any]]) -> str:
+    prompt = str(prompt or "").strip()
+    compiled_context = compiled_context or {}
+    if "项目约束（必须遵守）" in prompt:
+        return prompt
+    positive = [str(item).strip() for item in (compiled_context.get("positive_constraints") or []) if str(item).strip()]
+    negative = [str(item).strip() for item in (compiled_context.get("negative_constraints") or []) if str(item).strip()]
+    additions = []
+    if positive:
+        additions.append("项目约束（必须遵守）：" + "；".join(positive[:8]))
+    if negative:
+        additions.append("项目禁止项：" + "；".join(negative[:6]))
+    return "\n".join([prompt, *additions]).strip()
+
+
+def build_design_prompt(goal: str, wiki_matches: List[Dict[str, Any]], library_items: List[Dict[str, Any]], preference_profile: Optional[Dict[str, Any]] = None, compiled_context: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     wiki_bits = []
     for match in wiki_matches[:4]:
         item = match.get("item") or {}
@@ -5743,7 +6108,19 @@ def build_design_prompt(goal: str, wiki_matches: List[Dict[str, Any]], library_i
     ])
     if wiki_bits:
         positive += "，参考知识：" + "；".join(wiki_bits[:2])
+    preference_profile = preference_profile or {}
+    preferred_terms = preference_profile.get("preferred_terms") or []
+    avoided_terms = preference_profile.get("avoided_terms") or []
+    if preferred_terms:
+        positive += "，项目历史偏好：" + "、".join(preferred_terms[:8])
     negative = "低清晰度，模糊，畸形结构，杂乱构图，错误文字，过度拼接，不合理尺度，低质量渲染"
+    if avoided_terms:
+        negative += "，项目历史避免：" + "、".join(avoided_terms[:8])
+    compiled_context = compiled_context or {}
+    positive = apply_compiled_context_to_prompt(positive, compiled_context)
+    compiled_negative = [str(item).strip() for item in (compiled_context.get("negative_constraints") or []) if str(item).strip()]
+    if compiled_negative:
+        negative += "，项目禁止项：" + "、".join(compiled_negative[:6])
     brief = "\n".join([
         "## 设计目标",
         goal,
@@ -5753,6 +6130,12 @@ def build_design_prompt(goal: str, wiki_matches: List[Dict[str, Any]], library_i
         "",
         "## 资源库参考",
         *(f"- {item}" for item in (image_bits or ["当前资源库上下文暂无命中参考图。"])),
+        "",
+        "## 项目历史偏好",
+        *(f"- {item}" for item in (preference_profile.get("guidance") or ["当前项目还没有足够的显式偏好信号。"])),
+        "",
+        "## 本次编译约束",
+        *(f"- {item.get('text')}（{item.get('source_type')}）" for item in (compiled_context.get("constraints") or [])),
         "",
         "## 正向提示词",
         positive,
@@ -5800,8 +6183,9 @@ async def plan_agent_kernel_action(payload: Dict[str, Any], context: Dict[str, A
 1.1 如果 context.active_skills 不为空，必须遵循其 instructions，但不能突破工具权限和用户确认边界。
 2. 先读取项目上下文，再按需要搜索 Wiki/素材，不要重复已有结果。
 3. 设计任务应先产生简报，再尝试生图，并将可用结果保存到项目、资源库和智能画布。
-4. 某个工具失败后要根据 error 换路、修正参数或带着明确说明结束，不要无限重试。
-5. 步数接近 max_steps 时优先保存已有产物并结束。
+4. 研究、总结和学习任务必须使用 Wiki 检索结果生成内容，再调用已授权的 Wiki 写入工具持久化；无命中时要显式标注依据不足。
+5. 某个工具失败后要根据 error 换路、修正参数或带着明确说明结束，不要无限重试。
+6. 步数接近 max_steps 时优先保存已有产物并结束。
 """.strip()
     response = await request_chat_completion(
         user_message=json.dumps(payload, ensure_ascii=False),
@@ -5832,9 +6216,15 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             str(execution.context.get("canvas_id") or ""),
         )
         workspace = DOMAIN_STORE.project_workspace(project_id, limit=12)
+        preference_profile = build_project_preference_profile(project_id)
+        compiled_context = compile_project_design_context(project_id, execution.goal, execution.context)
         execution.state["project_id"] = project_id
         execution.state["project"] = workspace.get("project") or {}
         execution.state["project_assets"] = workspace.get("recent_assets") or []
+        execution.state["preference_profile"] = preference_profile
+        execution.state["compiled_context"] = compiled_context
+        execution.state["context_compilation_id"] = compiled_context.get("id", "")
+        execution.state["wiki_matches"] = list(compiled_context.get("wiki_matches") or [])
         return {
             "project": workspace.get("project") or {},
             "counts": workspace.get("counts") or {},
@@ -5842,13 +6232,32 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             "recent_tasks": (workspace.get("recent_tasks") or [])[:8],
             "recent_assets": (workspace.get("recent_assets") or [])[:8],
             "feedback_summary": workspace.get("feedback_summary") or {},
+            "preference_profile": preference_profile,
+            "compiled_context": {
+                "id": compiled_context.get("id", ""),
+                "digest": compiled_context.get("digest", ""),
+                "constraints": compiled_context.get("constraints") or [],
+                "sources": compiled_context.get("sources") or [],
+                "reference_assets": compiled_context.get("reference_assets") or [],
+            },
+            "skill_candidates": workspace.get("skill_candidates") or [],
         }
 
     async def search_wiki_tool(arguments, execution):
         query = str(arguments.get("query") or execution.goal).strip()
         limit = max(1, min(AGENT_WIKI_CONTEXT_LIMIT, int(arguments.get("limit") or AGENT_WIKI_CONTEXT_LIMIT)))
         matches = agent_wiki_search_items(query, execution.context, limit=limit)
-        execution.state["wiki_matches"] = matches
+        merged_matches = list(execution.state.get("wiki_matches") or [])
+        known_match_ids = {
+            str((match.get("item") or {}).get("id") or (match.get("item") or {}).get("path") or "")
+            for match in merged_matches
+        }
+        for match in matches:
+            match_id = str((match.get("item") or {}).get("id") or (match.get("item") or {}).get("path") or "")
+            if match_id and match_id not in known_match_ids:
+                merged_matches.append(match)
+                known_match_ids.add(match_id)
+        execution.state["wiki_matches"] = merged_matches
         return {
             "query": query,
             "count": len(matches),
@@ -5864,6 +6273,15 @@ def build_design_agent_tool_registry() -> ToolRegistry:
                 for match in matches
             ],
         }
+
+    def resolved_wiki_related_ids(arguments, execution):
+        requested_ids = [str(item).strip() for item in (arguments.get("related_ids") or []) if str(item).strip()]
+        if "wiki_matches" not in execution.state:
+            return requested_ids
+        available_ids = agent_related_ids_from_matches(execution.state.get("wiki_matches") or [])
+        available_set = set(available_ids)
+        valid_requested = [item_id for item_id in requested_ids if item_id in available_set]
+        return valid_requested or available_ids
 
     async def search_library_tool(arguments, execution):
         merged = dict(execution.context)
@@ -5887,9 +6305,113 @@ def build_design_agent_tool_registry() -> ToolRegistry:
                     "url": image.get("url", ""),
                     "categories": image.get("categories") or [],
                     "tags": image.get("tags") or image.get("manual_tags") or [],
+                    "feedback": image.get("feedback") or {},
                 }
                 for image in images
             ],
+        }
+
+    async def tag_library_tool(arguments, execution):
+        project_id = resolve_project_id(
+            str(arguments.get("project_id") or execution.state.get("project_id") or execution.context.get("project_id") or ""),
+            str(execution.context.get("canvas_id") or ""),
+        )
+        requested_ids = [str(item).strip() for item in (arguments.get("image_ids") or []) if str(item).strip()]
+        if not requested_ids:
+            requested_ids = [
+                str(item.get("id") or "")
+                for item in (execution.state.get("library_items") or [])
+                if item.get("id") and not item.get("domain_only")
+            ]
+        available_ids = {
+            str(item.get("id") or "")
+            for item in filter_library_images_by_scope(load_library_images(), "available", project_id)
+        }
+        image_ids = list(dict.fromkeys(item for item in requested_ids if item in available_ids))[:AGENT_LIBRARY_TAG_LIMIT]
+        if not image_ids:
+            raise HTTPException(status_code=400, detail="当前项目范围内没有可标注的资源库图片")
+        provider = str(arguments.get("provider") or execution.context.get("provider") or "").strip()
+        model = str(arguments.get("model") or execution.context.get("model") or "").strip()
+        if not model:
+            raise HTTPException(status_code=400, detail="素材标注需要明确的模型")
+        result = await library_ai_tag(LibraryTagRequest(image_ids=image_ids, provider=provider, model=model))
+        items = result.get("results") or []
+        execution.state["library_tag_result"] = result
+        return {
+            "project_id": project_id,
+            "processed_count": len(items),
+            "success_count": sum(1 for item in items if item.get("ok")),
+            "failed_count": sum(1 for item in items if not item.get("ok")),
+            "results": items,
+        }
+
+    async def write_wiki_qa_tool(arguments, execution):
+        question = str(arguments.get("question") or execution.goal).strip()
+        answer = str(arguments.get("answer") or "").strip()
+        if not answer:
+            raise HTTPException(status_code=400, detail="写入 Wiki 前必须提供回答内容")
+        related_ids = resolved_wiki_related_ids(arguments, execution)
+        title = str(arguments.get("title") or display_title(question)).strip()[:120]
+        content = "\n".join([
+            "## 问题",
+            question,
+            "",
+            "## 回答",
+            answer,
+            "",
+            "## 引用",
+            *(f"- [[{item_id}]]" for item_id in related_ids),
+        ]).rstrip()
+        page = agent_create_wiki_output_page(
+            execution.context,
+            "qa",
+            title,
+            content,
+            related_ids=related_ids,
+        )
+        execution.state["wiki_page"] = {"id": page.get("id", ""), "title": page.get("title", "")}
+        return {
+            "wiki_page_id": page.get("id", ""),
+            "wiki_page_title": page.get("title", ""),
+            "question": question,
+            "related_ids": related_ids,
+        }
+
+    async def write_agent_report_tool(arguments, execution):
+        title = str(arguments.get("title") or f"{display_title(execution.goal)} 工作报告").strip()[:120]
+        content = str(arguments.get("content") or "").strip()
+        if not content:
+            raise HTTPException(status_code=400, detail="写入工作报告前必须提供报告内容")
+        related_ids = resolved_wiki_related_ids(arguments, execution)
+        project_id = resolve_project_id(
+            str(execution.state.get("project_id") or execution.context.get("project_id") or ""),
+            str(execution.context.get("canvas_id") or ""),
+        )
+        report_content = "\n".join([
+            "## 项目上下文",
+            f"- 项目 ID：`{project_id}`",
+            f"- 任务模式：{str(execution.context.get('mode') or 'summary')}",
+            "",
+            content,
+            "",
+            "## 关联来源",
+            *(f"- [[{item_id}]]" for item_id in related_ids),
+        ]).rstrip()
+        page = agent_create_wiki_output_page(
+            execution.context,
+            "report",
+            title,
+            report_content,
+            related_ids=related_ids,
+        )
+        execution.state["project_id"] = project_id
+        execution.state["wiki_page"] = {"id": page.get("id", ""), "title": page.get("title", "")}
+        execution.state["wiki_related_ids"] = related_ids
+        return {
+            "project_id": project_id,
+            "wiki_page_id": page.get("id", ""),
+            "wiki_page_title": page.get("title", ""),
+            "related_ids": related_ids,
         }
 
     async def generate_brief_tool(arguments, execution):
@@ -5899,6 +6421,8 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             brief_goal,
             execution.state.get("wiki_matches") or [],
             execution.state.get("library_items") or [],
+            execution.state.get("preference_profile") or {},
+            execution.state.get("compiled_context") or {},
         )
         related_ids = agent_related_ids_from_matches(execution.state.get("wiki_matches") or [])
         page = agent_create_wiki_output_page(
@@ -5923,14 +6447,29 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             execution.goal,
             execution.state.get("wiki_matches") or [],
             execution.state.get("library_items") or [],
+            execution.state.get("preference_profile") or {},
+            execution.state.get("compiled_context") or {},
         )
-        prompt = str(arguments.get("prompt") or prompt_pack["positive"]).strip()
+        compiled_context = execution.state.get("compiled_context") or {}
+        prompt = apply_compiled_context_to_prompt(
+            str(arguments.get("prompt") or prompt_pack["positive"]).strip(),
+            compiled_context,
+        )
         project_id = str(execution.state.get("project_id") or execution.context.get("project_id") or "")
-        reference_images = []
+        reference_images = [
+            {
+                "url": str(item.get("url") or ""),
+                "name": str(item.get("title") or "项目参考图"),
+                "role": "style_reference",
+                "asset_id": str(item.get("asset_id") or ""),
+            }
+            for item in (compiled_context.get("reference_assets") or [])[:2]
+            if item.get("url")
+        ]
         use_project_reference = any(token in execution.goal for token in [
             "参考图", "已有素材", "现有素材", "项目素材", "基于当前项目", "基于项目",
         ])
-        if use_project_reference:
+        if use_project_reference and not reference_images:
             project_assets = list(execution.state.get("project_assets") or [])
             project_assets.sort(key=lambda item: 0 if item.get("source") == "generation_input" else 1)
             reference_asset = next((item for item in project_assets if item.get("storage_url")), None)
@@ -5941,6 +6480,11 @@ def build_design_agent_tool_registry() -> ToolRegistry:
                     "role": "reference",
                     "asset_id": str(reference_asset.get("id") or ""),
                 })
+        compiled_quality_requirements = [
+            str(item.get("text") or "")
+            for item in (compiled_context.get("constraints") or [])
+            if item.get("text") and item.get("kind") in {"task", "manual", "preference"}
+        ][:6]
         payload = OnlineImageRequest(
             prompt=prompt,
             provider_id=str(arguments.get("provider_id") or execution.context.get("image_provider_id") or execution.context.get("provider_id") or "comfly"),
@@ -5951,6 +6495,17 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             reference_images=reference_images,
             project_id=project_id,
             canvas_id=str(execution.context.get("canvas_id") or ""),
+            quality_gate=True,
+            quality_requirements=list(dict.fromkeys([
+                *[str(item) for item in (execution.context.get("quality_requirements") or []) if str(item).strip()],
+                *compiled_quality_requirements,
+            ]))[:6],
+            quality_pass_threshold=float(execution.context.get("quality_pass_threshold") or 75),
+            quality_max_retries=max(0, min(2, int(execution.context.get("quality_max_retries") or 1))),
+            judge_provider=str(execution.context.get("judge_provider") or execution.context.get("provider") or ""),
+            judge_model=str(execution.context.get("judge_model") or execution.context.get("model") or ""),
+            context_compilation_id=str(compiled_context.get("id") or ""),
+            compiled_constraints=[str(item.get("text") or "") for item in (compiled_context.get("constraints") or []) if item.get("text")],
         )
         domain_task = DOMAIN_STORE.create_generation_task(
             project_id,
@@ -5961,6 +6516,10 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             prompt=payload.prompt,
             parameters=payload.model_dump(mode="json"),
             inputs=[item.model_dump(mode="json") for item in payload.reference_images],
+            root_task_id=payload.quality_root_task_id,
+            parent_task_id=payload.quality_parent_task_id,
+            attempt=payload.quality_attempt,
+            context_compilation_id=payload.context_compilation_id,
         )
         DOMAIN_STORE.update_generation_task(domain_task["id"], "running")
         try:
@@ -5968,16 +6527,79 @@ def build_design_agent_tool_registry() -> ToolRegistry:
         except Exception as exc:
             DOMAIN_STORE.update_generation_task(domain_task["id"], "failed", str(getattr(exc, "detail", exc)))
             raise
+        evaluation = await evaluate_generation_task_quality(
+            domain_task["id"],
+            judge_provider=payload.judge_provider,
+            judge_model=payload.judge_model,
+            requirements_override=payload.quality_requirements,
+            pass_threshold=payload.quality_pass_threshold,
+        )
+        quality_retries = []
+        current_task = domain_task
+        current_payload = payload
+        while evaluation.get("status") == "failed" and len(quality_retries) < payload.quality_max_retries:
+            next_attempt = int(current_task.get("attempt") or 1) + 1
+            next_payload = current_payload.model_copy(update={
+                "prompt": quality_retry_prompt(current_task.get("prompt") or current_payload.prompt, evaluation),
+                "quality_attempt": next_attempt,
+                "quality_root_task_id": domain_task["id"],
+                "quality_parent_task_id": current_task["id"],
+                "quality_max_retries": 0,
+            })
+            next_task = DOMAIN_STORE.create_generation_task(
+                project_id,
+                canvas_id=next_payload.canvas_id,
+                source_node_id=next_payload.source_node_id,
+                provider_id=next_payload.provider_id,
+                model=next_payload.model,
+                prompt=next_payload.prompt,
+                parameters=next_payload.model_dump(mode="json"),
+                inputs=[item.model_dump(mode="json") for item in next_payload.reference_images],
+                root_task_id=domain_task["id"],
+                parent_task_id=current_task["id"],
+                attempt=next_attempt,
+                context_compilation_id=next_payload.context_compilation_id,
+            )
+            DOMAIN_STORE.link_generation_retry(
+                project_id, current_task["id"], next_task["id"],
+                str(evaluation.get("feedback") or evaluation.get("verdict") or "质量门未通过"),
+            )
+            DOMAIN_STORE.update_generation_task(next_task["id"], "running")
+            try:
+                result = await build_online_image_result(next_payload, next_task["id"])
+            except Exception as exc:
+                DOMAIN_STORE.update_generation_task(next_task["id"], "failed", str(getattr(exc, "detail", exc)))
+                raise
+            evaluation = await evaluate_generation_task_quality(
+                next_task["id"], judge_provider=next_payload.judge_provider,
+                judge_model=next_payload.judge_model,
+                requirements_override=next_payload.quality_requirements,
+                pass_threshold=next_payload.quality_pass_threshold,
+            )
+            quality_retries.append(next_task["id"])
+            current_task = next_task
+            current_payload = next_payload
         image_urls = [str(url).strip() for url in (result.get("images") or []) if str(url).strip()]
+        result["quality_evaluation"] = evaluation
+        result["quality_retry_task_ids"] = quality_retries
         execution.state["image_result"] = result
         execution.state["image_urls"] = image_urls
-        execution.state["generation_task_id"] = domain_task["id"]
+        execution.state["generation_task_id"] = current_task["id"]
+        execution.state["quality_evaluation"] = evaluation
+        execution.state["quality_replay_root_task_id"] = domain_task["id"]
+        execution.state["context_compilation_id"] = payload.context_compilation_id
         return {
             "count": len(image_urls),
             "image_urls": image_urls,
             "provider_id": payload.provider_id,
             "model": payload.model,
-            "generation_task_id": domain_task["id"],
+            "generation_task_id": current_task["id"],
+            "quality_replay_root_task_id": domain_task["id"],
+            "quality_status": evaluation.get("status"),
+            "quality_score": evaluation.get("overall_score"),
+            "quality_retry_task_ids": quality_retries,
+            "context_compilation_id": payload.context_compilation_id,
+            "applied_constraint_count": len(payload.compiled_constraints),
             "output_asset_ids": [item.get("asset_id") for item in ((result.get("domain") or {}).get("outputs") or [])],
         }
 
@@ -6036,6 +6658,101 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             save_canvas(canvas)
         execution.state["canvas"] = canvas
         return {"canvas_id": canvas["id"], "canvas_title": canvas["title"], "inserted_count": len(new_urls)}
+
+    async def read_canvas_tool(arguments, execution):
+        canvas_id = str(
+            arguments.get("canvas_id")
+            or (execution.state.get("canvas") or {}).get("id")
+            or execution.context.get("canvas_id")
+            or ""
+        ).strip()
+        if not canvas_id:
+            raise HTTPException(status_code=400, detail="读取画布需要 canvas_id")
+        canvas = load_canvas(canvas_id)
+        project_id = resolve_project_id(
+            str(arguments.get("project_id") or execution.context.get("project_id") or ""),
+            canvas_id,
+        )
+        if str(canvas.get("project_id") or "") != project_id:
+            raise HTTPException(status_code=403, detail="画布不属于当前项目")
+        selected_ids = [str(item).strip() for item in (arguments.get("selected_node_ids") or []) if str(item).strip()]
+        if not selected_ids and execution.context.get("selected_node_id"):
+            selected_ids = [str(execution.context.get("selected_node_id"))]
+        nodes = canvas.get("nodes") or []
+        selected_set = set(selected_ids)
+        selected_nodes = [node for node in nodes if str(node.get("id") or "") in selected_set]
+        execution.state["project_id"] = project_id
+        execution.state["canvas"] = canvas
+        execution.state["selected_canvas_nodes"] = selected_nodes
+        return {
+            "project_id": project_id,
+            "canvas_id": canvas["id"],
+            "canvas_title": canvas.get("title", ""),
+            "node_count": len(nodes),
+            "connection_count": len(canvas.get("connections") or []),
+            "selected_node_ids": [str(node.get("id") or "") for node in selected_nodes],
+            "nodes": [
+                {
+                    "id": str(node.get("id") or ""),
+                    "type": str(node.get("type") or ""),
+                    "title": str(node.get("title") or ""),
+                    "image_count": len(node.get("images") or []),
+                    "image_urls": [str(image.get("url") or "") for image in (node.get("images") or []) if image.get("url")][:12],
+                }
+                for node in nodes[:40]
+            ],
+        }
+
+    async def save_canvas_images_tool(arguments, execution):
+        canvas_id = str(arguments.get("canvas_id") or (execution.state.get("canvas") or {}).get("id") or execution.context.get("canvas_id") or "").strip()
+        if not canvas_id:
+            raise HTTPException(status_code=400, detail="画布结果回存需要 canvas_id")
+        canvas = load_canvas(canvas_id)
+        project_id = resolve_project_id(
+            str(arguments.get("project_id") or execution.state.get("project_id") or execution.context.get("project_id") or ""),
+            canvas_id,
+        )
+        if str(canvas.get("project_id") or "") != project_id:
+            raise HTTPException(status_code=403, detail="画布不属于当前项目")
+        selected_ids = [str(item).strip() for item in (arguments.get("node_ids") or []) if str(item).strip()]
+        if not selected_ids and execution.context.get("selected_node_id"):
+            selected_ids = [str(execution.context.get("selected_node_id"))]
+        selected_set = set(selected_ids)
+        node_items = [node for node in (canvas.get("nodes") or []) if str(node.get("id") or "") in selected_set]
+        canvas_images = [
+            {**image, "node_id": str(node.get("id") or "")}
+            for node in node_items
+            for image in (node.get("images") or [])
+            if image.get("url")
+        ]
+        requested_urls = [str(item).strip() for item in (arguments.get("image_urls") or []) if str(item).strip()]
+        if requested_urls:
+            requested_set = set(requested_urls)
+            canvas_images = [image for image in canvas_images if str(image.get("url") or "") in requested_set]
+        if not canvas_images:
+            raise HTTPException(status_code=400, detail="当前选中画布节点没有可回存图片")
+        urls = list(dict.fromkeys(str(image.get("url") or "") for image in canvas_images))
+        imported = import_urls_into_library(
+            urls=urls,
+            items=canvas_images,
+            source_name="智能画布",
+            canvas_id=canvas_id,
+            canvas_title=str(canvas.get("title") or ""),
+            node_id=selected_ids[0] if len(selected_ids) == 1 else "",
+            manual_tags=[str(canvas.get("title") or "智能画布")],
+            project_id=project_id,
+        )
+        execution.state["project_id"] = project_id
+        execution.state["canvas"] = canvas
+        execution.state["import_result"] = imported
+        return {
+            "project_id": project_id,
+            "canvas_id": canvas_id,
+            "processed_count": len(urls),
+            "saved_count": int(imported.get("count") or 0),
+            "library_image_ids": [item.get("id") for item in (imported.get("imported") or [])],
+            "skipped": imported.get("skipped") or [],
+        }
 
     async def save_output_tool(arguments, execution):
         image_urls = [str(url).strip() for url in (arguments.get("image_urls") or execution.state.get("image_urls") or []) if str(url).strip()]
@@ -6101,6 +6818,7 @@ def build_design_agent_tool_registry() -> ToolRegistry:
             "canvas_id": (execution.state.get("canvas") or {}).get("id", ""),
             "wiki_page_id": (execution.state.get("wiki_page") or {}).get("id", ""),
             "image_urls": execution.state.get("image_urls") or [],
+            "context_compilation_id": execution.state.get("context_compilation_id") or "",
         }
         return execution.state["project_output"]
 
@@ -6121,9 +6839,38 @@ def build_design_agent_tool_registry() -> ToolRegistry:
         permissions=["wiki:read"], scopes=["home", "wiki", "library", "smart-canvas"],
     ))
     registry.register(ToolSpec(
+        "write_wiki_qa", "将已经生成的问答内容写入当前 Wiki，并返回持久化页面标识。",
+        object_schema({
+            "question": {"type": "string"},
+            "answer": {"type": "string"},
+            "title": {"type": "string"},
+            "related_ids": {"type": "array", "items": {"type": "string"}},
+        }, ["question", "answer"]), write_wiki_qa_tool, writes=True,
+        permissions=["wiki:write"], scopes=["home", "wiki"],
+    ))
+    registry.register(ToolSpec(
+        "write_agent_report", "将研究、总结或学习结果写入当前 Wiki，并保留项目与来源关联。",
+        object_schema({
+            "title": {"type": "string"},
+            "content": {"type": "string"},
+            "related_ids": {"type": "array", "items": {"type": "string"}},
+        }, ["title", "content"]), write_agent_report_tool, writes=True,
+        permissions=["wiki:write"], scopes=["home", "wiki"],
+    ))
+    registry.register(ToolSpec(
         "list_library_images", "搜索资源库图片，结果可作为设计参考或画布输入。",
         object_schema({"query": {"type": "string"}, "project_id": {"type": "string"}, "limit": {"type": "integer"}}), search_library_tool,
         permissions=["library:read"], scopes=["home", "library", "smart-canvas"],
+    ))
+    registry.register(ToolSpec(
+        "tag_library_images", "在当前项目可见范围内调用指定模型，为资源库图片写入分类和标签。",
+        object_schema({
+            "image_ids": {"type": "array", "items": {"type": "string"}},
+            "project_id": {"type": "string"},
+            "provider": {"type": "string"},
+            "model": {"type": "string"},
+        }, ["image_ids"]), tag_library_tool, writes=True,
+        permissions=["library:write", "generation:run"], scopes=["library"],
     ))
     registry.register(ToolSpec(
         "generate_design_brief", "根据目标、Wiki 和素材结果生成设计简报/提示词并写入 Wiki。",
@@ -6146,6 +6893,25 @@ def build_design_agent_tool_registry() -> ToolRegistry:
         permissions=["canvas:write"], scopes=["home", "library", "smart-canvas"],
     ))
     registry.register(ToolSpec(
+        "read_smart_canvas", "读取当前项目智能画布的节点、连接和选中节点摘要。",
+        object_schema({
+            "canvas_id": {"type": "string"},
+            "project_id": {"type": "string"},
+            "selected_node_ids": {"type": "array", "items": {"type": "string"}},
+        }, ["canvas_id"]), read_canvas_tool,
+        permissions=["canvas:read", "project:read"], scopes=["smart-canvas"],
+    ))
+    registry.register(ToolSpec(
+        "save_canvas_node_images_to_library", "将当前项目画布中明确选中的节点图片回存资源库。",
+        object_schema({
+            "canvas_id": {"type": "string"},
+            "project_id": {"type": "string"},
+            "node_ids": {"type": "array", "items": {"type": "string"}},
+            "image_urls": {"type": "array", "items": {"type": "string"}},
+        }, ["canvas_id"]), save_canvas_images_tool, writes=True,
+        permissions=["canvas:read", "library:write", "project:write"], scopes=["smart-canvas"],
+    ))
+    registry.register(ToolSpec(
         "save_design_output", "将已有简报和图片回存资源库、智能画布和当前项目。",
         object_schema({"project_id": {"type": "string"}, "image_urls": {"type": "array", "items": {"type": "string"}}}), save_output_tool, writes=True,
         permissions=["library:write", "canvas:write", "project:write"], scopes=["home", "library", "smart-canvas", "wiki"],
@@ -6158,7 +6924,7 @@ def build_design_agent_tool_registry() -> ToolRegistry:
     return registry
 
 
-async def run_tool_calling_design_agent_task(task_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+async def run_tool_calling_agent_task(task_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
     context = dict(task.get("context") or {})
     goal = str(task.get("goal") or context.get("goal") or "设计出图任务").strip()
     plan = task.get("plan") or {}
@@ -6229,6 +6995,21 @@ async def run_tool_calling_design_agent_task(task_id: str, task: Dict[str, Any])
         if confirmed or not manifest.get("writes")
         for permission in (manifest.get("permissions") or [])
     }
+    knowledge_task = str(task.get("task_type") or plan.get("task_type") or "") in {"wiki_task", "work_task"}
+    completion_contract = [
+        "读取当前项目上下文",
+        "检索 Wiki 并保留真实来源",
+        "将研究、总结、学习或问答结果写入 Wiki",
+        "返回可追溯的项目和 Wiki 页面标识",
+    ] if knowledge_task else [
+        "读取当前项目上下文",
+        "编译并采用当前项目的设计约束与参考素材",
+        "根据任务按需搜索 Wiki 和素材库",
+        "生成并保存设计简报",
+        "尝试生图，失败时保留可操作的错误原因",
+        "将可用图片保存到资源库和智能画布",
+        "返回可追溯的项目产物摘要",
+    ]
     loop_result = await loop.run(
         goal,
         context,
@@ -6238,14 +7019,7 @@ async def run_tool_calling_design_agent_task(task_id: str, task: Dict[str, Any])
         current_scope=str(plan.get("page_role") or task.get("page_role") or "home"),
         is_cancelled=lambda: agent_task_cancelled(task_id),
         on_event=on_event,
-        completion_contract=[
-            "读取当前项目上下文",
-            "根据任务按需搜索 Wiki 和素材库",
-            "生成并保存设计简报",
-            "尝试生图，失败时保留可操作的错误原因",
-            "将可用图片保存到资源库和智能画布",
-            "返回可追溯的项目产物摘要",
-        ],
+        completion_contract=completion_contract,
         required_tools=list(plan.get("required_tools") or []),
     )
     if loop_result.get("status") == "cancelled":
@@ -6263,8 +7037,13 @@ async def run_tool_calling_design_agent_task(task_id: str, task: Dict[str, Any])
         "tool_history": loop_result.get("history") or [],
         "brief": (state.get("prompt_pack") or {}).get("brief", ""),
         "prompt": (state.get("prompt_pack") or {}).get("positive", ""),
+        "preference_profile": state.get("preference_profile") or {},
+        "context_compilation_id": state.get("context_compilation_id") or "",
+        "applied_constraints": (state.get("compiled_context") or {}).get("constraints") or [],
+        "context_sources": (state.get("compiled_context") or {}).get("sources") or [],
         "wiki_page_id": wiki_page.get("id", ""),
         "wiki_page_title": wiki_page.get("title", ""),
+        "wiki_related_ids": state.get("wiki_related_ids") or agent_related_ids_from_matches(state.get("wiki_matches") or []),
         "image_urls": state.get("image_urls") or [],
         "generation_task_id": state.get("generation_task_id") or "",
         "output_asset_ids": [
@@ -6329,7 +7108,7 @@ async def run_design_agent_task(task_id: str, task: Dict[str, Any]) -> Dict[str,
         progress_total=4,
         event_type="step",
     )
-    prompt_pack = build_design_prompt(goal, wiki_matches, library_items)
+    prompt_pack = build_design_prompt(goal, wiki_matches, library_items, build_project_preference_profile(str(context.get("project_id") or "")))
     related_ids = agent_related_ids_from_matches(wiki_matches)
     design_page = agent_create_wiki_output_page(
         context,
@@ -6559,7 +7338,7 @@ async def execute_agent_task(task_id: str):
         task_type = str(task.get("task_type") or plan.get("task_type") or "")
 
         if plan.get("runtime") == "tool_calling_v1":
-            await run_tool_calling_design_agent_task(task_id, task)
+            await run_tool_calling_agent_task(task_id, task)
             return
         if page_role == "library" and "create_smart_canvas" in tool_ids and "append_images_to_smart_canvas" in tool_ids:
             await run_library_to_smart_canvas_task(task_id, context)
@@ -6739,6 +7518,34 @@ async def agent_run(payload: AgentRunRequest, background_tasks: BackgroundTasks)
         raise exc
 
 
+def agent_history_outputs(task: Dict[str, Any]) -> List[Dict[str, str]]:
+    result = task.get("result") or {}
+    if result.get("runtime") != "tool_calling_v1":
+        return task.get("outputs") or []
+    executed_tools = result.get("executed_tools") or []
+    if executed_tools == ["read_smart_canvas"]:
+        return [{"type": "canvas_summary", "label": "画布摘要"}]
+    if executed_tools and set(executed_tools).issubset({
+        "get_project_context",
+        "mcp.project_reader.workspace_summary",
+    }):
+        return [{"type": "project_summary", "label": "项目摘要"}]
+    outputs = []
+    if result.get("wiki_page_id"):
+        outputs.append({"type": "wiki", "label": "Wiki 页面"})
+    if int(result.get("imported_count") or 0) > 0:
+        outputs.append({"type": "library_images", "label": "资源库图片"})
+    if result.get("canvas_id") and any(tool in executed_tools for tool in {
+        "create_smart_canvas",
+        "append_images_to_smart_canvas",
+        "save_design_output",
+    }):
+        outputs.append({"type": "canvas", "label": "智能画布"})
+    if "tag_library_images" in executed_tools:
+        outputs.append({"type": "library_tags", "label": "资源库标签"})
+    return outputs
+
+
 @app.get("/api/agent/history")
 async def agent_history(project_id: str = "", limit: int = 50):
     with AGENT_TASK_LOCK:
@@ -6752,7 +7559,7 @@ async def agent_history(project_id: str = "", limit: int = 50):
                 "status": task.get("status", ""),
                 "task_type": task.get("task_type", ""),
                 "mode": task.get("mode", ""),
-                "outputs": task.get("outputs") or [],
+                "outputs": agent_history_outputs(task),
                 "project_id": str((task.get("context") or {}).get("project_id") or (task.get("result") or {}).get("project_id") or ""),
                 "created_at": task.get("created_at", 0),
                 "updated_at": task.get("updated_at", 0),
@@ -7228,6 +8035,329 @@ async def build_online_image_result(payload: OnlineImageRequest, domain_task_id:
         asyncio.run_coroutine_threadsafe(manager.broadcast_new_image(result), GLOBAL_LOOP)
     return result
 
+def generation_quality_requirements(payload: OnlineImageRequest, overrides: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    supplied = [str(item).strip() for item in (overrides or payload.quality_requirements or []) if str(item).strip()]
+    requirements = []
+    if supplied:
+        requirements.extend([
+            {
+                "id": f"requirement_{index}",
+                "title": item[:80],
+                "description": item[:500],
+                "weight": 1,
+                "threshold": 70,
+            }
+            for index, item in enumerate(supplied[:6], start=1)
+        ])
+    else:
+        requirements.append({
+            "id": "intent_fidelity",
+            "title": "任务意图符合",
+            "description": f"输出应准确回应任务目标：{payload.prompt[:500]}",
+            "weight": 1.4,
+            "threshold": 70,
+        })
+    requirements.extend([
+        {
+            "id": "visual_quality",
+            "title": "视觉质量与清晰度",
+            "description": "主体清晰，画面完成度足够，不存在明显模糊、破碎、错误文字或低质量拼接。",
+            "weight": 1,
+            "threshold": 70,
+        },
+        {
+            "id": "composition_scale",
+            "title": "构图与尺度",
+            "description": "构图层级明确，空间尺度、透视和主体关系合理。",
+            "weight": 1,
+            "threshold": 70,
+        },
+        {
+            "id": "geometry_plausibility",
+            "title": "几何与物理合理性",
+            "description": "建筑、物体、材质、光照和遮挡关系没有明显不合理或结构性错误。",
+            "weight": 1,
+            "threshold": 70,
+        },
+    ])
+    if payload.preserve_canvas or payload.reference_images:
+        requirements.append({
+            "id": "reference_continuity",
+            "title": "参考与画幅连续性",
+            "description": "保留参考图中被要求锁定的构图、视角、主体和画幅关系，不发生无意漂移。",
+            "weight": 1.3,
+            "threshold": 75,
+        })
+    return requirements
+
+
+def parse_quality_judge_result(text: str, requirements: List[Dict[str, Any]], pass_threshold: float) -> Dict[str, Any]:
+    raw = str(text or "").strip()
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw, re.IGNORECASE)
+    candidate = fenced.group(1).strip() if fenced else raw
+    start, end = candidate.find("{"), candidate.rfind("}")
+    if start >= 0 and end > start:
+        candidate = candidate[start:end + 1]
+    parsed = json.loads(candidate)
+    if not isinstance(parsed, dict):
+        raise ValueError("AI Judge 未返回 JSON 对象")
+    raw_scores = parsed.get("criteria") or parsed.get("scores") or []
+    by_id = {
+        str(item.get("id") or ""): item
+        for item in raw_scores if isinstance(item, dict) and item.get("id")
+    }
+    normalized = []
+    weighted_total = 0.0
+    total_weight = 0.0
+    for index, requirement in enumerate(requirements):
+        raw_item = by_id.get(requirement["id"])
+        if not raw_item and index < len(raw_scores) and isinstance(raw_scores[index], dict):
+            raw_item = raw_scores[index]
+        raw_item = raw_item or {}
+        score = max(0.0, min(100.0, float(raw_item.get("score") or 0)))
+        threshold = float(requirement.get("threshold") or 70)
+        weight = float(requirement.get("weight") or 1)
+        normalized.append({
+            "requirement_id": requirement["id"],
+            "title": requirement["title"],
+            "score": round(score, 1),
+            "passed": score >= threshold,
+            "reason": str(raw_item.get("reason") or raw_item.get("feedback") or "")[:1000],
+        })
+        weighted_total += score * weight
+        total_weight += weight
+    calculated = weighted_total / max(1.0, total_weight)
+    claimed = parsed.get("overall_score")
+    overall_score = max(0.0, min(100.0, float(claimed if claimed is not None else calculated)))
+    passed = overall_score >= float(pass_threshold) and all(item["passed"] for item in normalized)
+    return {
+        "status": "passed" if passed else "failed",
+        "overall_score": round(overall_score, 1),
+        "pass_threshold": float(pass_threshold),
+        "verdict": str(parsed.get("verdict") or ("通过质量门" if passed else "未通过质量门"))[:1000],
+        "feedback": str(parsed.get("feedback") or parsed.get("revision_advice") or "")[:4000],
+        "scores": normalized,
+    }
+
+
+async def evaluate_generation_task_quality(
+    task_id: str,
+    *,
+    judge_provider: str,
+    judge_model: str,
+    requirements_override: Optional[List[str]] = None,
+    pass_threshold: float = 75,
+) -> Dict[str, Any]:
+    task = DOMAIN_STORE.get_generation_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="生成任务不存在")
+    output_urls = [str(item.get("storage_url") or "") for item in (task.get("outputs") or []) if item.get("storage_url")]
+    input_urls = [str(item.get("source_url") or "") for item in (task.get("inputs") or []) if item.get("source_url")]
+    if not output_urls:
+        raise HTTPException(status_code=409, detail="生成任务没有可评审的输出")
+    try:
+        payload = OnlineImageRequest(**(task.get("parameters") or {"prompt": task.get("prompt") or "评审生成结果"}))
+    except Exception:
+        payload = OnlineImageRequest(prompt=task.get("prompt") or "评审生成结果")
+    requirements = generation_quality_requirements(payload, requirements_override)
+    effective_provider = str(judge_provider or "").strip()
+    effective_model = str(judge_model or "").strip()
+    if effective_provider == "apimart" and "gemini" not in effective_model.lower():
+        effective_model = "gemini-3.1-flash-image-preview"
+    elif effective_provider == "modelscope" and "vl" not in effective_model.lower():
+        effective_model = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+    requirement_text = "\n".join(
+        f'- {item["id"]}｜{item["title"]}｜阈值 {item["threshold"]}：{item["description"]}'
+        for item in requirements
+    )
+    system_prompt = """你是建筑设计生成结果的质量评审 Agent。你必须逐条核对要求，只输出合法 JSON，不要输出 Markdown。不能确认的要求应降低分数并说明证据不足。"""
+    message = f"""评审本次生成结果。
+
+原始任务：{task.get('prompt') or ''}
+总通过阈值：{float(pass_threshold)}
+图片顺序：前 {len(input_urls)} 张为输入/参考图，后 {len(output_urls)} 张为本轮输出图。若没有输入图，不评判参考连续性。
+
+逐条要求：
+{requirement_text}
+
+只返回：
+{{"overall_score":0-100,"verdict":"结论","feedback":"下一轮可直接执行的修改建议","criteria":[{{"id":"要求ID","score":0-100,"reason":"可核对理由"}}]}}
+"""
+    try:
+        response = await canvas_llm(CanvasLLMRequest(
+            message=message,
+            system_prompt=system_prompt,
+            provider=effective_provider,
+            model=effective_model,
+            images=[*input_urls, *output_urls],
+        ))
+        parsed = parse_quality_judge_result(response.get("text") or "", requirements, pass_threshold)
+        response_text = str(response.get("text") or "")
+        if parsed.get("scores") and all(float(item.get("score") or 0) == 0 for item in parsed["scores"]) and any(
+            token in response_text for token in ("未提供生成结果", "无法评估", "没有图像", "未看到图像")
+        ):
+            parsed.update({
+                "status": "error",
+                "verdict": "当前 Judge 模型无法读取图像",
+                "feedback": "请配置支持视觉输入的 Judge 模型后重新评审；本次不计入命中率。",
+            })
+        evaluator_model = response.get("model") or effective_model
+    except Exception as exc:
+        detail = str(getattr(exc, "detail", exc))[:1500]
+        return DOMAIN_STORE.record_quality_evaluation(
+            task["project_id"], task_id, status="error", overall_score=0,
+            pass_threshold=pass_threshold, verdict="质量评审未完成", feedback=detail,
+            requirements=requirements, scores=[], output_urls=output_urls,
+            evaluator="ai_judge", model=effective_model,
+        )
+    return DOMAIN_STORE.record_quality_evaluation(
+        task["project_id"], task_id, requirements=requirements, output_urls=output_urls,
+        evaluator="ai_judge", model=evaluator_model, **parsed,
+    )
+
+
+def quality_retry_prompt(prompt: str, evaluation: Dict[str, Any]) -> str:
+    failed = [item for item in (evaluation.get("scores") or []) if not item.get("passed")]
+    reasons = "；".join(
+        f"{item.get('title')}: {item.get('reason') or '未达到要求'}" for item in failed
+    )
+    feedback = str(evaluation.get("feedback") or "").strip()
+    return "\n".join(filter(None, [
+        str(prompt or "").strip(),
+        "",
+        "上一轮质量门反馈（必须修正，未提及的构图和有效内容保持不变）：",
+        reasons or str(evaluation.get("verdict") or "未通过质量门"),
+        feedback,
+    ]))
+
+
+def archive_quality_result(task_id: str) -> Dict[str, Any]:
+    task = DOMAIN_STORE.get_generation_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="生成任务不存在")
+    evaluations = task.get("quality_evaluations") or []
+    if not evaluations:
+        raise HTTPException(status_code=409, detail="当前任务还没有质量评审")
+    evaluation = evaluations[-1]
+    output_items = [
+        {
+            "url": str(item.get("storage_url") or ""),
+            "asset_id": str(item.get("asset_id") or ""),
+            "operation": "quality-gate",
+            "operation_label": f"质量门第 {int(task.get('attempt') or 1)} 轮",
+            "prompt": task.get("prompt") or "",
+        }
+        for item in (task.get("outputs") or []) if item.get("storage_url")
+    ]
+    if not output_items:
+        raise HTTPException(status_code=409, detail="当前任务没有可归档的输出")
+    canvas_id = str(task.get("canvas_id") or "")
+    canvas = load_canvas(canvas_id) if canvas_id else None
+    existing_by_asset = {
+        str(item.get("asset_id") or ""): item
+        for item in load_library_images()
+        if item.get("asset_id") and item.get("project_id") == task["project_id"]
+    }
+    existing_records = [existing_by_asset[item["asset_id"]] for item in output_items if item["asset_id"] in existing_by_asset]
+    pending_items = [item for item in output_items if item["asset_id"] not in existing_by_asset]
+    imported = import_urls_into_library(
+        urls=[item["url"] for item in pending_items],
+        items=pending_items,
+        source_name="质量门",
+        canvas_id=canvas_id,
+        canvas_title=str((canvas or {}).get("title") or ""),
+        manual_tags=[
+            "质量门",
+            "质量门通过" if evaluation.get("status") == "passed" else "质量门待改进",
+            f"第{int(task.get('attempt') or 1)}轮",
+        ],
+        categories=["设计Agent"],
+        project_id=task["project_id"],
+    ) if pending_items else {"count": 0, "imported": [], "skipped": [], "source_id": ""}
+    archive_records = [*existing_records, *(imported.get("imported") or [])]
+    node_id = ""
+    if canvas and archive_records:
+        already_exists = any(
+            str(node.get("generation_task_id") or "") == task_id
+            for node in (canvas.get("nodes") or []) if isinstance(node, dict)
+        )
+        if not already_exists:
+            nodes = canvas.get("nodes") or []
+            x = max([int(node.get("x") or 0) for node in nodes if isinstance(node, dict)] or [0]) + 460
+            node = create_smart_canvas_image_node(archive_records, x=x, y=120)
+            node.update({
+                "title": f"质量门第 {int(task.get('attempt') or 1)} 轮 · {float(evaluation.get('overall_score') or 0):g} 分",
+                "generation_task_id": task_id,
+                "quality_evaluation_id": evaluation.get("id") or "",
+                "quality_status": evaluation.get("status") or "",
+                "quality_score": evaluation.get("overall_score") or 0,
+                "quality_verdict": evaluation.get("verdict") or "",
+            })
+            canvas.setdefault("nodes", []).append(node)
+            canvas.setdefault("generationHistory", []).append({
+                "id": f"quality_archive_{uuid.uuid4().hex[:10]}",
+                "task_id": task_id,
+                "quality_evaluation_id": evaluation.get("id") or "",
+                "status": evaluation.get("status") or "",
+                "score": evaluation.get("overall_score") or 0,
+                "created_at": now_ms(),
+            })
+            save_canvas(canvas)
+            node_id = node["id"]
+    return {
+        "task_id": task_id,
+        "canvas_id": canvas_id,
+        "canvas_node_id": node_id,
+        "imported_count": int(imported.get("count") or 0),
+        "imported_asset_ids": [item.get("asset_id") for item in archive_records],
+        "quality_status": evaluation.get("status"),
+        "quality_score": evaluation.get("overall_score"),
+    }
+
+
+async def create_quality_retry_task(
+    task_id: str,
+    evaluation: Dict[str, Any],
+    max_retries: int = 0,
+    judge_provider: str = "",
+    judge_model: str = "",
+) -> Dict[str, Any]:
+    durable = DOMAIN_STORE.get_generation_task(task_id)
+    if not durable:
+        raise HTTPException(status_code=404, detail="生成任务不存在")
+    if evaluation.get("status") != "failed":
+        raise HTTPException(status_code=409, detail="只有未通过质量门的任务可以创建修正轮次")
+    attempt = int(durable.get("attempt") or 1) + 1
+    if attempt > 3:
+        raise HTTPException(status_code=409, detail="质量门最多允许两次自动修正")
+    parameters = dict(durable.get("parameters") or {})
+    parameters.update({
+        "prompt": quality_retry_prompt(durable.get("prompt") or "", evaluation),
+        "project_id": durable["project_id"],
+        "canvas_id": durable.get("canvas_id") or "",
+        "source_node_id": durable.get("source_node_id") or "",
+        "quality_gate": True,
+        "quality_attempt": attempt,
+        "quality_root_task_id": durable.get("root_task_id") or durable["id"],
+        "quality_parent_task_id": durable["id"],
+        "quality_max_retries": max(0, min(2, int(max_retries or 0))),
+    })
+    if judge_provider:
+        parameters["judge_provider"] = judge_provider
+    if judge_model:
+        parameters["judge_model"] = judge_model
+    try:
+        payload = OnlineImageRequest(**parameters)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"质量修正参数无法恢复：{exc}")
+    result = await create_canvas_image_task(payload)
+    DOMAIN_STORE.link_generation_retry(
+        durable["project_id"], durable["id"], result["task_id"],
+        str(evaluation.get("feedback") or evaluation.get("verdict") or "质量门未通过"),
+    )
+    return result
+
+
 @app.post("/api/online-image")
 async def online_image(payload: OnlineImageRequest):
     project_id = resolve_project_id(payload.project_id, payload.canvas_id)
@@ -7240,10 +8370,31 @@ async def online_image(payload: OnlineImageRequest):
         prompt=payload.prompt,
         parameters=payload.model_dump(mode="json"),
         inputs=[item.model_dump(mode="json") for item in payload.reference_images],
+        root_task_id=payload.quality_root_task_id,
+        parent_task_id=payload.quality_parent_task_id,
+        attempt=payload.quality_attempt,
+        context_compilation_id=payload.context_compilation_id,
     )
     DOMAIN_STORE.update_generation_task(domain_task["id"], "running")
     try:
-        return await build_online_image_result(payload, domain_task["id"])
+        result = await build_online_image_result(payload, domain_task["id"])
+        if payload.quality_gate:
+            evaluation = await evaluate_generation_task_quality(
+                domain_task["id"], judge_provider=payload.judge_provider,
+                judge_model=payload.judge_model,
+                requirements_override=payload.quality_requirements,
+                pass_threshold=payload.quality_pass_threshold,
+            )
+            result["quality_evaluation"] = evaluation
+            if payload.quality_parent_task_id:
+                result["quality_archive"] = archive_quality_result(domain_task["id"])
+            if evaluation.get("status") == "failed" and payload.quality_max_retries > 0:
+                retry_result = await create_quality_retry_task(
+                    domain_task["id"], evaluation, max_retries=payload.quality_max_retries - 1,
+                    judge_provider=payload.judge_provider, judge_model=payload.judge_model,
+                )
+                result["quality_retry_task_id"] = retry_result.get("task_id")
+        return result
     except Exception as exc:
         DOMAIN_STORE.update_generation_task(domain_task["id"], "failed", str(getattr(exc, "detail", exc)))
         raise
@@ -7256,6 +8407,23 @@ async def run_canvas_image_task(task_id: str, payload: OnlineImageRequest):
     try:
         DOMAIN_STORE.update_generation_task(task_id, "running")
         result = await build_online_image_result(payload, task_id)
+        evaluation = None
+        quality_retry = None
+        if payload.quality_gate:
+            evaluation = await evaluate_generation_task_quality(
+                task_id,
+                judge_provider=payload.judge_provider,
+                judge_model=payload.judge_model,
+                requirements_override=payload.quality_requirements,
+                pass_threshold=payload.quality_pass_threshold,
+            )
+            result["quality_evaluation"] = evaluation
+            if evaluation.get("status") == "failed" and payload.quality_max_retries > 0:
+                quality_retry = await create_quality_retry_task(
+                    task_id, evaluation, max_retries=payload.quality_max_retries - 1,
+                    judge_provider=payload.judge_provider, judge_model=payload.judge_model,
+                )
+                result["quality_retry_task_id"] = quality_retry.get("task_id")
         with CANVAS_TASK_LOCK:
             CANVAS_TASKS[task_id].update({
                 "status": "succeeded",
@@ -7301,6 +8469,10 @@ async def create_canvas_image_task(payload: OnlineImageRequest):
         prompt=payload.prompt,
         parameters=payload.model_dump(mode="json"),
         inputs=[item.model_dump(mode="json") for item in payload.reference_images],
+        root_task_id=payload.quality_root_task_id,
+        parent_task_id=payload.quality_parent_task_id,
+        attempt=payload.quality_attempt,
+        context_compilation_id=payload.context_compilation_id,
     )
     with CANVAS_TASK_LOCK:
         CANVAS_TASKS[task_id] = {
@@ -7357,6 +8529,44 @@ async def generation_task_detail(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="生成任务不存在")
     return {"task": task}
+
+
+@app.post("/api/generation-tasks/{task_id}/evaluate")
+async def evaluate_generation_task(task_id: str, payload: QualityEvaluationRequest):
+    evaluation = await evaluate_generation_task_quality(
+        task_id,
+        judge_provider=payload.judge_provider,
+        judge_model=payload.judge_model,
+        requirements_override=payload.requirements,
+        pass_threshold=payload.pass_threshold,
+    )
+    return {"evaluation": evaluation, "replay": DOMAIN_STORE.quality_replay(task_id)}
+
+
+@app.get("/api/generation-tasks/{task_id}/replay")
+async def generation_task_replay(task_id: str):
+    replay = DOMAIN_STORE.quality_replay(task_id)
+    if not replay:
+        raise HTTPException(status_code=404, detail="生成任务不存在")
+    return replay
+
+
+@app.post("/api/generation-tasks/{task_id}/archive-quality-result")
+async def archive_generation_quality_result(task_id: str):
+    return {"archive": archive_quality_result(task_id), "replay": DOMAIN_STORE.quality_replay(task_id)}
+
+
+@app.post("/api/generation-tasks/{task_id}/quality-retry")
+async def retry_generation_from_quality(task_id: str, payload: QualityRetryRequest):
+    evaluations = DOMAIN_STORE.quality_evaluations_for_task(task_id)
+    if not evaluations:
+        raise HTTPException(status_code=409, detail="当前任务还没有质量评审记录")
+    evaluation = evaluations[-1]
+    result = await create_quality_retry_task(
+        task_id, evaluation, max_retries=payload.max_retries,
+        judge_provider=payload.judge_provider, judge_model=payload.judge_model,
+    )
+    return {**result, "replay": DOMAIN_STORE.quality_replay(task_id)}
 
 
 @app.post("/api/canvas-image-tasks/{task_id}/cancel")
@@ -7793,7 +9003,478 @@ async def project_workspace(project_id: str, limit: int = 24):
     workspace = DOMAIN_STORE.project_workspace(project_id, limit)
     if not workspace:
         raise HTTPException(status_code=404, detail="项目不存在")
+    workspace["preference_profile"] = build_project_preference_profile(project_id)
     return workspace
+
+
+def ppt_storage_url(path: str) -> str:
+    absolute = os.path.abspath(path)
+    try:
+        relative = os.path.relpath(absolute, os.path.abspath(ASSETS_DIR))
+    except ValueError as exc:
+        raise PptWorkbenchError("PPT文件不在受管素材目录") from exc
+    if relative == os.pardir or relative.startswith(os.pardir + os.sep):
+        raise PptWorkbenchError("PPT文件不在受管素材目录")
+    return "/assets/" + relative.replace(os.sep, "/")
+
+
+def ppt_manifest_payload(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    payload = json.loads(json.dumps(manifest, ensure_ascii=False))
+    add_preview_urls(payload, PPT_WORKBENCH_DIR, ASSETS_DIR)
+    payload["quality"] = ppt_quality_report(payload)
+    for record in payload.get("exports") or []:
+        record["download_url"] = (
+            f"/api/projects/{urllib.parse.quote(payload['project_id'])}/ppt-workbench/"
+            f"{urllib.parse.quote(payload['id'])}/exports/{urllib.parse.quote(record['id'])}/download"
+        )
+    return payload
+
+
+async def save_limited_upload(upload: UploadFile, path: str, limit: int) -> int:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    total = 0
+    with open(path, "wb") as target:
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > limit:
+                target.close()
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                raise PptWorkbenchError("上传文件超过当前版本限制")
+            target.write(chunk)
+    return total
+
+
+def ppt_project_assets(project_id: str, *, include_shared: bool = True) -> List[Dict[str, Any]]:
+    """Return locally comparable project assets plus optional shared-library candidates."""
+    workspace = DOMAIN_STORE.project_workspace(project_id, limit=100)
+    library_items = load_library_images()
+    library_by_id = {str(item.get("id") or ""): item for item in library_items}
+    result: List[Dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for item in workspace.get("recent_assets") or []:
+        storage_url = str(item.get("storage_url") or "")
+        if item.get("kind") != "image" or not storage_url:
+            continue
+        try:
+            metadata = json.loads(item.get("metadata_json") or "{}")
+        except (TypeError, ValueError):
+            metadata = {}
+        library_item = library_by_id.get(str(metadata.get("library_image_id") or "")) or {}
+        local_path = local_asset_path_from_url(storage_url) or ""
+        fingerprint = {
+            "sha256": str(item.get("sha256") or ""),
+            "normalized_sha256": str(item.get("normalized_sha256") or ""),
+            "phash": str(item.get("phash") or ""),
+            "width": int(item.get("width") or 0),
+            "height": int(item.get("height") or 0),
+            "mime_type": str(item.get("mime_type") or ""),
+        }
+        if local_path and (not fingerprint["normalized_sha256"] or not fingerprint["phash"]):
+            try:
+                fingerprint = fingerprint_image_path(local_path)
+                if item.get("version_id"):
+                    DOMAIN_STORE.update_asset_fingerprint(
+                        str(item["version_id"]),
+                        **fingerprint,
+                        byte_size=os.path.getsize(local_path),
+                    )
+            except (OSError, ValueError):
+                pass
+        result.append({
+            "id": item.get("id"), "asset_id": item.get("id"),
+            "library_image_id": metadata.get("library_image_id") or "",
+            "title": item.get("title") or "未命名素材",
+            "storage_url": storage_url, "local_path": local_path,
+            "width": int(fingerprint.get("width") or item.get("width") or 0),
+            "height": int(fingerprint.get("height") or item.get("height") or 0),
+            "source": item.get("source") or "asset", "scope": "project",
+            "categories": library_item.get("categories") or ["项目素材"],
+            "tags": library_item.get("tags") or [str(item.get("source") or "")],
+            "fingerprint": fingerprint,
+        })
+        seen_urls.add(storage_url)
+    if include_shared:
+        for item in library_items:
+            storage_url = str(item.get("url") or "")
+            if item.get("scope") != "shared" or not storage_url or storage_url in seen_urls:
+                continue
+            local_path = library_file_from_url(storage_url) or ""
+            if not local_path:
+                continue
+            try:
+                fingerprint = fingerprint_image_path(local_path)
+            except (OSError, ValueError):
+                continue
+            result.append({
+                "id": item.get("id"), "asset_id": "", "library_image_id": item.get("id") or "",
+                "title": item.get("filename") or "共享素材", "storage_url": storage_url,
+                "local_path": local_path, "width": int(fingerprint.get("width") or 0),
+                "height": int(fingerprint.get("height") or 0), "source": "shared_library",
+                "scope": "shared", "categories": item.get("categories") or [],
+                "tags": item.get("tags") or [], "fingerprint": fingerprint,
+            })
+            seen_urls.add(storage_url)
+    return result
+
+
+def resolve_ppt_assignment_asset(project_id: str, requested_id: str) -> Dict[str, Any]:
+    lineage = DOMAIN_STORE.lineage_for_asset(requested_id)
+    asset = lineage.get("asset") or {}
+    if not asset:
+        library_item = next((item for item in load_library_images() if str(item.get("id") or "") == requested_id), None)
+        if library_item:
+            asset = library_asset_for_project(library_item, project_id, create=True) or {}
+            lineage = DOMAIN_STORE.lineage_for_asset(str(asset.get("id") or "")) if asset else {}
+    if not asset:
+        raise HTTPException(status_code=404, detail="项目素材不存在")
+    if asset.get("project_id") != project_id or asset.get("kind") != "image":
+        raise HTTPException(status_code=400, detail="只能选择当前项目中的图片素材")
+    version = (lineage.get("versions") or [{}])[0]
+    storage_url = str(version.get("storage_url") or "")
+    local_path = local_asset_path_from_url(storage_url)
+    if not local_path:
+        raise HTTPException(status_code=400, detail="当前素材没有可用于 PPT 导出的本地原文件")
+    fingerprint = fingerprint_image_path(local_path)
+    if version.get("id"):
+        DOMAIN_STORE.update_asset_fingerprint(str(version["id"]), **fingerprint, byte_size=os.path.getsize(local_path))
+    return {
+        "asset_id": asset["id"], "storage_url": storage_url,
+        "title": asset.get("title") or "项目素材",
+        "width": int(fingerprint.get("width") or version.get("width") or 0),
+        "height": int(fingerprint.get("height") or version.get("height") or 0),
+        "source": "project_library",
+    }
+
+
+def ppt_public_assets(project_id: str) -> List[Dict[str, Any]]:
+    return [
+        {key: value for key, value in item.items() if key not in {"local_path", "fingerprint"}}
+        for item in ppt_project_assets(project_id)
+    ]
+
+
+def scan_ppt_manifest_for_project(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    project_id = str(manifest.get("project_id") or "")
+    template_path = os.path.join(
+        str(ppt_job_dir(PPT_WORKBENCH_DIR, project_id, manifest["id"])),
+        str(manifest.get("template_filename") or "template.pptx"),
+    )
+    candidates = ppt_project_assets(project_id)
+    manifest = scan_ppt_recommendations(manifest, template_path, candidates)
+    return save_ppt_manifest(PPT_WORKBENCH_DIR, manifest)
+
+
+@app.get("/api/projects/{project_id}/ppt-workbench")
+async def project_ppt_workbench(project_id: str, limit: int = 20):
+    if not DOMAIN_STORE.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    manifests = list_ppt_manifests(PPT_WORKBENCH_DIR, project_id, limit)
+    if manifests and not manifests[0].get("last_scanned_at"):
+        manifests[0] = await asyncio.to_thread(scan_ppt_manifest_for_project, manifests[0])
+    jobs = [ppt_manifest_payload(item) for item in manifests]
+    return {"project_id": project_id, "jobs": jobs, "active_job": jobs[0] if jobs else None, "assets": ppt_public_assets(project_id)}
+
+
+@app.get("/api/projects/{project_id}/ppt-workbench/{job_id}")
+async def project_ppt_workbench_job(project_id: str, job_id: str):
+    try:
+        manifest = load_ppt_manifest(PPT_WORKBENCH_DIR, project_id, job_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not manifest.get("last_scanned_at"):
+        manifest = await asyncio.to_thread(scan_ppt_manifest_for_project, manifest)
+    return {"job": ppt_manifest_payload(manifest), "assets": ppt_public_assets(project_id)}
+
+
+@app.post("/api/projects/{project_id}/ppt-workbench/{job_id}/scan")
+async def scan_project_ppt_workbench(project_id: str, job_id: str):
+    try:
+        manifest = load_ppt_manifest(PPT_WORKBENCH_DIR, project_id, job_id)
+        manifest = await asyncio.to_thread(scan_ppt_manifest_for_project, manifest)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest), "assets": ppt_public_assets(project_id)}
+
+
+@app.get("/api/projects/{project_id}/ppt-workbench/{job_id}/recommendations")
+async def project_ppt_recommendations(project_id: str, job_id: str, object_id: str = ""):
+    try:
+        manifest = load_ppt_manifest(PPT_WORKBENCH_DIR, project_id, job_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    objects = manifest.get("image_objects") or []
+    if object_id:
+        target = next((item for item in objects if item.get("id") == object_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="PPT 图片对象不存在")
+        return {"object_id": object_id, "recommendations": target.get("recommendations") or []}
+    return {"summary": manifest.get("recommendation_summary") or {}, "objects": [{"id": item.get("id"), "match_status": item.get("match_status"), "recommendations": item.get("recommendations") or []} for item in objects]}
+
+
+@app.post("/api/projects/{project_id}/ppt-workbench/templates")
+async def upload_project_ppt_template(project_id: str, file: UploadFile = File(...)):
+    if not DOMAIN_STORE.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    original_name = os.path.basename(file.filename or "template.pptx")
+    if not original_name.lower().endswith(".pptx"):
+        raise HTTPException(status_code=400, detail="请上传 .pptx 模板")
+    temp_path = os.path.join(PPT_WORKBENCH_DIR, f".upload-{uuid.uuid4().hex}.pptx")
+    try:
+        await save_limited_upload(file, temp_path, 160 * 1024 * 1024)
+        manifest = await asyncio.to_thread(
+            create_ppt_manifest,
+            PPT_WORKBENCH_DIR,
+            project_id,
+            temp_path,
+            original_name=original_name,
+        )
+        template_path = os.path.join(
+            str(ppt_job_dir(PPT_WORKBENCH_DIR, project_id, manifest["id"])),
+            manifest["template_filename"],
+        )
+        template_url = ppt_storage_url(template_path)
+        asset = DOMAIN_STORE.register_asset(
+            project_id,
+            template_url,
+            kind="presentation",
+            title=f"PPT模板｜{manifest['name']}",
+            source="ppt_template",
+            byte_size=os.path.getsize(template_path),
+            mime_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            metadata={"ppt_job_id": manifest["id"], "role": "template"},
+        )
+        manifest["template_asset_id"] = asset["id"]
+        manifest["template_url"] = template_url
+        manifest = await asyncio.to_thread(scan_ppt_manifest_for_project, manifest)
+        try:
+            manifest["rendered_slides"] = await asyncio.to_thread(render_template_previews, manifest, PPT_WORKBENCH_DIR)
+            manifest.pop("preview_error", None)
+        except Exception as exc:
+            manifest["rendered_slides"] = []
+            manifest["preview_error"] = f"模板缩略图生成失败：{exc}"
+        save_ppt_manifest(PPT_WORKBENCH_DIR, manifest)
+    except PptWorkbenchError as exc:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise
+    return {"job": ppt_manifest_payload(manifest), "assets": ppt_public_assets(project_id)}
+
+
+@app.post("/api/projects/{project_id}/ppt-workbench/{job_id}/images")
+async def upload_project_ppt_image(
+    project_id: str,
+    job_id: str,
+    slot_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    try:
+        load_ppt_manifest(PPT_WORKBENCH_DIR, project_id, job_id)
+        content = await file.read(30 * 1024 * 1024 + 1)
+        saved = save_replacement_image(
+            PPT_WORKBENCH_DIR,
+            project_id,
+            job_id,
+            slot_id,
+            content,
+            file.filename or "replacement.png",
+        )
+        storage_url = ppt_storage_url(saved["path"])
+        asset = DOMAIN_STORE.register_asset(
+            project_id,
+            storage_url,
+            kind="image",
+            title=os.path.splitext(saved["original_name"])[0][:240],
+            source="ppt_replacement_upload",
+            width=saved["width"],
+            height=saved["height"],
+            byte_size=saved["byte_size"],
+            mime_type=saved["mime_type"],
+            metadata={"ppt_job_id": job_id, "slot_id": slot_id},
+        )
+        assignment = resolve_ppt_assignment_asset(project_id, str(asset["id"]))
+        assignment["source"] = "upload"
+        manifest = assign_ppt_image_object(PPT_WORKBENCH_DIR, project_id, job_id, slot_id, assignment)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest), "asset": assignment}
+
+
+@app.put("/api/projects/{project_id}/ppt-workbench/{job_id}/slots/{slot_id}")
+async def assign_project_asset_to_ppt_slot(project_id: str, job_id: str, slot_id: str, req: PptSlotAssignRequest):
+    assignment = resolve_ppt_assignment_asset(project_id, req.asset_id)
+    try:
+        manifest = assign_ppt_slot(PPT_WORKBENCH_DIR, project_id, job_id, slot_id, assignment)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest), "asset": assignment}
+
+
+@app.put("/api/projects/{project_id}/ppt-workbench/{job_id}/image-objects/{object_id}")
+async def assign_project_asset_to_ppt_object(project_id: str, job_id: str, object_id: str, req: PptImageObjectAssignRequest):
+    if req.apply_scope not in {"object", "source_group", "layout_group"}:
+        raise HTTPException(status_code=400, detail="无效的应用范围")
+    assignment = resolve_ppt_assignment_asset(project_id, req.asset_id)
+    try:
+        manifest = assign_ppt_image_object(PPT_WORKBENCH_DIR, project_id, job_id, object_id, assignment, req.apply_scope)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest), "asset": assignment}
+
+
+@app.delete("/api/projects/{project_id}/ppt-workbench/{job_id}/image-objects/{object_id}/assignment")
+async def clear_project_ppt_object(project_id: str, job_id: str, object_id: str, keep_original: bool = True):
+    try:
+        manifest = clear_ppt_image_assignment(PPT_WORKBENCH_DIR, project_id, job_id, object_id, keep_original=keep_original)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest)}
+
+
+@app.put("/api/projects/{project_id}/ppt-workbench/{job_id}/text-objects/{object_id}")
+async def edit_project_ppt_text(project_id: str, job_id: str, object_id: str, req: PptTextObjectUpdateRequest):
+    try:
+        manifest = update_ppt_text_object(PPT_WORKBENCH_DIR, project_id, job_id, object_id, req.text, req.revision)
+        rendered = await asyncio.to_thread(render_template_previews, manifest, PPT_WORKBENCH_DIR)
+        if rendered:
+            manifest = save_ppt_manifest(
+                PPT_WORKBENCH_DIR,
+                add_preview_urls(manifest, PPT_WORKBENCH_DIR, ASSETS_DIR),
+            )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    except PptWorkbenchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job": ppt_manifest_payload(manifest)}
+
+
+@app.post("/api/projects/{project_id}/ppt-workbench/{job_id}/export")
+async def export_project_ppt(project_id: str, job_id: str):
+    try:
+        manifest = load_ppt_manifest(PPT_WORKBENCH_DIR, project_id, job_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="PPT任务不存在") from exc
+    inputs = []
+    if manifest.get("template_url"):
+        inputs.append({"url": manifest["template_url"], "asset_id": manifest.get("template_asset_id"), "name": "PPT母版", "role": "template"})
+    for image_object in manifest.get("image_objects") or []:
+        assignment = image_object.get("assignment") or {}
+        if assignment.get("storage_url"):
+            inputs.append({
+                "url": assignment["storage_url"],
+                "asset_id": assignment.get("asset_id"),
+                "name": image_object.get("label"),
+                "role": image_object.get("id"),
+            })
+    task = DOMAIN_STORE.create_generation_task(
+        project_id,
+        provider_id="ppt-template",
+        model="architectural-site-planning-v1",
+        prompt="在真实母版中原位替换已确认图片、保留未修改内容并导出可编辑 PPTX",
+        parameters={
+            "ppt_job_id": job_id,
+            "image_object_count": len(manifest.get("image_objects") or []),
+            "assigned_image_count": sum(bool(item.get("assignment")) for item in manifest.get("image_objects") or []),
+            "changed_text_count": sum(bool(item.get("changed")) for item in manifest.get("text_objects") or []),
+        },
+        inputs=inputs,
+    )
+    DOMAIN_STORE.update_generation_task(task["id"], "running")
+    try:
+        result = await asyncio.to_thread(
+            export_ppt_presentation,
+            PPT_WORKBENCH_DIR,
+            project_id,
+            job_id,
+            resolve_assignment_path=lambda assignment: local_asset_path_from_url(str(assignment.get("storage_url") or "")),
+        )
+        output_url = ppt_storage_url(result["path"])
+        output_asset = DOMAIN_STORE.register_asset(
+            project_id,
+            output_url,
+            kind="presentation",
+            title=os.path.splitext(result["export"]["filename"])[0],
+            source="ppt_export",
+            byte_size=os.path.getsize(result["path"]),
+            mime_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            metadata={"ppt_job_id": job_id, "generation_task_id": task["id"], "quality": result["quality"]},
+        )
+        DOMAIN_STORE.complete_generation_task(task["id"], [output_url])
+        result["export"]["asset_id"] = output_asset["id"]
+        result["export"]["generation_task_id"] = task["id"]
+        save_ppt_manifest(PPT_WORKBENCH_DIR, result["manifest"])
+    except PptWorkbenchError as exc:
+        DOMAIN_STORE.update_generation_task(task["id"], "failed", str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        DOMAIN_STORE.update_generation_task(task["id"], "failed", str(exc))
+        raise
+    payload = ppt_manifest_payload(result["manifest"])
+    exported = next(item for item in payload["exports"] if item["id"] == result["export"]["id"])
+    return {"job": payload, "export": exported, "generation_task_id": task["id"], "asset_id": output_asset["id"]}
+
+
+@app.get("/api/projects/{project_id}/ppt-workbench/{job_id}/exports/{export_id}/download")
+async def download_project_ppt_export(project_id: str, job_id: str, export_id: str):
+    try:
+        path = ppt_export_path(PPT_WORKBENCH_DIR, project_id, job_id, export_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="导出文件不存在") from exc
+    return FileResponse(
+        str(path),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=path.name,
+    )
+
+
+@app.get("/api/projects/{project_id}/design-context")
+async def project_design_context_history(project_id: str, limit: int = 12):
+    if not DOMAIN_STORE.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return {
+        "project_id": project_id,
+        "compilations": DOMAIN_STORE.list_project_context_compilations(project_id, limit),
+    }
+
+
+@app.post("/api/projects/{project_id}/design-context/compile")
+async def compile_project_design_context_endpoint(project_id: str, req: ProjectContextCompileRequest):
+    context = {
+        "reference_images": [item.model_dump(mode="json") for item in req.reference_images],
+        "local_wiki_root": req.local_wiki_root,
+    }
+    compiled = compile_project_design_context(project_id, req.goal, context)
+    compiled.pop("wiki_matches", None)
+    return {"compilation": compiled}
+
+
+@app.get("/api/project-context-compilations/{compilation_id}")
+async def project_design_context_compilation(compilation_id: str):
+    compilation = DOMAIN_STORE.get_project_context_compilation(compilation_id)
+    if not compilation:
+        raise HTTPException(status_code=404, detail="项目约束快照不存在")
+    return {"compilation": compilation}
 
 
 @app.get("/api/projects/{project_id}/feedback")
@@ -7801,6 +9482,34 @@ async def project_feedback(project_id: str, limit: int = 8):
     if not DOMAIN_STORE.get_project(project_id):
         raise HTTPException(status_code=404, detail="项目不存在")
     return DOMAIN_STORE.project_feedback_summary(project_id, limit)
+
+@app.get("/api/projects/{project_id}/preferences")
+async def project_preferences(project_id: str):
+    if not DOMAIN_STORE.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return {
+        "profile": build_project_preference_profile(project_id),
+        "skill_candidates": DOMAIN_STORE.list_skill_candidates(project_id),
+    }
+
+@app.post("/api/projects/{project_id}/preferences/refresh")
+async def refresh_project_preferences(project_id: str):
+    if not DOMAIN_STORE.get_project(project_id):
+        raise HTTPException(status_code=404, detail="项目不存在")
+    candidate = refresh_project_preference_skill_candidate(project_id)
+    return {
+        "profile": build_project_preference_profile(project_id),
+        "skill_candidate": candidate,
+        "published": False,
+    }
+
+@app.post("/api/projects/{project_id}/skill-candidates/{candidate_id}/review")
+async def review_project_skill_candidate(project_id: str, candidate_id: str, req: SkillCandidateReviewRequest):
+    try:
+        candidate = DOMAIN_STORE.review_skill_candidate(candidate_id, project_id, req.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"candidate": candidate, "published": False}
 
 
 @app.get("/api/assets/{asset_id}/lineage")
@@ -7815,9 +9524,16 @@ async def asset_lineage(asset_id: str):
 async def asset_feedback(asset_id: str, req: AssetFeedbackRequest):
     try:
         feedback = DOMAIN_STORE.record_preference_event(req.project_id, asset_id, req.event_type, req.context)
+        candidate = refresh_project_preference_skill_candidate(req.project_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"asset_id": asset_id, "project_id": req.project_id, "feedback": feedback}
+    return {
+        "asset_id": asset_id,
+        "project_id": req.project_id,
+        "feedback": feedback,
+        "preference_profile": build_project_preference_profile(req.project_id),
+        "skill_candidate": candidate,
+    }
 
 
 @app.get("/api/canvases")
@@ -9387,12 +11103,15 @@ def library_record_feedback(image_id: str, req: AssetFeedbackRequest):
         raise HTTPException(status_code=400, detail="素材不可用于当前项目")
     try:
         feedback = DOMAIN_STORE.record_preference_event(req.project_id, asset["id"], req.event_type, req.context)
+        candidate = refresh_project_preference_skill_candidate(req.project_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "image": enrich_library_image_record(image, project_id=req.project_id),
         "asset_id": asset["id"],
         "feedback": feedback,
+        "preference_profile": build_project_preference_profile(req.project_id),
+        "skill_candidate": candidate,
     }
 
 @app.post("/api/library/images/{image_id}/copy")

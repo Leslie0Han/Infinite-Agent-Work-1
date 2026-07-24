@@ -80,6 +80,50 @@ def check_agent_runtime_api_contract():
                 and item.get("input_schema")
                 for item in tools_body["tools"]
             )
+            callable_by_id = {item["id"]: item for item in tools_body["tools"]}
+            for tool_id in [
+                "read_smart_canvas",
+                "save_canvas_node_images_to_library",
+                "write_wiki_qa",
+                "write_agent_report",
+                "tag_library_images",
+            ]:
+                assert callable_by_id[tool_id]["callable"] is True
+                assert callable_by_id[tool_id]["input_schema"]
+
+            main.DOMAIN_STORE.register_asset(
+                project["id"],
+                "/assets/input/project-reference.jpg",
+                title="项目参考图",
+                source="generation_input",
+            )
+            resolved_assets = main.resolve_library_agent_matches({
+                "project_id": project["id"],
+                "query": "参考图",
+            }, limit=8, enrich=True)
+            assert resolved_assets["matched_total"] == 1
+            assert resolved_assets["items"][0]["asset_id"]
+
+            read_only_response = client.post("/api/agent/plan", json={
+                "goal": "读取并总结当前项目，只读取，不创建也不修改",
+                "page": "agent",
+                "context": {"mode": "design", "task_type": "design_task", "project_id": project["id"]},
+            })
+            assert read_only_response.status_code == 200
+            read_only_task = read_only_response.json()
+            assert read_only_task["plan"]["requires_confirmation"] is False
+            assert read_only_task["outputs"] == [{"type": "project_summary", "label": "项目摘要"}]
+
+            research_response = client.post("/api/agent/plan", json={
+                "goal": "研究当前项目知识并写入报告",
+                "page": "agent",
+                "context": {"mode": "research", "project_id": project["id"]},
+            })
+            assert research_response.status_code == 200
+            research_task = research_response.json()
+            assert research_task["plan"]["runtime"] == "tool_calling_v1"
+            assert research_task["plan"]["skill_ids"] == ["knowledge-research"]
+            assert research_task["plan"]["requires_confirmation"] is True
 
             plan_response = client.post("/api/agent/plan", json={
                 "goal": "读取当前项目并准备设计方向",

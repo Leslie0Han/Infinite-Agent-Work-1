@@ -1851,8 +1851,12 @@
         }
         function backToCanvasList(){
             savePromptDraftForCurrent();
-            const projectId = localStorage.getItem('studio_active_project_id') || '';
-            window.location.href = `/static/project-workbench.html${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`;
+            if(window.top !== window && typeof window.top.openStudioPage === 'function'){
+                window.top.history.replaceState(null, '', '/?page=canvas');
+                window.top.openStudioPage('canvas', '/static/canvas.html?v=20260724-canvas-back-flow');
+                return;
+            }
+            window.location.href = '/?page=canvas';
         }
         function promptPlainText(){
             return promptInput.innerText.replace(/\u00a0/g, ' ').trim();
@@ -2145,6 +2149,14 @@
                 .slice()
                 .sort((a, b) => Number(b.runAt || b.created_at || 0) - Number(a.runAt || a.created_at || 0))
                 .slice(0, 5);
+        }
+        function canvasAgentHistoryNodes(){
+            return nodes
+                .filter(node => !isMaterialNode(node) && !isSelectionNode(node) && !isCutoutNode(node))
+                .filter(node => node?.pending || (node?.images || []).some(img => img?.url) || node?.operation || node?.runPrompt)
+                .slice()
+                .sort((a, b) => Number(b.runAt || b.created_at || 0) - Number(a.runAt || a.created_at || 0))
+                .slice(0, 12);
         }
         function generationHistoryEntries(){
             if(!canvas) return [];
@@ -2788,7 +2800,7 @@
             };
         }
         function canvasAgentInventory(){
-            const history = projectHistoryNodes().map(canvasAgentNodeSummary).filter(Boolean);
+            const history = canvasAgentHistoryNodes().map(canvasAgentNodeSummary).filter(Boolean);
             const historyIds = new Set(history.map(item => item.nodeId));
             const supporting = nodes
                 .filter(node => !historyIds.has(node.id) && (isMaterialNode(node) || isSelectionNode(node) || isCutoutNode(node)))

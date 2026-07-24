@@ -142,6 +142,24 @@ AGENT_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
     },
 ]
 
+TOOL_CALLING_V1_TOOL_IDS = {
+    "get_project_context",
+    "mcp.project_reader.workspace_summary",
+    "list_library_images",
+    "tag_library_images",
+    "create_smart_canvas",
+    "append_images_to_smart_canvas",
+    "read_smart_canvas",
+    "save_canvas_node_images_to_library",
+    "search_wiki_context",
+    "write_wiki_qa",
+    "write_agent_report",
+    "generate_design_brief",
+    "generate_design_image",
+    "save_design_output",
+    "link_project_output",
+}
+
 PAGE_ROLE_ALIASES = {
     "library": "library",
     "wiki": "wiki",
@@ -419,7 +437,16 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
     elif page_role == "smart-canvas":
         task_type = "design_task"
         mode = "design"
-        if intent == "save_to_library" or any(token in final_goal for token in ["入库", "回存", "保存到资源库"]):
+        canvas_read_only = (
+            any(token in final_goal for token in ["只读取", "只读", "不写入", "不要写入"])
+            and not any(token in final_goal for token in ["入库", "回存", "保存到资源库", "标注", "修改"])
+        )
+        if canvas_read_only:
+            tool_ids = ["read_smart_canvas"]
+            plan_title = "智能画布只读检查计划"
+            output_target = "读取当前画布节点、连接和图片摘要，不写入任何内容"
+            outputs = [{"type": "canvas_summary", "label": "画布摘要"}]
+        elif intent == "save_to_library" or any(token in final_goal for token in ["入库", "回存", "保存到资源库"]):
             tool_ids = ["read_smart_canvas", "save_canvas_node_images_to_library"]
             plan_title = "智能画布结果回存计划"
             output_target = "读取当前画布结果，并准备把选中的输出回存到资源库"
@@ -472,14 +499,25 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
                 {"type": "canvas", "label": "智能画布"},
             ]
     elif task_type == "wiki_task":
-        used_context = ["LLM Wiki 来源", "摘要", "概念", "问答档案"]
-        tool_ids = ["search_wiki_context", "write_wiki_qa"]
-        plan_title = "知识库问答计划"
-        output_target = "检索 LLM Wiki，生成回答并保存为 Q&A 档案。"
-        outputs = [{"type": "wiki_qa", "label": "问答档案"}]
+        used_context = ["当前项目上下文", "LLM Wiki 来源", "摘要", "概念", "问答档案"]
+        if mode in {"learn", "deep"}:
+            tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
+            plan_title = "知识学习沉淀计划"
+            output_target = "检索 Wiki 依据，整理学习结论并写入可追溯文档。"
+            outputs = [{"type": "wiki_report", "label": "学习笔记"}]
+        elif mode == "wiki" or any(token in final_goal for token in ["问答", "回答", "解答"]):
+            tool_ids = ["get_project_context", "search_wiki_context", "write_wiki_qa"]
+            plan_title = "知识库问答计划"
+            output_target = "检索 LLM Wiki，生成回答并保存为 Q&A 档案。"
+            outputs = [{"type": "wiki_qa", "label": "问答档案"}]
+        else:
+            tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
+            plan_title = "知识研究报告计划"
+            output_target = "检索 Wiki 依据，生成研究结论并写入可追溯报告。"
+            outputs = [{"type": "wiki_report", "label": "研究报告"}]
     else:
-        used_context = ["LLM Wiki", "问答档案", "当前页面上下文"]
-        tool_ids = ["search_wiki_context", "write_agent_report"]
+        used_context = ["当前项目上下文", "LLM Wiki", "问答档案"]
+        tool_ids = ["get_project_context", "search_wiki_context", "write_agent_report"]
         plan_title = "工作 Agent 资料整理计划"
         output_target = "检索知识库并生成总结、研究报告、学习材料或方案文档。"
         outputs = [{"type": "wiki_report", "label": "工作报告"}]
@@ -496,18 +534,25 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
             "writes": tool["writes"],
         })
 
-    runtime = "tool_calling_v1" if task_type == "design_task" and page_role == "home" else "legacy_workflow"
-    skill_ids = ["architectural-concept-design"] if runtime == "tool_calling_v1" else []
+    runtime = "tool_calling_v1" if task_type in {"design_task", "wiki_task", "work_task"} and tool_ids and set(tool_ids).issubset(TOOL_CALLING_V1_TOOL_IDS) else "legacy_workflow"
+    skill_ids = []
+    if runtime == "tool_calling_v1":
+        skill_ids = ["architectural-concept-design"] if task_type == "design_task" else ["knowledge-research"]
     required_tools: List[str] = []
     if runtime == "tool_calling_v1":
-        design_flags = design_goal_flags(final_goal)
-        required_tools.append("get_project_context")
-        if design_flags["wants_image"]:
-            required_tools.extend(["generate_design_brief", "generate_design_image", "save_design_output", "link_project_output"])
-        elif design_flags["wants_canvas"]:
-            required_tools.append("create_smart_canvas")
-        elif not design_flags["read_signal"]:
-            required_tools.append("generate_design_brief")
+        if task_type in {"wiki_task", "work_task"}:
+            required_tools = list(tool_ids)
+        elif page_role in {"library", "smart-canvas"}:
+            required_tools = list(tool_ids)
+        else:
+            design_flags = design_goal_flags(final_goal)
+            required_tools.append("get_project_context")
+            if design_flags["wants_image"]:
+                required_tools.extend(["generate_design_brief", "generate_design_image", "save_design_output", "link_project_output"])
+            elif design_flags["wants_canvas"]:
+                required_tools.append("create_smart_canvas")
+            elif not design_flags["read_signal"]:
+                required_tools.append("generate_design_brief")
     return {
         "title": plan_title,
         "summary": f"围绕“{final_goal}”生成一份 {page_label(page_role)} 可执行计划。",
@@ -527,7 +572,7 @@ def build_plan(goal: str, page: str, context: Dict[str, Any]) -> Dict[str, Any]:
         "runtime": runtime,
         "skill_ids": skill_ids,
         "required_tools": required_tools,
-        "max_steps": 10 if runtime == "tool_calling_v1" else len(tool_ids),
+        "max_steps": min(12, max(4, len(tool_ids) + 2)) if runtime == "tool_calling_v1" else len(tool_ids),
     }
 
 

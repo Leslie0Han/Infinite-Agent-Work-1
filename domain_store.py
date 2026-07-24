@@ -60,6 +60,8 @@ class DomainStore:
                     asset_id TEXT NOT NULL REFERENCES assets(id),
                     storage_url TEXT NOT NULL,
                     sha256 TEXT NOT NULL DEFAULT '',
+                    normalized_sha256 TEXT NOT NULL DEFAULT '',
+                    phash TEXT NOT NULL DEFAULT '',
                     mime_type TEXT NOT NULL DEFAULT '',
                     width INTEGER NOT NULL DEFAULT 0,
                     height INTEGER NOT NULL DEFAULT 0,
@@ -90,6 +92,10 @@ class DomainStore:
                     id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL REFERENCES projects(id),
                     canvas_id TEXT,
+                    context_compilation_id TEXT NOT NULL DEFAULT '',
+                    root_task_id TEXT NOT NULL DEFAULT '',
+                    parent_task_id TEXT NOT NULL DEFAULT '',
+                    attempt INTEGER NOT NULL DEFAULT 1,
                     source_node_id TEXT NOT NULL DEFAULT '',
                     provider_id TEXT NOT NULL DEFAULT '',
                     model TEXT NOT NULL DEFAULT '',
@@ -137,8 +143,77 @@ class DomainStore:
                     context_json TEXT NOT NULL DEFAULT '{}',
                     created_at INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS skill_candidates (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(id),
+                    kind TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    instructions TEXT NOT NULL,
+                    evidence_json TEXT NOT NULL DEFAULT '{}',
+                    status TEXT NOT NULL DEFAULT 'proposed',
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    UNIQUE(project_id, kind)
+                );
+                CREATE TABLE IF NOT EXISTS quality_evaluations (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(id),
+                    task_id TEXT NOT NULL REFERENCES generation_tasks(id),
+                    status TEXT NOT NULL,
+                    overall_score REAL NOT NULL DEFAULT 0,
+                    pass_threshold REAL NOT NULL DEFAULT 75,
+                    verdict TEXT NOT NULL DEFAULT '',
+                    feedback TEXT NOT NULL DEFAULT '',
+                    evaluator TEXT NOT NULL DEFAULT 'ai_judge',
+                    model TEXT NOT NULL DEFAULT '',
+                    requirements_json TEXT NOT NULL DEFAULT '[]',
+                    scores_json TEXT NOT NULL DEFAULT '[]',
+                    output_urls_json TEXT NOT NULL DEFAULT '[]',
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_quality_evaluations_task
+                    ON quality_evaluations(task_id, created_at);
+                CREATE TABLE IF NOT EXISTS generation_retry_links (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(id),
+                    parent_task_id TEXT NOT NULL REFERENCES generation_tasks(id),
+                    child_task_id TEXT NOT NULL REFERENCES generation_tasks(id),
+                    trigger TEXT NOT NULL DEFAULT 'quality_gate',
+                    feedback TEXT NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL,
+                    UNIQUE(parent_task_id, child_task_id)
+                );
+                CREATE TABLE IF NOT EXISTS project_context_compilations (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(id),
+                    goal TEXT NOT NULL DEFAULT '',
+                    digest TEXT NOT NULL DEFAULT '',
+                    constraints_json TEXT NOT NULL DEFAULT '[]',
+                    sources_json TEXT NOT NULL DEFAULT '[]',
+                    reference_assets_json TEXT NOT NULL DEFAULT '[]',
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_project_context_compilations_project
+                    ON project_context_compilations(project_id, created_at);
                 """
             )
+            task_columns = {row[1] for row in db.execute("PRAGMA table_info(generation_tasks)")}
+            if "context_compilation_id" not in task_columns:
+                db.execute("ALTER TABLE generation_tasks ADD COLUMN context_compilation_id TEXT NOT NULL DEFAULT ''")
+            if "root_task_id" not in task_columns:
+                db.execute("ALTER TABLE generation_tasks ADD COLUMN root_task_id TEXT NOT NULL DEFAULT ''")
+            if "parent_task_id" not in task_columns:
+                db.execute("ALTER TABLE generation_tasks ADD COLUMN parent_task_id TEXT NOT NULL DEFAULT ''")
+            if "attempt" not in task_columns:
+                db.execute("ALTER TABLE generation_tasks ADD COLUMN attempt INTEGER NOT NULL DEFAULT 1")
+            asset_version_columns = {row[1] for row in db.execute("PRAGMA table_info(asset_versions)")}
+            if "normalized_sha256" not in asset_version_columns:
+                db.execute("ALTER TABLE asset_versions ADD COLUMN normalized_sha256 TEXT NOT NULL DEFAULT ''")
+            if "phash" not in asset_version_columns:
+                db.execute("ALTER TABLE asset_versions ADD COLUMN phash TEXT NOT NULL DEFAULT ''")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_asset_versions_sha256 ON asset_versions(sha256)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_asset_versions_normalized_sha256 ON asset_versions(normalized_sha256)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_asset_versions_phash ON asset_versions(phash)")
 
     @staticmethod
     def _row(row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:
@@ -246,6 +321,7 @@ class DomainStore:
         storage_url: str,
         *,
         asset_id: str = "",
+        kind: str = "image",
         title: str = "",
         source: str = "",
         width: int = 0,
@@ -267,7 +343,9 @@ class DomainStore:
         timestamp = now_ms()
         metadata_json = json.dumps(metadata or {}, ensure_ascii=False)
         version_id = new_id("assetver")
-        digest = hashlib.sha256(storage_url.encode("utf-8")).hexdigest()
+        # A URL hash cannot prove that two image files are the same.  Local
+        # content fingerprints are filled by the PPT/library ingestion path.
+        digest = ""
         with self.connect() as db:
             db.execute(
                 """INSERT INTO assets(id,project_id,kind,title,source,metadata_json,created_at,updated_at)
@@ -275,7 +353,7 @@ class DomainStore:
                    ON CONFLICT(id) DO UPDATE SET
                      project_id=excluded.project_id,title=excluded.title,source=excluded.source,
                      metadata_json=excluded.metadata_json,updated_at=excluded.updated_at""",
-                (asset_id, project_id, "image", title[:240], source, metadata_json, timestamp, timestamp),
+                (asset_id, project_id, str(kind or "image")[:40], title[:240], source, metadata_json, timestamp, timestamp),
             )
             db.execute(
                 """INSERT OR IGNORE INTO asset_versions
@@ -293,6 +371,36 @@ class DomainStore:
             )
             return dict(db.execute("SELECT * FROM assets WHERE id=?", (asset_id,)).fetchone())
 
+    def update_asset_fingerprint(
+        self,
+        version_id: str,
+        *,
+        sha256: str = "",
+        normalized_sha256: str = "",
+        phash: str = "",
+        width: int = 0,
+        height: int = 0,
+        mime_type: str = "",
+        byte_size: int = 0,
+    ) -> Dict[str, Any]:
+        with self.connect() as db:
+            db.execute(
+                """UPDATE asset_versions
+                   SET sha256=?,normalized_sha256=?,phash=?,
+                       width=CASE WHEN ? > 0 THEN ? ELSE width END,
+                       height=CASE WHEN ? > 0 THEN ? ELSE height END,
+                       mime_type=CASE WHEN ? != '' THEN ? ELSE mime_type END,
+                       byte_size=CASE WHEN ? > 0 THEN ? ELSE byte_size END
+                   WHERE id=?""",
+                (
+                    sha256, normalized_sha256, phash,
+                    int(width), int(width), int(height), int(height),
+                    mime_type, mime_type, int(byte_size), int(byte_size), version_id,
+                ),
+            )
+            row = db.execute("SELECT * FROM asset_versions WHERE id=?", (version_id,)).fetchone()
+        return dict(row) if row else {}
+
     def create_generation_task(
         self,
         project_id: str,
@@ -305,25 +413,39 @@ class DomainStore:
         prompt: str = "",
         parameters: Optional[Dict[str, Any]] = None,
         inputs: Iterable[Dict[str, Any]] = (),
+        root_task_id: str = "",
+        parent_task_id: str = "",
+        attempt: int = 1,
+        context_compilation_id: str = "",
     ) -> Dict[str, Any]:
         task_id = task_id or new_id("generation")
         timestamp = now_ms()
         with self.connect() as db:
             db.execute(
                 """INSERT INTO generation_tasks
-                   (id,project_id,canvas_id,source_node_id,provider_id,model,prompt,status,parameters_json,created_at,updated_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                   (id,project_id,canvas_id,context_compilation_id,root_task_id,parent_task_id,attempt,source_node_id,provider_id,model,prompt,status,parameters_json,created_at,updated_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    task_id, project_id, canvas_id or None, source_node_id, provider_id, model,
-                    prompt, "queued", json.dumps(parameters or {}, ensure_ascii=False), timestamp, timestamp,
+                    task_id, project_id, canvas_id or None, context_compilation_id, root_task_id or task_id, parent_task_id,
+                    max(1, int(attempt or 1)), source_node_id, provider_id, model, prompt, "queued",
+                    json.dumps(parameters or {}, ensure_ascii=False), timestamp, timestamp,
                 ),
             )
         for raw in inputs:
             source_url = str(raw.get("url") or "")
-            asset = self.register_asset(
-                project_id, source_url, asset_id=str(raw.get("asset_id") or ""),
-                title=str(raw.get("name") or ""), source="generation_input",
-            ) if source_url else None
+            requested_asset_id = str(raw.get("asset_id") or "")
+            existing_asset = self.asset_by_url(source_url, project_id) if source_url else None
+            asset = existing_asset if existing_asset and (
+                not requested_asset_id or existing_asset.get("id") == requested_asset_id
+            ) else (
+                self.register_asset(
+                    project_id,
+                    source_url,
+                    asset_id=requested_asset_id,
+                    title=str(raw.get("name") or ""),
+                    source="generation_input",
+                ) if source_url else None
+            )
             with self.connect() as db:
                 db.execute(
                     """INSERT INTO generation_inputs
@@ -343,6 +465,61 @@ class DomainStore:
                     {"generation_task_id": task_id, "input_role": str(raw.get("role") or "reference")},
                 )
         return self.get_generation_task(task_id) or {}
+
+    @staticmethod
+    def _decode_context_compilation(row: sqlite3.Row) -> Dict[str, Any]:
+        item = dict(row)
+        item["constraints"] = json.loads(item.pop("constraints_json") or "[]")
+        item["sources"] = json.loads(item.pop("sources_json") or "[]")
+        item["reference_assets"] = json.loads(item.pop("reference_assets_json") or "[]")
+        return item
+
+    def record_project_context_compilation(
+        self,
+        project_id: str,
+        goal: str,
+        *,
+        digest: str,
+        constraints: List[Dict[str, Any]],
+        sources: List[Dict[str, Any]],
+        reference_assets: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        compilation_id = new_id("context")
+        with self.connect() as db:
+            db.execute(
+                """INSERT INTO project_context_compilations
+                   (id,project_id,goal,digest,constraints_json,sources_json,reference_assets_json,created_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (
+                    compilation_id, project_id, str(goal or "")[:2000], str(digest or "")[:128],
+                    json.dumps(constraints or [], ensure_ascii=False),
+                    json.dumps(sources or [], ensure_ascii=False),
+                    json.dumps(reference_assets or [], ensure_ascii=False),
+                    now_ms(),
+                ),
+            )
+            row = db.execute(
+                "SELECT * FROM project_context_compilations WHERE id=?", (compilation_id,)
+            ).fetchone()
+        return self._decode_context_compilation(row)
+
+    def get_project_context_compilation(self, compilation_id: str) -> Optional[Dict[str, Any]]:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT * FROM project_context_compilations WHERE id=?", (compilation_id,)
+            ).fetchone()
+        return self._decode_context_compilation(row) if row else None
+
+    def list_project_context_compilations(self, project_id: str, limit: int = 12) -> List[Dict[str, Any]]:
+        with self.connect() as db:
+            rows = db.execute(
+                """SELECT c.*,
+                          (SELECT COUNT(*) FROM generation_tasks t WHERE t.context_compilation_id=c.id) AS task_count
+                   FROM project_context_compilations c
+                   WHERE c.project_id=? ORDER BY c.created_at DESC LIMIT ?""",
+                (project_id, max(1, min(100, int(limit or 12)))),
+            )
+        return [self._decode_context_compilation(row) for row in rows]
 
     def update_generation_task(self, task_id: str, status: str, error: str = "") -> Dict[str, Any]:
         with self.connect() as db:
@@ -379,7 +556,12 @@ class DomainStore:
                    WHERE o.task_id=? ORDER BY o.output_index""",
                 (task_id,),
             )]
-            return result
+        evaluations = self.quality_evaluations_for_task(task_id)
+        result["quality_evaluations"] = evaluations
+        result["quality"] = evaluations[-1] if evaluations else None
+        context_id = str(result.get("context_compilation_id") or "")
+        result["context_compilation"] = self.get_project_context_compilation(context_id) if context_id else None
+        return result
 
     def list_generation_tasks(
         self,
@@ -418,6 +600,10 @@ class DomainStore:
             for row in rows:
                 item = dict(row)
                 item["parameters"] = json.loads(item.pop("parameters_json") or "{}")
+                evaluations = self.quality_evaluations_for_task(item["id"])
+                item["quality"] = evaluations[-1] if evaluations else None
+                context_id = str(item.get("context_compilation_id") or "")
+                item["context_compilation"] = self.get_project_context_compilation(context_id) if context_id else None
                 result.append(item)
             return result
 
@@ -462,13 +648,163 @@ class DomainStore:
             )
         return self.update_generation_task(task_id, "succeeded")
 
+    def record_quality_evaluation(
+        self,
+        project_id: str,
+        task_id: str,
+        *,
+        status: str,
+        overall_score: float,
+        pass_threshold: float,
+        verdict: str,
+        feedback: str,
+        requirements: List[Dict[str, Any]],
+        scores: List[Dict[str, Any]],
+        output_urls: List[str],
+        evaluator: str = "ai_judge",
+        model: str = "",
+    ) -> Dict[str, Any]:
+        if status not in {"passed", "failed", "error"}:
+            raise ValueError("unsupported quality evaluation status")
+        task = self.get_generation_task(task_id)
+        if not task or task.get("project_id") != project_id:
+            raise ValueError("generation task does not belong to project")
+        evaluation_id = new_id("quality")
+        with self.connect() as db:
+            db.execute(
+                """INSERT INTO quality_evaluations
+                   (id,project_id,task_id,status,overall_score,pass_threshold,verdict,feedback,
+                    evaluator,model,requirements_json,scores_json,output_urls_json,created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    evaluation_id, project_id, task_id, status, float(overall_score or 0),
+                    float(pass_threshold or 75), str(verdict or "")[:1000], str(feedback or "")[:4000],
+                    str(evaluator or "ai_judge")[:80], str(model or "")[:160],
+                    json.dumps(requirements or [], ensure_ascii=False),
+                    json.dumps(scores or [], ensure_ascii=False),
+                    json.dumps(output_urls or [], ensure_ascii=False), now_ms(),
+                ),
+            )
+        return self.get_quality_evaluation(evaluation_id) or {}
+
+    def get_quality_evaluation(self, evaluation_id: str) -> Optional[Dict[str, Any]]:
+        with self.connect() as db:
+            row = self._row(db.execute(
+                "SELECT * FROM quality_evaluations WHERE id=?", (evaluation_id,)
+            ).fetchone())
+        if not row:
+            return None
+        for source, target in (
+            ("requirements_json", "requirements"),
+            ("scores_json", "scores"),
+            ("output_urls_json", "output_urls"),
+        ):
+            row[target] = json.loads(row.pop(source) or "[]")
+        return row
+
+    def quality_evaluations_for_task(self, task_id: str) -> List[Dict[str, Any]]:
+        with self.connect() as db:
+            ids = [row[0] for row in db.execute(
+                "SELECT id FROM quality_evaluations WHERE task_id=? ORDER BY created_at", (task_id,)
+            )]
+        return [item for item in (self.get_quality_evaluation(item_id) for item_id in ids) if item]
+
+    def link_generation_retry(
+        self,
+        project_id: str,
+        parent_task_id: str,
+        child_task_id: str,
+        feedback: str,
+        trigger: str = "quality_gate",
+    ) -> Dict[str, Any]:
+        link_id = new_id("retry")
+        with self.connect() as db:
+            db.execute(
+                """INSERT OR IGNORE INTO generation_retry_links
+                   (id,project_id,parent_task_id,child_task_id,trigger,feedback,created_at)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (link_id, project_id, parent_task_id, child_task_id, trigger, str(feedback or "")[:4000], now_ms()),
+            )
+            row = db.execute(
+                "SELECT * FROM generation_retry_links WHERE parent_task_id=? AND child_task_id=?",
+                (parent_task_id, child_task_id),
+            ).fetchone()
+        return dict(row) if row else {}
+
+    def quality_replay(self, task_id: str) -> Dict[str, Any]:
+        task = self.get_generation_task(task_id)
+        if not task:
+            return {}
+        root_task_id = str(task.get("root_task_id") or task["id"])
+        with self.connect() as db:
+            task_ids = [row[0] for row in db.execute(
+                """SELECT id FROM generation_tasks
+                   WHERE id=? OR root_task_id=? ORDER BY attempt,created_at""",
+                (root_task_id, root_task_id),
+            )]
+            links = [dict(row) for row in db.execute(
+                """SELECT * FROM generation_retry_links
+                   WHERE parent_task_id IN (SELECT id FROM generation_tasks WHERE id=? OR root_task_id=?)
+                   ORDER BY created_at""",
+                (root_task_id, root_task_id),
+            )]
+        attempts = []
+        for current_task_id in task_ids:
+            current = self.get_generation_task(current_task_id) or {}
+            current["quality_evaluations"] = self.quality_evaluations_for_task(current_task_id)
+            attempts.append(current)
+        return {"root_task_id": root_task_id, "attempts": attempts, "retry_links": links}
+
+    def project_quality_summary(self, project_id: str) -> Dict[str, Any]:
+        with self.connect() as db:
+            rows = [dict(row) for row in db.execute(
+                """SELECT q.*,t.root_task_id,t.attempt
+                   FROM quality_evaluations q JOIN generation_tasks t ON t.id=q.task_id
+                   WHERE q.project_id=? ORDER BY q.created_at""",
+                (project_id,),
+            )]
+        latest_by_task: Dict[str, Dict[str, Any]] = {}
+        for row in rows:
+            latest_by_task[row["task_id"]] = row
+        latest_all = list(latest_by_task.values())
+        latest = [row for row in latest_all if row.get("status") in {"passed", "failed"}]
+        roots: Dict[str, List[Dict[str, Any]]] = {}
+        for row in latest:
+            roots.setdefault(str(row.get("root_task_id") or row["task_id"]), []).append(row)
+        first_hits = sum(
+            1 for items in roots.values()
+            if any(int(item.get("attempt") or 1) == 1 and item.get("status") == "passed" for item in items)
+        )
+        passed_roots = sum(1 for items in roots.values() if any(item.get("status") == "passed" for item in items))
+        average_attempts = round(
+            sum(max(int(item.get("attempt") or 1) for item in items) for items in roots.values()) / max(1, len(roots)),
+            2,
+        )
+        return {
+            "evaluation_count": len(rows),
+            "error_evaluations": sum(1 for row in latest_all if row.get("status") == "error"),
+            "evaluated_tasks": len(latest),
+            "runs": len(roots),
+            "passed_runs": passed_roots,
+            "failed_runs": max(0, len(roots) - passed_roots),
+            "first_hit_runs": first_hits,
+            "first_hit_rate": round(first_hits * 100 / max(1, len(roots)), 1),
+            "average_attempts": average_attempts,
+        }
+
     @staticmethod
     def _feedback_summary(events: List[Dict[str, Any]]) -> Dict[str, Any]:
         counts = Counter(str(item.get("event_type") or "") for item in events)
         favorite_state = False
         adopted_state = False
+        rejected_state = False
+        rating = 0
         for item in sorted(events, key=lambda row: int(row.get("created_at") or 0)):
             event_type = str(item.get("event_type") or "")
+            try:
+                context = json.loads(item.get("context_json") or "{}")
+            except (TypeError, ValueError):
+                context = {}
             if event_type == "favorite":
                 favorite_state = True
             elif event_type == "unfavorite":
@@ -477,9 +813,17 @@ class DomainStore:
                 adopted_state = True
             elif event_type == "final_unadopted":
                 adopted_state = False
+            elif event_type == "rejected":
+                rejected_state = True
+            elif event_type == "unrejected":
+                rejected_state = False
+            elif event_type == "rated":
+                rating = max(1, min(5, int(context.get("rating") or 0))) if context.get("rating") else 0
         score = (
             (3 if favorite_state else 0)
             + (8 if adopted_state else 0)
+            + ((rating - 3) * 2 if rating else 0)
+            - (12 if rejected_state else 0)
             + min(10, counts["used_in_canvas"] * 2)
             + min(20, counts["generation_reference"] * 4)
             + min(10, counts["variant_generated"] * 2)
@@ -490,6 +834,8 @@ class DomainStore:
             "score": score,
             "favorited": favorite_state,
             "adopted": adopted_state,
+            "rejected": rejected_state,
+            "rating": rating,
             "event_count": len(events),
             "counts": dict(counts),
             "last_event_type": latest.get("event_type") or "",
@@ -507,10 +853,17 @@ class DomainStore:
             "favorite", "unfavorite", "used_in_canvas", "generation_reference",
             "variant_generated", "generated_output", "saved_to_library",
             "final_adopted", "final_unadopted",
+            "rated", "rejected", "unrejected",
         }
         event_type = str(event_type or "").strip()
         if event_type not in allowed:
             raise ValueError(f"unsupported preference event: {event_type}")
+        context = dict(context or {})
+        if event_type == "rated":
+            rating = int(context.get("rating") or 0)
+            if rating < 1 or rating > 5:
+                raise ValueError("rating must be between 1 and 5")
+            context["rating"] = rating
         with self.connect() as db:
             asset = db.execute("SELECT project_id FROM assets WHERE id=?", (asset_id,)).fetchone()
             if not asset or str(asset["project_id"]) != str(project_id):
@@ -520,7 +873,7 @@ class DomainStore:
                    VALUES(?,?,?,?,?,?)""",
                 (
                     new_id("pref"), project_id, asset_id, event_type,
-                    json.dumps(context or {}, ensure_ascii=False), now_ms(),
+                    json.dumps(context, ensure_ascii=False), now_ms(),
                 ),
             )
         return self.feedback_for_asset(asset_id, project_id)
@@ -571,8 +924,92 @@ class DomainStore:
             "asset_count": len(grouped),
             "favorited_assets": sum(1 for item in ranked if item["feedback"]["favorited"]),
             "adopted_assets": sum(1 for item in ranked if item["feedback"]["adopted"]),
+            "rejected_assets": sum(1 for item in ranked if item["feedback"]["rejected"]),
+            "rated_assets": sum(1 for item in ranked if item["feedback"]["rating"]),
+            "average_rating": round(
+                sum(item["feedback"]["rating"] for item in ranked if item["feedback"]["rating"])
+                / max(1, sum(1 for item in ranked if item["feedback"]["rating"])),
+                2,
+            ),
             "top_assets": ranked[:max(1, min(50, int(limit or 8)))],
         }
+
+    def upsert_skill_candidate(
+        self,
+        project_id: str,
+        kind: str,
+        title: str,
+        instructions: str,
+        evidence: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if not self.get_project(project_id):
+            raise ValueError("project does not exist")
+        timestamp = now_ms()
+        with self.connect() as db:
+            existing = db.execute(
+                "SELECT * FROM skill_candidates WHERE project_id=? AND kind=?",
+                (project_id, kind),
+            ).fetchone()
+            if existing:
+                db.execute(
+                    """UPDATE skill_candidates
+                       SET title=?,instructions=?,evidence_json=?,updated_at=?
+                       WHERE id=?""",
+                    (title, instructions, json.dumps(evidence or {}, ensure_ascii=False), timestamp, existing["id"]),
+                )
+                candidate_id = str(existing["id"])
+            else:
+                candidate_id = new_id("skillcand")
+                db.execute(
+                    """INSERT INTO skill_candidates
+                       (id,project_id,kind,title,instructions,evidence_json,status,created_at,updated_at)
+                       VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        candidate_id, project_id, kind, title, instructions,
+                        json.dumps(evidence or {}, ensure_ascii=False), "proposed", timestamp, timestamp,
+                    ),
+                )
+        return self.get_skill_candidate(candidate_id) or {}
+
+    def get_skill_candidate(self, candidate_id: str) -> Optional[Dict[str, Any]]:
+        with self.connect() as db:
+            row = self._row(db.execute("SELECT * FROM skill_candidates WHERE id=?", (candidate_id,)).fetchone())
+        if row:
+            try:
+                row["evidence"] = json.loads(row.get("evidence_json") or "{}")
+            except (TypeError, ValueError):
+                row["evidence"] = {}
+        return row
+
+    def list_skill_candidates(self, project_id: str) -> List[Dict[str, Any]]:
+        with self.connect() as db:
+            rows = [dict(row) for row in db.execute(
+                "SELECT * FROM skill_candidates WHERE project_id=? ORDER BY updated_at DESC",
+                (project_id,),
+            )]
+        for row in rows:
+            try:
+                row["evidence"] = json.loads(row.get("evidence_json") or "{}")
+            except (TypeError, ValueError):
+                row["evidence"] = {}
+        return rows
+
+    def review_skill_candidate(self, candidate_id: str, project_id: str, status: str) -> Dict[str, Any]:
+        status = str(status or "").strip()
+        if status not in {"proposed", "accepted", "rejected"}:
+            raise ValueError("unsupported skill candidate status")
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT id FROM skill_candidates WHERE id=? AND project_id=?",
+                (candidate_id, project_id),
+            ).fetchone()
+            if not row:
+                raise ValueError("skill candidate does not belong to project")
+            db.execute(
+                "UPDATE skill_candidates SET status=?,updated_at=? WHERE id=?",
+                (status, now_ms(), candidate_id),
+            )
+        return self.get_skill_candidate(candidate_id) or {}
 
     def lineage_for_asset(self, asset_id: str) -> Dict[str, Any]:
         with self.connect() as db:
@@ -633,7 +1070,8 @@ class DomainStore:
             )]
             assets = [dict(row) for row in db.execute(
                 """
-                SELECT a.*,v.storage_url,v.width,v.height,v.mime_type,v.byte_size,
+                SELECT a.*,v.id AS version_id,v.storage_url,v.width,v.height,v.mime_type,v.byte_size,
+                       v.sha256,v.normalized_sha256,v.phash,
                        (SELECT COUNT(*) FROM lineage_edges l WHERE l.to_asset_id=a.id) AS upstream_count,
                        (SELECT COUNT(*) FROM lineage_edges l WHERE l.from_asset_id=a.id) AS downstream_count
                 FROM assets a
@@ -673,6 +1111,17 @@ class DomainStore:
         counts["feedback_events"] = feedback_summary["event_count"]
         counts["adopted_assets"] = feedback_summary["adopted_assets"]
         counts["favorited_assets"] = feedback_summary["favorited_assets"]
+        counts["rejected_assets"] = feedback_summary["rejected_assets"]
+        counts["rated_assets"] = feedback_summary["rated_assets"]
+        quality_summary = self.project_quality_summary(project_id)
+        counts["quality_evaluations"] = quality_summary["evaluation_count"]
+        counts["quality_passed_runs"] = quality_summary["passed_runs"]
+        counts["quality_failed_runs"] = quality_summary["failed_runs"]
+        context_compilations = self.list_project_context_compilations(project_id, limit=8)
+        with self.connect() as db:
+            counts["context_compilations"] = int(db.execute(
+                "SELECT COUNT(*) FROM project_context_compilations WHERE project_id=?", (project_id,)
+            ).fetchone()[0])
         tasks = self.list_generation_tasks(project_id=project_id, limit=limit)
         canvas_titles = {item["id"]: item["title"] for item in canvases}
         for task in tasks:
@@ -684,4 +1133,7 @@ class DomainStore:
             "recent_tasks": tasks,
             "recent_assets": assets,
             "feedback_summary": feedback_summary,
+            "quality_summary": quality_summary,
+            "context_compilations": context_compilations,
+            "skill_candidates": self.list_skill_candidates(project_id),
         }

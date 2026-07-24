@@ -64,6 +64,12 @@ def check_agent_skills_and_mcp_contract():
     assert "完成标准" in skill["instructions"]
     plan = build_plan("生成建筑概念方案", "home", {"mode": "design", "task_type": "design_task"})
     assert set(plan["tool_ids"]).issubset(set(skill["allowed_tools"]))
+    knowledge = skills.resolve(task_type="wiki_task", scope="home")
+    assert len(knowledge) == 1
+    assert knowledge[0]["id"] == "knowledge-research"
+    assert "write_agent_report" in knowledge[0]["allowed_tools"]
+    knowledge_plan = build_plan("研究当前知识并生成报告", "home", {"mode": "research"})
+    assert set(knowledge_plan["tool_ids"]).issubset(set(knowledge[0]["allowed_tools"]))
     asyncio.run(exercise_mcp_gateway())
 
 

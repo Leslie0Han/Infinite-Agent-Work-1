@@ -373,6 +373,16 @@
                 <div class="meta-label" data-i18n="library.notes">备注</div>
                 <textarea id="drawer-notes" class="form-input" rows="3" style="resize:vertical;font-size:12px" onchange="saveNotes()"></textarea>
             </div>
+            <div class="meta-section">
+                <div class="meta-label">项目偏好反馈</div>
+                <div class="tag-input-wrap">
+                    <select id="drawer-rating" class="form-select" style="flex:1;font-size:12px;padding:5px 8px;border-radius:8px" onchange="rateCurrentImage(this.value)">
+                        <option value="">-- 评分 --</option>
+                        <option value="1">1 分 · 不符合</option><option value="2">2 分</option><option value="3">3 分</option><option value="4">4 分</option><option value="5">5 分 · 高度符合</option>
+                    </select>
+                    <button class="glass-btn outline sm" onclick="toggleReject()" id="drawer-reject-btn">标记淘汰</button>
+                </div>
+            </div>
             <!-- Actions -->
             <div class="drawer-actions">
                 <button class="glass-btn sm" onclick="sendCurrentToSmartCanvas()" id="drawer-send-smart-btn">
@@ -699,7 +709,7 @@
     }
 
     function openSmartCanvasUrl(canvasId) {
-        const url = `/static/smart-canvas.html?id=${encodeURIComponent(canvasId)}&v=20260521-smart-library-workflow`;
+        const url = `/static/smart-canvas.html?id=${encodeURIComponent(canvasId)}&v=20260724-canvas-agent-history-fix`;
         if (window.top && window.top !== window) window.top.location.href = url;
         else window.location.href = url;
     }
@@ -1647,6 +1657,8 @@
         // Fav
         updateFavBtn(img.favorited);
         updateAdoptBtn(Boolean(img.adopted));
+        document.getElementById('drawer-rating').value = img.rating ? String(img.rating) : '';
+        updateRejectBtn(Boolean(img.rejected));
         const scopeCopyBtn = document.getElementById('drawer-scope-copy-btn');
         scopeCopyBtn.textContent = img.scope === 'shared' ? '复制到当前项目' : '提升到永久库';
         scopeCopyBtn.disabled = img.scope === 'shared' && !currentProjectId;
@@ -1655,7 +1667,7 @@
             `<span class="drawer-meta-pill">${img.scope === 'shared' ? '永久库' : '项目素材'}</span>`,
             img.source_name ? `<span class="drawer-meta-pill"><i data-lucide="library" style="width:12px;height:12px"></i>${esc(img.source_name)}</span>` : '',
             img.source_canvas_title ? `<span class="drawer-meta-pill"><i data-lucide="sparkles" style="width:12px;height:12px"></i>${esc(img.source_canvas_title)}</span>` : '',
-            `<span class="drawer-meta-pill">反馈 ${img.feedback?.event_count || 0} · 质量 ${img.feedback?.score || 0}</span>`
+            `<span class="drawer-meta-pill">反馈 ${img.feedback?.event_count || 0} · 质量 ${img.feedback?.score || 0}${img.rating ? ` · ${img.rating}分` : ''}${img.rejected ? ' · 已淘汰' : ''}</span>`
         ].filter(Boolean).join('');
         // Cat select (grouped by dimension)
         const sel = document.getElementById('drawer-cat-select');
@@ -1811,6 +1823,29 @@
         } catch(e) { toast(`操作失败: ${e.message}`, 'error'); }
     }
 
+    async function rateCurrentImage(value) {
+        if (!currentImageId || !value) return;
+        try {
+            const data = await recordLibraryFeedback(currentImageId, 'rated', {source:'library', rating:Number(value)});
+            updateLocalImage(data.image);
+            renderGrid();
+            openDrawer(currentImageId);
+            toast(`已记录 ${value} 分，Agent 下次会使用该偏好`, 'success');
+        } catch(e) { toast(`评分失败: ${e.message}`, 'error'); }
+    }
+
+    async function toggleReject() {
+        if (!currentImageId) return;
+        const img = currentImageRecord();
+        try {
+            const data = await recordLibraryFeedback(currentImageId, img?.rejected ? 'unrejected' : 'rejected', {source:'library'});
+            updateLocalImage(data.image);
+            renderGrid();
+            openDrawer(currentImageId);
+            toast(data.image.rejected ? '已标记淘汰，后续排序将降权' : '已取消淘汰', 'success');
+        } catch(e) { toast(`操作失败: ${e.message}`, 'error'); }
+    }
+
     async function copyCurrentImageScope() {
         const img = currentImageRecord();
         if (!img) return;
@@ -1842,6 +1877,12 @@
         const btn = document.getElementById('drawer-adopt-btn');
         btn.textContent = adopted ? '取消最终采用' : '标记最终采用';
         btn.classList.toggle('active', adopted);
+    }
+
+    function updateRejectBtn(rejected) {
+        const btn = document.getElementById('drawer-reject-btn');
+        btn.textContent = rejected ? '取消淘汰' : '标记淘汰';
+        btn.classList.toggle('active', rejected);
     }
 
     async function deleteCurrentImage() {
